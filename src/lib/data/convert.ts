@@ -1,0 +1,116 @@
+import type { DocumentData } from 'firebase/firestore';
+import type { AppConfig, Attendee, HistorySession, Match, Player, Session } from '../types';
+import { DEFAULT_CONFIG } from '../types';
+import { sortedMatches } from '../engine/games';
+
+/** Firestore documents are untyped; these normalize them (and fill defaults) for the app. */
+
+export function toPlayer(id: string, d: DocumentData): Player {
+  return {
+    id,
+    name: String(d.name ?? 'Unknown'),
+    level: Number(d.level ?? 3),
+    active: d.active !== false,
+    photo: typeof d.photo === 'string' ? d.photo : null,
+    createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
+  };
+}
+
+function toAttendee(d: DocumentData, order: number): Attendee {
+  return {
+    level: Number(d?.level ?? 3),
+    status: d?.status === 'resting' || d?.status === 'left' ? d.status : 'available',
+    since: Number(d?.since ?? 0),
+    catchUp: Array.isArray(d?.catchUp) ? d.catchUp.map((w: DocumentData) => ({ from: Number(w.from), to: Number(w.to) })) : [],
+    order: Number(d?.order ?? order),
+  };
+}
+
+function toMatch(id: string, d: DocumentData): Match {
+  return {
+    id,
+    number: Number(d.number ?? 0),
+    teamA: [d.teamA?.[0] ?? '', d.teamA?.[1] ?? ''],
+    teamB: [d.teamB?.[0] ?? '', d.teamB?.[1] ?? ''],
+    scoreA: typeof d.scoreA === 'number' ? d.scoreA : null,
+    scoreB: typeof d.scoreB === 'number' ? d.scoreB : null,
+    status: d.status === 'completed' || d.status === 'unfinished' ? d.status : 'live',
+    available: Array.isArray(d.available) ? d.available : [],
+    createdAt: d.createdAt,
+    completedAt: d.completedAt ?? null,
+  };
+}
+
+export function toSession(id: string, d: DocumentData): Session {
+  const attendees: Session['attendees'] = {};
+  Object.entries((d.attendees ?? {}) as Record<string, DocumentData>).forEach(([pid, a], i) => {
+    attendees[pid] = toAttendee(a, i);
+  });
+  const matches: Session['matches'] = {};
+  for (const [mid, m] of Object.entries((d.matches ?? {}) as Record<string, DocumentData>)) matches[mid] = toMatch(mid, m);
+  return {
+    id,
+    date: String(d.date ?? ''),
+    title: String(d.title ?? ''),
+    status: d.status === 'completed' ? 'completed' : 'live',
+    pointsToWin: Number(d.pointsToWin ?? 21),
+    attendees,
+    matches,
+    nextPick: d.nextPick?.teamA && d.nextPick?.teamB ? { teamA: d.nextPick.teamA, teamB: d.nextPick.teamB } : null,
+    shuffle: Number(d.shuffle ?? 0),
+    takeaways: Array.isArray(d.takeaways) ? d.takeaways.map(String) : null,
+    playerIds: Array.isArray(d.playerIds) ? d.playerIds : Object.keys(attendees),
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+    completedAt: d.completedAt ?? null,
+  };
+}
+
+export function toConfig(d: DocumentData | undefined): AppConfig & { importedKeys: string[] } {
+  return {
+    groupName: typeof d?.groupName === 'string' && d.groupName.trim() ? d.groupName : DEFAULT_CONFIG.groupName,
+    pointsToWin: Number(d?.pointsToWin ?? DEFAULT_CONFIG.pointsToWin),
+    importedKeys: Array.isArray(d?.importedKeys) ? d.importedKeys : [],
+  };
+}
+
+export function toHistoryMap(d: DocumentData | undefined): Record<string, HistorySession> {
+  const out: Record<string, HistorySession> = {};
+  for (const [id, h] of Object.entries((d?.sessions ?? {}) as Record<string, DocumentData>)) {
+    out[id] = {
+      date: String(h.date ?? ''),
+      title: String(h.title ?? ''),
+      pointsToWin: Number(h.pointsToWin ?? 21),
+      players: Array.isArray(h.players) ? h.players : [],
+      levels: h.levels ?? {},
+      m: Array.isArray(h.m) ? h.m : [],
+    };
+  }
+  return out;
+}
+
+/** Compact copy of a session for meta/history. Matches still marked live count as unfinished. */
+export function toHistory(s: Session): HistorySession {
+  return {
+    date: s.date,
+    title: s.title,
+    pointsToWin: s.pointsToWin,
+    players: s.playerIds.length ? s.playerIds : Object.keys(s.attendees),
+    levels: Object.fromEntries(Object.entries(s.attendees).map(([id, a]) => [id, a.level])),
+    m: sortedMatches(s).map((m) => ({
+      n: m.number,
+      a: m.teamA,
+      b: m.teamB,
+      sa: m.scoreA,
+      sb: m.scoreB,
+      ...(m.status === 'completed' ? {} : { u: true }),
+    })),
+  };
+}
+
+/** Firestore stores the session without its id. */
+export function sessionData(s: Session): Omit<Session, 'id'> {
+  const { id: _id, ...rest } = s;
+  void _id;
+  return rest;
+}

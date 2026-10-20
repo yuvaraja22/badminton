@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "meta", "fieldPath": "sessions", "indexes": [] },
+    { "collectionGroup": "sessions", "fieldPath": "matches", "indexes": [] },
+    { "collectionGroup": "sessions", "fieldPath": "attendees", "indexes": [] },
+    { "collectionGroup": "sessions", "fieldPath": "takeaways", "indexes": [] },
+    { "collectionGroup": "players", "fieldPath": "photo", "indexes": [] }
+  ]
+}

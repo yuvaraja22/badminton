@@ -3,9 +3,11 @@ import { Link, useSearchParams } from 'react-router';
 import { Swords, Trophy } from 'lucide-react';
 import { useData } from '../lib/data/context';
 import { allTimeStats } from '../lib/engine/alltime';
+import { PROVISIONAL_GAMES, ratingStandings } from '../lib/engine/rating';
 import { isCounted, sideOf } from '../lib/engine/games';
 import { headToHead } from '../lib/engine/stats';
 import { isoDaysAgo, pctRound, shortDate, signed } from '../lib/format';
+import { RatingTable } from '../components/stats/RatingTable';
 import { PartnershipList, StandingsTable } from '../components/stats/StandingsTable';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, PageTitle, Spinner } from '../components/ui/Card';
@@ -97,7 +99,7 @@ function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
 }
 
 export default function LeaderboardPage() {
-  const { history, nameOf, ready } = useData();
+  const { history, nameOf, ready, ratings, playersById } = useData();
   const [params, setParams] = useSearchParams();
   const period: Period = params.get('range') === 'all' ? 'all' : '30d';
   const setPeriod = (p: Period) => setParams(p === 'all' ? { range: 'all' } : {}, { replace: true });
@@ -108,6 +110,8 @@ export default function LeaderboardPage() {
     const from = period === '30d' ? isoDaysAgo(30) : undefined;
     return allTimeStats(history, nameOf, { from, minGames: minGames === 'auto' ? undefined : Number(minGames) });
   }, [history, nameOf, period, minGames]);
+
+  const ratingRows = useMemo(() => ratingStandings(ratings, (id) => playersById.get(id)?.active ?? false), [ratings, playersById]);
 
   if (!ready) return <Spinner />;
 
@@ -150,6 +154,17 @@ export default function LeaderboardPage() {
               <StandingsTable rows={stats.standings} showSessions />
             </div>
           </Card>
+          {ratingRows.length > 0 && (
+            <Card>
+              <CardHeader
+                title="Skill ratings"
+                subtitle={`From every game, on the level scale (1 = Amateur Low, 5.5 = Professional High). Beating stronger teams and winning by more count for more. Provisional until ${PROVISIONAL_GAMES} games.`}
+              />
+              <div className="pt-1 pb-1">
+                <RatingTable rows={ratingRows} />
+              </div>
+            </Card>
+          )}
           <Card>
             <CardHeader title="Partnerships" subtitle={allPairs ? 'All pairs' : 'Pairs with 3+ games together'} />
             <div className="pt-2">

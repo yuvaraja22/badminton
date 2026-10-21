@@ -30,11 +30,27 @@ function TeamNames({ team, strong }: { team: Team; strong?: boolean }) {
   );
 }
 
-function teamLevel(session: Session, team: Team): number {
-  return (session.attendees[team[0]]?.level ?? 3) + (session.attendees[team[1]]?.level ?? 3);
+/** Team strength as the scheduler sees it: rating-based skill when known, else the session level. */
+function teamLevel(session: Session, team: Team, skills: Record<PlayerId, number> | undefined): number {
+  const skill = (id: PlayerId) => skills?.[id] ?? session.attendees[id]?.level ?? 3;
+  return skill(team[0]) + skill(team[1]);
 }
 
-function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Session; match: Match; next: PlannedMatch | null; isAdmin: boolean; onEdit: () => void }) {
+function NowPlaying({
+  session,
+  match,
+  next,
+  skills,
+  isAdmin,
+  onEdit,
+}: {
+  session: Session;
+  match: Match;
+  next: PlannedMatch | null;
+  skills: Record<PlayerId, number> | undefined;
+  isAdmin: boolean;
+  onEdit: () => void;
+}) {
   const [a, setA] = useState(match.scoreA?.toString() ?? '');
   const [b, setB] = useState(match.scoreB?.toString() ?? '');
   const [stopped, setStopped] = useState(false);
@@ -91,7 +107,7 @@ function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Sessio
               </div>
               {scoreBox(b, setB, 'Team 2 score')}
             </div>
-            <BalanceLabel levelA={teamLevel(session, match.teamA)} levelB={teamLevel(session, match.teamB)} />
+            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--accent)]" />
               Stopped early (not counted in stats)
@@ -111,7 +127,7 @@ function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Sessio
             <TeamNames team={match.teamA} strong />
             <div className="text-center text-xs font-bold uppercase text-muted">vs</div>
             <TeamNames team={match.teamB} strong />
-            <BalanceLabel levelA={teamLevel(session, match.teamA)} levelB={teamLevel(session, match.teamB)} />
+            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} />
           </>
         )}
       </div>
@@ -181,7 +197,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
 
   return (
     <div className="space-y-4">
-      {live && <NowPlaying key={live.id} session={session} match={live} next={next} isAdmin={isAdmin} onEdit={() => setEditMatch(live)} />}
+      {live && <NowPlaying key={live.id} session={session} match={live} next={next} skills={plan?.skills} isAdmin={isAdmin} onEdit={() => setEditMatch(live)} />}
 
       <Card>
         <CardHeader
@@ -314,7 +330,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
           onClose={() => setLineupOpen(false)}
           session={session}
           initial={{ teamA: next.teamA, teamB: next.teamB }}
-          options={lineupOptions(session, nameOf, true)}
+          options={lineupOptions(session, nameOf, true, plan?.skills)}
         />
       )}
       <MatchDialog open={editMatch !== null} onClose={() => setEditMatch(null)} session={session} match={editMatch} options={lineupOptions(session, nameOf)} />

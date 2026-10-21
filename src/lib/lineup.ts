@@ -7,14 +7,22 @@ export interface LineupOption {
   level: number;
 }
 
-/** Session players for the lineup pickers, e.g. "Anu · Intermediate High" or "Yuva · Advanced Low – resting". */
-export function lineupOptions(session: Session, nameOf: (id: PlayerId) => string, onlyAvailable = false): LineupOption[] {
+/**
+ * Session players for the lineup pickers, e.g. "Anu · Intermediate High" or "Yuva · Advanced Low – resting".
+ * `skills` (from the queue plan) replaces the session level for the balance label, as the scheduler does.
+ */
+export function lineupOptions(
+  session: Session,
+  nameOf: (id: PlayerId) => string,
+  onlyAvailable = false,
+  skills?: Record<PlayerId, number>,
+): LineupOption[] {
   return Object.entries(session.attendees)
     .filter(([, a]) => !onlyAvailable || a.status === 'available')
     .sort(([, a], [, b]) => a.order - b.order)
     .map(([id, a]) => ({
       id,
-      level: a.level,
+      level: skills?.[id] ?? a.level,
       label: `${nameOf(id)} · ${levelName(a.level)}${a.status === 'available' ? '' : a.status === 'resting' ? ' – resting' : ' – left'}`,
     }));
 }

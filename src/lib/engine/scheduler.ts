@@ -13,8 +13,9 @@ import { pairKey } from './games';
  *    players, whoever has waited longest goes first. Resting players earn nothing; "catch up"
  *    windows credit a player for matches they missed as if they had been there.
  * 2. Then team quality: among the remaining equally-entitled players, every combination and all
- *    three possible team splits are scored, and the lowest cost wins (level gap, repeat partners,
- *    repeat opponents, exact rematches, partners from recent sessions).
+ *    three possible team splits are scored, and the lowest cost wins (skill gap, repeat partners,
+ *    repeat opponents, exact rematches, partners from recent sessions). Skill is the session level,
+ *    or the player's rating when the caller passes `skills` (see sessionSkills in rating.ts).
  * 3. Deterministic tie-breaks (seeded by session + match number) so all phones agree.
  */
 
@@ -41,6 +42,8 @@ export interface QueuePlan {
   nextPickValid: boolean;
   /** How many alternatives "Shuffle" cycles through for the next match. */
   alternatives: number;
+  /** Skill used for balancing each attendee (input.skills, else the session level). */
+  skills: Record<PlayerId, number>;
 }
 
 export interface SchedulerInput {
@@ -51,6 +54,8 @@ export interface SchedulerInput {
   shuffle: number;
   /** Partner counts from recent sessions (pairKey → games together), to vary pairs week to week. */
   recentPartners?: Record<string, number>;
+  /** Skill on the level scale used for team balancing; defaults to each attendee's session level. */
+  skills?: Record<PlayerId, number>;
 }
 
 /** Tuned with simulations of 5–9 player rosters (see scheduler.test.ts). */
@@ -332,7 +337,7 @@ export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
   const levels: Record<PlayerId, number> = {};
   const played: Record<PlayerId, number> = {};
   for (const [id, a] of Object.entries(input.attendees)) {
-    levels[id] = a.level;
+    levels[id] = input.skills?.[id] ?? a.level;
     played[id] = state.played.get(id) ?? 0;
   }
 
@@ -345,6 +350,7 @@ export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
     played,
     nextPickValid: input.nextPick ? isValidLineup(input.nextPick, available) : true,
     alternatives: 0,
+    skills: levels,
   };
   if (available.length < 4) {
     plan.blocked = `Need at least 4 available players to plan a match (${available.length} available).`;

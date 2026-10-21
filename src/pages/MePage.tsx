@@ -16,6 +16,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 import { Stat } from '../components/ui/Stat';
+import { RatingBadge } from '../components/stats/RatingBadge';
 
 /** Personal dashboard for a signed-in player linked to a profile. */
 export default function MePage() {
@@ -63,9 +64,10 @@ export default function MePage() {
           <div className="min-w-0 flex-1">
             <p className="text-sm text-muted">Hi,</p>
             <h1 className="truncate text-2xl leading-tight font-bold">{player.name}</h1>
-            <Badge tone="info" className="mt-1">
-              {levelName(player.level)}
-            </Badge>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <Badge tone="info">{levelName(player.level)}</Badge>
+              <RatingBadge playerId={player.id} />
+            </div>
           </div>
           <div className="flex shrink-0 flex-col gap-2">
             <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>

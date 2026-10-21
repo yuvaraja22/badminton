@@ -12,6 +12,10 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
 - **Session report.** Same layout as the old PDF reports: MVP, best partnership, tightest contest, standings,
   partnerships, auto-written (editable) takeaways and the match log. Share it as a **PDF** straight to WhatsApp or as a link.
 - **Player profiles**, an all-time **leaderboard**, partnerships, head-to-head and past sessions.
+- **Skill ratings.** An [OpenSkill](https://github.com/philihp/openskill.js) doubles rating, replayed from every finished
+  game and shown on the level scale (e.g. 3.7). It starts from a player's level, moves more for beating stronger teams
+  and for bigger wins, and becomes less certain while someone is away. Once a player has 8 rated games the planner
+  balances teams by their rating instead of their set level (a level changed for one session still wins).
 - **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
 - **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
   player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.

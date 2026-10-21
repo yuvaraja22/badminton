@@ -13,6 +13,7 @@ import { findPlayer } from '../lib/slug';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { PhotoButton } from '../components/players/PhotoButton';
 import { ProfileDetails } from '../components/players/ProfileDetails';
+import { RatingBadge } from '../components/stats/RatingBadge';
 import { WinRateChart } from '../components/stats/WinRateChart';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -98,6 +99,7 @@ export default function PlayerPage() {
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
             {isMe && <Badge tone="good">You</Badge>}
             <Badge tone="info">{levelName(player.level)}</Badge>
+            <RatingBadge playerId={player.id} />
             {!player.active && <Badge>Archived</Badge>}
             {profile.firstDate && <span>Playing since {longDate(profile.firstDate)}</span>}
           </div>

@@ -116,6 +116,16 @@ describe('fair rotation with a fixed roster', () => {
     expect(partnerCounts(input.matches).get(pairKey('Vikram', 'Sridhar')) ?? 0).toBeLessThanOrEqual(1);
   });
 
+  it('balances by rating-based skills when given, instead of session levels', () => {
+    const input = session(equalLevels(4));
+    input.skills = { P1: 4.6, P2: 4.4, P3: 2.4, P4: 2.6 };
+    const next = planQueue(input, 1).upcoming[0];
+    // The two strongest are split up, and the reported team strengths use the skills.
+    expect(next.teamA.includes('P1')).not.toBe(next.teamA.includes('P2'));
+    expect(Math.abs(next.levelA - next.levelB)).toBeLessThanOrEqual(0.4 + 1e-9);
+    expect(next.levelA + next.levelB).toBeCloseTo(14);
+  });
+
   it('keeps five mixed-level players reasonably balanced', () => {
     const input = session({ Vikram: 5, Yuva: 4, Shashwin: 3.5, Anu: 3, Sridhar: 3 });
     for (let k = 0; k < 10; k++) {

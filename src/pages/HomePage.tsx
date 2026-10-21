@@ -3,9 +3,10 @@ import { Link } from 'react-router';
 import { ChevronRight, FileText, Plus, Trophy, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { useQueuePlan } from '../lib/data/usePlan';
+import { useWinChance } from '../lib/data/useWinChance';
 import { allTimeStats, summarizeHistory } from '../lib/engine/alltime';
 import { sortedMatches } from '../lib/engine/games';
-import { isoDaysAgo, matchCode, shortDate } from '../lib/format';
+import { isoDaysAgo, matchCode, odds, shortDate } from '../lib/format';
 import type { Session } from '../lib/types';
 import { InstallCard } from '../components/InstallCard';
 import { NextSessionCard } from '../components/session/NextSessionCard';
@@ -20,6 +21,12 @@ function LiveSessionCard({ session }: { session: Session }) {
   const live = sortedMatches(session).find((m) => m.status === 'live');
   const next = plan?.upcoming[0];
   const team = (t: [string, string]) => `${nameOf(t[0])} & ${nameOf(t[1])}`;
+  const chanceOf = useWinChance();
+  const chance = (a: [string, string], b: [string, string]) => {
+    if (!plan) return null;
+    const [x, y] = odds(chanceOf(a, b, plan.skills));
+    return <span className="tabular text-muted" title={`Win chance: ${x}% – ${y}%`}> · {x}–{y}</span>;
+  };
   return (
     <Link to={`/sessions/${session.id}`} className="block">
       <Card className="overflow-hidden border-accent/40 transition hover:shadow-md">
@@ -37,11 +44,13 @@ function LiveSessionCard({ session }: { session: Session }) {
           {live && (
             <p className="text-sm">
               <span className="font-semibold text-accent">On court {matchCode(live.number)}:</span> {team(live.teamA)} vs {team(live.teamB)}
+              {chance(live.teamA, live.teamB)}
             </p>
           )}
           {next && (
             <p className="text-sm">
               <span className="font-semibold text-muted">Up next:</span> {team(next.teamA)} vs {team(next.teamB)}
+              {chance(next.teamA, next.teamB)}
             </p>
           )}
           {!live && !next && <p className="text-sm text-muted">Waiting for players.</p>}

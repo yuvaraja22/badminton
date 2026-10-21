@@ -4,6 +4,7 @@ import { CheckCircle2, Pencil, Play, Shuffle, UserPlus, Users } from 'lucide-rea
 import { useData } from '../../lib/data/context';
 import { saveMatch, setNextPick, shuffleNext, startMatch } from '../../lib/data/mutations';
 import { useQueuePlan } from '../../lib/data/usePlan';
+import { useWinChance } from '../../lib/data/useWinChance';
 import { sortedMatches } from '../../lib/engine/games';
 import type { PlannedMatch } from '../../lib/engine/scheduler';
 import { matchCode, oneDecimal } from '../../lib/format';
@@ -51,6 +52,8 @@ function NowPlaying({
   isAdmin: boolean;
   onEdit: () => void;
 }) {
+  const chanceOf = useWinChance();
+  const chance = skills ? chanceOf(match.teamA, match.teamB, skills) : null;
   const [a, setA] = useState(match.scoreA?.toString() ?? '');
   const [b, setB] = useState(match.scoreB?.toString() ?? '');
   const [stopped, setStopped] = useState(false);
@@ -107,7 +110,7 @@ function NowPlaying({
               </div>
               {scoreBox(b, setB, 'Team 2 score')}
             </div>
-            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} />
+            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} chance={chance} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--accent)]" />
               Stopped early (not counted in stats)
@@ -127,7 +130,7 @@ function NowPlaying({
             <TeamNames team={match.teamA} strong />
             <div className="text-center text-xs font-bold uppercase text-muted">vs</div>
             <TeamNames team={match.teamB} strong />
-            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} />
+            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} chance={chance} />
           </>
         )}
       </div>
@@ -180,6 +183,7 @@ function LineupForm({ session, initial, options, onDone }: { session: Session; i
 export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: boolean }) {
   const { nameOf, playersById } = useData();
   const plan = useQueuePlan(session, 5);
+  const chanceOf = useWinChance();
   const matches = sortedMatches(session);
   const live = matches.find((m) => m.status === 'live') ?? null;
   const next = plan?.upcoming[0] ?? null;
@@ -227,7 +231,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
                 <div className="text-xs font-bold uppercase text-muted">vs</div>
                 <TeamNames team={next.teamB} />
               </div>
-              <BalanceLabel levelA={next.levelA} levelB={next.levelB} />
+              <BalanceLabel levelA={next.levelA} levelB={next.levelB} chance={plan ? chanceOf(next.teamA, next.teamB, plan.skills) : null} />
               {isAdmin && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button variant="secondary" size="sm" onClick={() => setLineupOpen(true)}>
@@ -260,7 +264,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
                   {nameOf(m.teamA[0])} &amp; {nameOf(m.teamA[1])} <span className="text-muted">vs</span> {nameOf(m.teamB[0])} &amp;{' '}
                   {nameOf(m.teamB[1])}
                 </span>
-                <BalanceLabel levelA={m.levelA} levelB={m.levelB} short className="shrink-0" />
+                <BalanceLabel levelA={m.levelA} levelB={m.levelB} chance={chanceOf(m.teamA, m.teamB, plan.skills)} short className="shrink-0" />
               </li>
             ))}
           </ol>

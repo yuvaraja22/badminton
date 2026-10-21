@@ -14,6 +14,7 @@ import { PlayerDialog } from '../components/players/PlayerDialog';
 import { PhotoButton } from '../components/players/PhotoButton';
 import { ProfileDetails } from '../components/players/ProfileDetails';
 import { RatingBadge } from '../components/stats/RatingBadge';
+import { RatingHistoryCard } from '../components/stats/RatingChart';
 import { WinRateChart } from '../components/stats/WinRateChart';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -161,6 +162,8 @@ export default function PlayerPage() {
               ))}
             </div>
           </Card>
+
+          <RatingHistoryCard playerId={player.id} />
 
           {chartData.length >= 2 && (
             <Card>

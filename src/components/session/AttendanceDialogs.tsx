@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { addAttendee, createPlayer, setAttendeeLevel, setAttendeeStatus, type JoinMode } from '../../lib/data/mutations';
 import { useData } from '../../lib/data/context';
 import { sortedMatches } from '../../lib/engine/games';
+import { establishedLevel } from '../../lib/engine/rating';
+import { oneDecimal } from '../../lib/format';
 import type { AttendeeStatus, PlayerId, Session } from '../../lib/types';
 import { Button } from '../ui/Button';
 import { Notice } from '../ui/Card';
@@ -47,8 +49,12 @@ export function AttendeeDialog({ session, playerId, onClose }: { session: Sessio
 }
 
 function AttendeeForm({ session, playerId, onDone }: { session: Session; playerId: PlayerId; onDone: () => void }) {
+  const { ratings } = useData();
   const a = session.attendees[playerId];
+  const rated = establishedLevel(ratings.get(playerId));
   const [level, setLevel] = useState(a.level);
+  // Rated players: balance by their rating, or by a level set for this session.
+  const [byLevel, setByLevel] = useState(a.levelOverride === true);
   const [status, setStatus] = useState<AttendeeStatus>(a.status);
   const [mode, setMode] = useState<JoinMode>('fair');
   const last = lastNumber(session);
@@ -56,16 +62,39 @@ function AttendeeForm({ session, playerId, onDone }: { session: Session; playerI
   const missed = last - a.since;
 
   const save = () => {
-    if (level !== a.level) setAttendeeLevel(session, playerId, level);
+    const override = rated === null ? a.levelOverride === true || level !== a.level : byLevel;
+    if (level !== a.level || override !== (a.levelOverride === true)) setAttendeeLevel(session, playerId, level, override);
     if (status !== a.status) setAttendeeStatus(session, playerId, status, mode);
     onDone();
   };
 
   return (
     <div className="space-y-4">
-      <Field label="Level for this session" hint="Used to balance teams. The player's profile level is not changed.">
-        <LevelStepper value={level} onChange={setLevel} />
-      </Field>
+      {rated === null ? (
+        <Field label="Level for this session" hint="Used to balance teams. The player's profile level is not changed.">
+          <LevelStepper value={level} onChange={setLevel} />
+        </Field>
+      ) : (
+        <div>
+          <span className="mb-1.5 block text-sm font-medium">Balance teams by</span>
+          <Segmented
+            value={byLevel ? 'level' : 'rating'}
+            onChange={(v) => setByLevel(v === 'level')}
+            options={[
+              { value: 'rating', label: `Rating ${oneDecimal(rated)}` },
+              { value: 'level', label: 'Level for today' },
+            ]}
+          />
+          {byLevel && (
+            <div className="mt-2">
+              <LevelStepper value={level} onChange={setLevel} />
+            </div>
+          )}
+          <p className="mt-1.5 text-xs text-muted">
+            {byLevel ? 'Used for the rest of this session. The profile level is not changed.' : 'Their skill rating from past games.'}
+          </p>
+        </div>
+      )}
       <div>
         <span className="mb-1.5 block text-sm font-medium">Status</span>
         <Segmented
@@ -99,11 +128,14 @@ export function AddPlayerDialog({ session, open, onClose }: { session: Session; 
 }
 
 function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => void }) {
-  const { players } = useData();
+  const { players, ratings } = useData();
   const candidates = players.filter((p) => p.active && !session.attendees[p.id]);
   const [choice, setChoice] = useState<string>(candidates[0]?.id ?? 'new');
   const [name, setName] = useState('');
   const [level, setLevel] = useState(candidates[0]?.level ?? 3);
+  // A level changed here is used for this session instead of the player's rating.
+  const [levelChanged, setLevelChanged] = useState(false);
+  const rated = choice === 'new' ? null : establishedLevel(ratings.get(choice));
   const [mode, setMode] = useState<JoinMode>('fair');
   const [error, setError] = useState<string | null>(null);
   const last = lastNumber(session);
@@ -112,6 +144,7 @@ function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => vo
     setChoice(id);
     const p = players.find((x) => x.id === id);
     if (p) setLevel(p.level);
+    setLevelChanged(false);
   };
 
   const add = () => {
@@ -122,7 +155,7 @@ function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => vo
       if (players.some((p) => p.name.trim().toLowerCase() === trimmed.toLowerCase())) return setError('A player with that name already exists. Pick them from the list.');
       id = createPlayer({ name: trimmed, level });
     }
-    addAttendee(session, id, level, mode);
+    addAttendee(session, id, level, mode, levelChanged);
     onDone();
   };
 
@@ -143,8 +176,17 @@ function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => vo
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hardesh" autoFocus />
         </Field>
       )}
-      <Field label="Level">
-        <LevelStepper value={level} onChange={setLevel} />
+      <Field
+        label="Level"
+        hint={rated !== null && (levelChanged ? 'Balanced by this level today.' : `Balanced by their rating (${oneDecimal(rated)}) unless you change the level.`)}
+      >
+        <LevelStepper
+          value={level}
+          onChange={(v) => {
+            setLevel(v);
+            setLevelChanged(true);
+          }}
+        />
       </Field>
       {last > 0 && <JoinModeChoice value={mode} onChange={setMode} missedLabel={`${last} match${last === 1 ? '' : 'es'} already played`} />}
       {error && <Notice tone="bad">{error}</Notice>}

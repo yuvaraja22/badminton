@@ -74,6 +74,8 @@ export interface Attendee {
   catchUp: CatchUpWindow[];
   /** Display order within the session. */
   order: number;
+  /** An admin set this level for the session: balance by it instead of the player's skill rating. */
+  levelOverride?: boolean;
 }
 
 export interface Lineup {

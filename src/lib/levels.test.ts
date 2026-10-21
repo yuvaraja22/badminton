@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEVEL_OPTIONS, levelName, teamBalance } from './levels';
+import { LEVEL_OPTIONS, chanceBalance, levelName, teamBalance } from './levels';
 
 describe('level names', () => {
   it('maps each half step to a tier and Low/High', () => {
@@ -31,5 +31,16 @@ describe('team balance', () => {
     expect(teamBalance(8, 7.5)).toMatchObject({ text: 'Slight edge: Team 1', short: 'Slight edge' });
     expect(teamBalance(7, 8)).toMatchObject({ text: 'Slight edge: Team 2' });
     expect(teamBalance(6.5, 8)).toMatchObject({ text: 'Team 2 stronger', short: 'Uneven', tone: 'warn' });
+  });
+});
+
+describe('chanceBalance', () => {
+  it('follows the win chance, as rounded for display', () => {
+    expect(chanceBalance(0.5)).toMatchObject({ text: 'Even match', short: 'Even', tone: 'good' });
+    expect(chanceBalance(0.572)).toMatchObject({ text: 'Even match' }); // shown as 57% – 43%
+    expect(chanceBalance(0.576)).toMatchObject({ text: 'Slight edge: Team 1', short: 'Slight edge', tone: 'neutral' }); // 58%
+    expect(chanceBalance(0.31)).toMatchObject({ text: 'Slight edge: Team 2' }); // 31% – 69%
+    expect(chanceBalance(0.72)).toMatchObject({ text: 'Team 1 stronger', short: 'Uneven', tone: 'warn' });
+    expect(chanceBalance(0.3)).toMatchObject({ text: 'Team 2 stronger' }); // 30% – 70%
   });
 });

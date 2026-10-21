@@ -4,9 +4,10 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { Check, Info, Play, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { createPlayer, createSession, markPlannedStarted, updatePlayer } from '../lib/data/mutations';
-import { defaultSessionTitle, todayISO } from '../lib/format';
+import { establishedLevel } from '../lib/engine/rating';
+import { defaultSessionTitle, oneDecimal, todayISO } from '../lib/format';
 import { levelName } from '../lib/levels';
-import type { PlannedSession, PlayerId } from '../lib/types';
+import type { PlannedSession, Player, PlayerId } from '../lib/types';
 import { AdminOnly } from '../components/AdminOnly';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
@@ -28,7 +29,7 @@ export default function NewSessionPage() {
 }
 
 function NewSessionForm({ event }: { event: PlannedSession | null }) {
-  const { players, config, liveSessions } = useData();
+  const { players, config, liveSessions, ratings } = useData();
   const navigate = useNavigate();
   const rsvpIn = event
     ? Object.entries(event.rsvps)
@@ -43,6 +44,8 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
   const [levels, setLevels] = useState<Record<PlayerId, number>>(() =>
     Object.fromEntries(rsvpIn.map((id) => [id, players.find((p) => p.id === id)?.level ?? 3])),
   );
+  // Players whose level was changed here: balanced by that level today instead of their skill rating.
+  const [overrides, setOverrides] = useState<Set<PlayerId>>(() => new Set());
   const [newName, setNewName] = useState('');
   const [newLevel, setNewLevel] = useState(3);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +62,20 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       setOrder([...order, id]);
       setLevels((l) => ({ ...l, [id]: l[id] ?? level }));
     }
+  };
+
+  const changeLevel = (id: PlayerId, level: number) => {
+    setLevels((l) => ({ ...l, [id]: level }));
+    setOverrides((o) => new Set(o).add(id));
+  };
+
+  const backToRating = (p: Player) => {
+    setLevels((l) => ({ ...l, [p.id]: p.level }));
+    setOverrides((o) => {
+      const next = new Set(o);
+      next.delete(p.id);
+      return next;
+    });
   };
 
   const addNew = () => {
@@ -85,7 +102,7 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       date,
       title: effectiveTitle,
       pointsToWin,
-      players: order.map((pid) => ({ id: pid, level: levels[pid] ?? 3 })),
+      players: order.map((pid) => ({ id: pid, level: levels[pid] ?? 3, levelOverride: overrides.has(pid) })),
     });
     if (event) markPlannedStarted(event.id, id);
     navigate(`/sessions/${id}`);
@@ -126,35 +143,52 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       <Card>
         <CardHeader
           title={`Who's playing · ${n} selected`}
-          subtitle="Levels run from Amateur Low to Professional High and balance the teams until a player has a skill rating (8 games). They're remembered for next time."
+          subtitle="Levels run from Amateur Low to Professional High. Players with a skill rating (8+ games) are balanced by it unless you change their level here. Changed levels are remembered for next time."
         />
         <ul className="divide-y divide-line px-2 pt-2 pb-1">
           {active.map((p) => {
             const on = order.includes(p.id);
+            const rated = establishedLevel(ratings.get(p.id));
             return (
-              <li key={p.id} className="flex items-center gap-3 px-2 py-2">
-                <button
-                  type="button"
-                  onClick={() => toggle(p.id, p.level)}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  aria-pressed={on}
-                  aria-label={`${p.name}${on ? ', playing' : ''}`}
-                >
-                  <span
-                    className={clsx(
-                      'inline-flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition',
-                      on ? 'border-primary bg-primary text-primary-ink' : 'border-line',
-                    )}
+              <li key={p.id} className="px-2 py-2">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => toggle(p.id, p.level)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-pressed={on}
+                    aria-label={`${p.name}${on ? ', playing' : ''}`}
                   >
-                    {on && <Check size={15} strokeWidth={3} />}
-                  </span>
-                  <Avatar name={p.name} photo={p.photo} size={32} />
-                  <span className="truncate font-semibold">{p.name}</span>
-                </button>
-                {on ? (
-                  <LevelStepper value={levels[p.id] ?? p.level} onChange={(v) => setLevels((l) => ({ ...l, [p.id]: v }))} label={`${p.name}'s level`} />
-                ) : (
-                  <span className="text-right text-xs text-muted">{levelName(p.level)}</span>
+                    <span
+                      className={clsx(
+                        'inline-flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition',
+                        on ? 'border-primary bg-primary text-primary-ink' : 'border-line',
+                      )}
+                    >
+                      {on && <Check size={15} strokeWidth={3} />}
+                    </span>
+                    <Avatar name={p.name} photo={p.photo} size={32} />
+                    <span className="truncate font-semibold">{p.name}</span>
+                  </button>
+                  {on ? (
+                    <LevelStepper value={levels[p.id] ?? p.level} onChange={(v) => changeLevel(p.id, v)} label={`${p.name}'s level`} />
+                  ) : (
+                    <span className="text-right text-xs text-muted">{levelName(p.level)}</span>
+                  )}
+                </div>
+                {on && rated !== null && (
+                  <p className="mt-1 pl-20 text-xs text-muted">
+                    {overrides.has(p.id) ? (
+                      <>
+                        Balanced by this level today ·{' '}
+                        <button type="button" onClick={() => backToRating(p)} className="font-semibold text-primary-text hover:underline">
+                          Use rating {oneDecimal(rated)}
+                        </button>
+                      </>
+                    ) : (
+                      `Balanced by rating ${oneDecimal(rated)}`
+                    )}
+                  </p>
                 )}
               </li>
             );

@@ -9,7 +9,9 @@ import { historyGames, isCounted, sortedHistory } from './games';
  * Ratings are never stored: every device rebuilds them from meta/history in date order, so they are
  * reproducible and editing or deleting a past session simply changes the replay.
  *
- * - Seeded from the level a player had in their first session (1 level = 8 μ, level 3 = μ 25).
+ * - Seeded from the level on the player's profile (1 level = 8 μ, level 3 = μ 25), so ratings stay on the
+ *   admins' scale and changing a profile level re-bases that player's rating. Players without a profile
+ *   fall back to the level they had in their first session.
  * - Each completed game updates all four players. The update is scaled by the winning margin
  *   (relative to the game length), so a 21-8 win counts more than 23-21.
  * - Uncertainty (σ) shrinks as a player plays and grows again while they are away.
@@ -123,7 +125,7 @@ export function computeRatings(history: Record<string, HistorySession>, players:
     for (const pid of inSession) {
       let t = tracks.get(pid);
       if (!t) {
-        const seedLevel = h.levels?.[pid] ?? profileLevel.get(pid) ?? 3;
+        const seedLevel = profileLevel.get(pid) ?? h.levels?.[pid] ?? 3;
         const start: RatingPoint = { sessionId: null, date: h.date, title: 'Start', level: muToLevel(levelToMu(seedLevel)), change: 0, games: 0 };
         t = {
           r: newRating({ mu: levelToMu(seedLevel), sigma: SEED_SIGMA }),
@@ -197,25 +199,26 @@ export function ratingStandings(ratings: Map<PlayerId, PlayerRating>, include?: 
     .sort((x, y) => Number(x.provisional) - Number(y.provisional) || y.mu - x.mu || y.games - x.games);
 }
 
+/** An established (not provisional) rating, rounded as the planner uses it; null if there is none. */
+export function establishedLevel(r: PlayerRating | undefined): number | null {
+  return r && !r.provisional ? Math.round(r.level * 100) / 100 : null;
+}
+
 /**
  * The skill each attendee is balanced by in a live session:
- * - a level the admin changed for this session (differs from the profile level) is respected;
+ * - the session level when an admin set it for this session (levelOverride);
  * - otherwise an established rating (not provisional);
  * - otherwise the session level.
  * Rounded to 0.01 so every phone plans the same matches: exp/log can differ in the last bit
  * between browser engines, and planQueue must give identical results everywhere.
  */
 export function sessionSkills(
-  attendees: Record<PlayerId, Pick<Attendee, 'level'>>,
+  attendees: Record<PlayerId, Pick<Attendee, 'level' | 'levelOverride'>>,
   ratings: Map<PlayerId, PlayerRating>,
-  playersById: Map<PlayerId, Pick<Player, 'level'>>,
 ): Record<PlayerId, number> {
   const out: Record<PlayerId, number> = {};
   for (const [id, a] of Object.entries(attendees)) {
-    const r = ratings.get(id);
-    const profile = playersById.get(id)?.level;
-    const overridden = profile !== undefined && profile !== a.level;
-    out[id] = !overridden && r && !r.provisional ? Math.round(r.level * 100) / 100 : a.level;
+    out[id] = a.levelOverride ? a.level : (establishedLevel(ratings.get(id)) ?? a.level);
   }
   return out;
 }

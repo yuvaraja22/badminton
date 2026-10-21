@@ -147,13 +147,14 @@ export function createSession(input: {
   date: string;
   title: string;
   pointsToWin: number;
-  players: { id: PlayerId; level: number }[];
+  /** levelOverride: the admin changed this level for the session (balance by it, not the rating). */
+  players: { id: PlayerId; level: number; levelOverride?: boolean }[];
 }): string {
   const ref = doc(sessionsCol);
   const now = Date.now();
   const attendees: Record<PlayerId, Attendee> = {};
   input.players.forEach((p, i) => {
-    attendees[p.id] = { level: p.level, status: 'available', since: 0, catchUp: [], order: i };
+    attendees[p.id] = { level: p.level, status: 'available', since: 0, catchUp: [], order: i, levelOverride: p.levelOverride === true };
   });
   const session: Session = {
     id: ref.id,
@@ -252,7 +253,7 @@ export function shuffleNext(session: Session) {
 export type JoinMode = 'fair' | 'catchUp';
 
 /** Add someone to a running session (late arrival). */
-export function addAttendee(session: Session, playerId: PlayerId, level: number, mode: JoinMode) {
+export function addAttendee(session: Session, playerId: PlayerId, level: number, mode: JoinMode, levelOverride = false) {
   const last = lastNumber(session);
   const order = Math.max(-1, ...Object.values(session.attendees).map((a) => a.order)) + 1;
   const attendee: Attendee = {
@@ -261,6 +262,7 @@ export function addAttendee(session: Session, playerId: PlayerId, level: number,
     since: last,
     catchUp: mode === 'catchUp' && last > 0 ? [{ from: 1, to: last }] : [],
     order,
+    levelOverride,
   };
   run(
     updateDoc(doc(sessionsCol, session.id), {
@@ -290,11 +292,16 @@ export function setAttendeeStatus(session: Session, playerId: PlayerId, status: 
   );
 }
 
-export function setAttendeeLevel(session: Session, playerId: PlayerId, level: number) {
+/** Set the level a player is balanced by for this session (levelOverride), or go back to their rating. */
+export function setAttendeeLevel(session: Session, playerId: PlayerId, level: number, levelOverride = true) {
   const a = session.attendees[playerId];
   if (!a) return;
   run(
-    updateDoc(doc(sessionsCol, session.id), { [`attendees.${playerId}.level`]: level, updatedAt: Date.now() }),
+    updateDoc(doc(sessionsCol, session.id), {
+      [`attendees.${playerId}.level`]: level,
+      [`attendees.${playerId}.levelOverride`]: levelOverride,
+      updatedAt: Date.now(),
+    }),
     'Updating level',
   );
 }

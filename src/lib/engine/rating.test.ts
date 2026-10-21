@@ -42,11 +42,25 @@ describe('level ↔ μ', () => {
 });
 
 describe('computeRatings', () => {
-  it('seeds players from their first session level', () => {
+  it('seeds players from their first session level when they have no profile', () => {
     const { ratings } = computeRatings({ s1: session('2026-01-03', [[['A', 'B'], 21, 19, ['C', 'D']]], { A: 4.5, B: 2, C: 3, D: 3 }) });
     expect(ratings.get('A')!.seedLevel).toBe(4.5);
     expect(ratings.get('B')!.seedLevel).toBe(2);
     expect(ratings.get('A')!.level).toBeGreaterThan(4);
+  });
+
+  it('seeds players from their profile level, not the level stored in old sessions', () => {
+    // Imported sessions recorded everyone at level 3; the admin set real levels on the profiles later.
+    const history = { s1: session('2026-01-03', [[['A', 'B'], 21, 19, ['C', 'D']]]) };
+    const { ratings } = computeRatings(history, [
+      { id: 'A', level: 4.5 },
+      { id: 'B', level: 4 },
+    ]);
+    expect(ratings.get('A')!.seedLevel).toBe(4.5);
+    expect(ratings.get('A')!.history[0].level).toBe(4.5);
+    expect(ratings.get('B')!.seedLevel).toBe(4);
+    expect(ratings.get('C')!.seedLevel).toBe(3); // no profile: the session level
+    expect(ratings.get('A')!.level).toBeGreaterThan(4.5); // won from there
   });
 
   it('moves winners up and losers down, more for a bigger margin', () => {
@@ -141,18 +155,18 @@ describe('sessionSkills', () => {
     ),
   }).ratings;
   ratings.set('N', { ...ratings.get('A')!, playerId: 'N', games: 2, provisional: true, level: 5 });
-  const profiles = new Map([
-    ['A', { level: 3 }],
-    ['B', { level: 3 }],
-    ['N', { level: 2 }],
-  ]);
 
   it('uses an established rating, keeps a session override, and falls back to the session level', () => {
-    const skills = sessionSkills({ A: { level: 3 }, B: { level: 4 }, N: { level: 2 }, X: { level: 3.5 } }, ratings, profiles);
+    const skills = sessionSkills(
+      { A: { level: 3 }, B: { level: 4, levelOverride: true }, C: { level: 4.5 }, D: { level: ratings.get('D')!.level, levelOverride: true }, N: { level: 2 }, X: { level: 3.5 } },
+      ratings,
+    );
     expect(skills.A).toBeCloseTo(ratings.get('A')!.level, 2); // established rating, rounded
     expect(skills.A).toBe(Math.round(skills.A * 100) / 100);
     expect(skills.A).toBeGreaterThan(3);
-    expect(skills.B).toBe(4); // admin changed B's level for this session
+    expect(skills.B).toBe(4); // admin set B's level for this session
+    expect(skills.C).toBeCloseTo(ratings.get('C')!.level, 2); // a different level alone is not an override
+    expect(skills.D).toBe(ratings.get('D')!.level); // an override may equal anything, even the rating itself
     expect(skills.N).toBe(2); // provisional rating
     expect(skills.X).toBe(3.5); // never rated
   });

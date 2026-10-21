@@ -1,3 +1,5 @@
+import { odds } from './format';
+
 /**
  * Skill levels are stored as numbers (1–5.5 in half steps) so team balancing can add them up,
  * and shown as names: each tier has a Low and a High step (1 = Amateur Low … 5.5 = Professional High).
@@ -35,7 +37,24 @@ export interface Balance {
   tone: 'good' | 'neutral' | 'warn';
 }
 
-/** How evenly matched two teams are, from their combined levels. */
+/** Win chances (rounded, as shown) up to EVEN_MAX% are an even match; from CLEAR_EDGE% one team is stronger. */
+const EVEN_MAX = 57;
+const CLEAR_EDGE = 70;
+
+/**
+ * How evenly matched two teams are, from Team 1's win chance. Uses the same rounded percentages
+ * that are shown next to it, so the words and the numbers always agree ("Slight edge · 61% – 39%").
+ */
+export function chanceBalance(chanceA: number): Balance {
+  const [a, b] = odds(chanceA);
+  const favourite = Math.max(a, b);
+  const stronger = a > b ? 'Team 1' : 'Team 2';
+  if (favourite <= EVEN_MAX) return { text: 'Even match', short: 'Even', tone: 'good' };
+  if (favourite < CLEAR_EDGE) return { text: `Slight edge: ${stronger}`, short: 'Slight edge', tone: 'neutral' };
+  return { text: `${stronger} stronger`, short: 'Uneven', tone: 'warn' };
+}
+
+/** How evenly matched two teams are, from their combined levels (when no win chance is available). */
 export function teamBalance(levelA: number, levelB: number): Balance {
   const gap = Math.abs(levelA - levelB);
   const stronger = levelA > levelB ? 'Team 1' : 'Team 2';

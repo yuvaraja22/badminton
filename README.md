@@ -13,11 +13,14 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
   partnerships, auto-written (editable) takeaways and the match log. Share it as a **PDF** straight to WhatsApp or as a link.
 - **Player profiles**, an all-time **leaderboard**, partnerships, head-to-head and past sessions.
 - **Skill ratings.** An [OpenSkill](https://github.com/philihp/openskill.js) doubles rating, replayed from every finished
-  game and shown on the level scale (e.g. 3.7). It starts from a player's level, moves more for beating stronger teams
-  and for bigger wins, and becomes less certain while someone is away. Once a player has 8 rated games the planner
-  balances teams by their rating instead of their set level (a level changed for one session still wins).
+  game and shown on the level scale (e.g. 3.7). It starts from the level on the player's profile (so changing that
+  level re-bases their rating), moves more for beating stronger teams and for bigger wins, and becomes less certain
+  while someone is away. Once a player has 8 rated games the planner balances teams by their rating, unless an admin
+  sets a level for that session: by changing it on the New session screen, when adding a late arrival, or by tapping
+  the player during the session (**Balance teams by: Rating / Level for today**).
   Player pages (and the Me tab) chart the rating after every session, and the court shows each team's **win chance**
-  (e.g. "Slight edge: Team 1 · 61% – 39%") for the match on court, up next and in the queue.
+  (e.g. "Slight edge: Team 1 · 61% – 39%") for the match on court, up next and in the queue. The words follow the
+  percentages: up to 57% is an even match, 70% or more means one team is stronger.
 - **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
 - **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
   player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.

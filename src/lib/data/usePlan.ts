@@ -8,7 +8,7 @@ import { useData } from './context';
 
 /** The scheduler's plan for a live session, recomputed whenever the session or history changes. */
 export function useQueuePlan(session: Session | null, count = 4): QueuePlan | null {
-  const { history, ratings, playersById } = useData();
+  const { history, ratings } = useData();
   return useMemo(() => {
     if (!session || session.status !== 'live') return null;
     return planQueue(
@@ -19,9 +19,9 @@ export function useQueuePlan(session: Session | null, count = 4): QueuePlan | nu
         nextPick: session.nextPick,
         shuffle: session.shuffle,
         recentPartners: recentPartnerCounts(recentSessions(history, session.date, session.id)),
-        skills: sessionSkills(session.attendees, ratings, playersById),
+        skills: sessionSkills(session.attendees, ratings),
       },
       count,
     );
-  }, [session, history, ratings, playersById, count]);
+  }, [session, history, ratings, count]);
 }

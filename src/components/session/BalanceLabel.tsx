@@ -1,13 +1,14 @@
 import { Scale } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { odds } from '../../lib/format';
-import { teamBalance } from '../../lib/levels';
+import { chanceBalance, teamBalance } from '../../lib/levels';
 
 const TONES = { good: 'text-good', neutral: 'text-muted', warn: 'text-warn' };
 
 /**
- * "Even match" / "Slight edge: Team 1" / "Team 2 stronger", from the teams' combined levels,
- * followed by each team's win chance when it is known: "Slight edge: Team 1 · 61% – 39%".
+ * "Even match" / "Slight edge: Team 1" / "Team 2 stronger", followed by each team's win chance when it
+ * is known ("Slight edge: Team 1 · 61% – 39%"). The words follow the win chance when there is one, and
+ * the teams' combined levels otherwise.
  */
 export function BalanceLabel({
   levelA,
@@ -23,7 +24,7 @@ export function BalanceLabel({
   short?: boolean;
   className?: string;
 }) {
-  const b = teamBalance(levelA, levelB);
+  const b = chance == null ? teamBalance(levelA, levelB) : chanceBalance(chance);
   const o = chance == null ? null : odds(chance);
   return (
     <span className={cn('inline-flex items-center gap-1.5 text-xs font-semibold', TONES[b.tone], className)}>

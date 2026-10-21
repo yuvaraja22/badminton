@@ -76,6 +76,11 @@ export interface Attendee {
   order: number;
   /** An admin set this level for the session: balance by it instead of the player's skill rating. */
   levelOverride?: boolean;
+  /**
+   * Leaving early: the last match number they can play (null or absent = staying to the end). The status
+   * stays "available"; from the next match on they count as left (see engine/attendance.ts).
+   */
+  leaveAfter?: number | null;
 }
 
 export interface Lineup {

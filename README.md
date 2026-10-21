@@ -8,6 +8,8 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
   someone resting, a late arrival, a corrected past match) re-plans the upcoming matches instantly on every phone.
 - **Late arrivals and breaks.** When someone joins late or comes back, you choose **Join fairly** (equal share from
   now on) or **Catch up** (priority until level with everyone).
+- **Leaving early.** A player picks their last match ("Leaving early?" on the Court tab), or an admin sets it from the
+  player list. The planner fits in their fair share of games before then and stops scheduling them after it.
 - **Final-score entry.** Mark a game "stopped early" and it's shown with `*` and left out of the stats.
 - **Session report.** Same layout as the old PDF reports: MVP, best partnership, tightest contest, standings,
   partnerships, auto-written (editable) takeaways and the match log. Share it as a **PDF** straight to WhatsApp or as a link.
@@ -90,6 +92,10 @@ Emulator data is temporary and resets when the emulators stop.
    `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, then redeploy.
 3. In Firebase **Authentication → Settings → Authorized domains**, add your Vercel domain (e.g. `your-app.vercel.app`).
 
+Security rules are not deployed with the site. When a change touches `firestore.rules`, deploy it again with
+`firebase deploy --only firestore:rules`; until then the old rules apply (for example, only admins can set when
+a player leaves).
+
 ### 3. First run
 
 Open the site, tap **Sign in** (top right) and use the Google account you made admin. To give a player their own login,
@@ -99,7 +105,8 @@ open their profile → **Edit** → **Linked Google account** and enter their Gm
 
 1. **Fairness first.** Each available player earns an equal share of the 4 court spots per match. Whoever is most
    "owed" a game plays next; among equals, whoever has waited longest. Resting players earn nothing.
-   **Catch up** credits the matches someone missed.
+   **Catch up** credits the matches someone missed. Someone **leaving early** plays ahead of the others when they
+   would otherwise go home owed half a game or more, and is never planned after their last match.
 2. **Then the best lineup.** Among equally-owed players, every combination and team split is scored on:
    team level gap (most important), repeat partners, repeat opponents, exact rematches, and a gentle nudge
    away from pairs that played together a lot in recent sessions. A one-match lookahead avoids leaving a
@@ -138,7 +145,7 @@ src/lib/engine/      Pure logic: stats, report, takeaways, scheduler (+ tests, f
 src/lib/data/        Firebase listeners (DataProvider, AuthProvider, useSession) and all writes (mutations.ts)
 src/components/      UI: session (court, matches, report tabs), report (web + PDF), stats, ui primitives
 src/pages/           Home, Sessions, New session, Session, Leaderboard, Players, Player, Me, Admin
-firestore.rules      Public read; admins write everything, linked players only their own profile and RSVP
+firestore.rules      Public read; admins write everything, linked players only their own profile, RSVP and leave time
 ```
 
 ## Notes on the original reports

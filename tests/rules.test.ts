@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, it } from 'vitest';
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -19,6 +19,12 @@ beforeAll(async () => {
     await setDoc(doc(db, 'players/p2'), { name: 'Anu', level: 4, active: true });
     await setDoc(doc(db, 'links/vikram@example.com'), { playerId: 'p1' });
     await setDoc(doc(db, 'events/e1'), { date: '2026-10-26', status: 'planned', rsvps: {} });
+    // Leaving early: Vikram (p1) and Anu (p2) are playing; Uppli (p3) is linked but not in the session.
+    const attendee = (order: number) => ({ level: 3, status: 'available', since: 0, catchUp: [], order });
+    await setDoc(doc(db, 'players/p3'), { name: 'Uppli', level: 2, active: true });
+    await setDoc(doc(db, 'links/uppli@example.com'), { playerId: 'p3' });
+    await setDoc(doc(db, 'sessions/live1'), { status: 'live', title: 'Today', attendees: { p1: attendee(0), p2: attendee(1) }, matches: {} });
+    await setDoc(doc(db, 'sessions/done1'), { status: 'completed', title: 'Last week', attendees: { p1: attendee(0) }, matches: {} });
   });
 });
 
@@ -32,6 +38,7 @@ const admin = () => env.authenticatedContext('admin', { email: 'admin@example.co
 // Vikram's Google account, linked to players/p1 by an admin.
 const vikram = () => env.authenticatedContext('vikram', { email: 'vikram@example.com', email_verified: true }).firestore();
 // Someone who signed up with the admin's address but never verified it.
+const uppli = () => env.authenticatedContext('uppli', { email: 'uppli@example.com', email_verified: true }).firestore();
 const impostor = () => env.authenticatedContext('impostor', { email: 'admin@example.com', email_verified: false }).firestore();
 
 describe('firestore.rules', () => {
@@ -112,5 +119,29 @@ describe('firestore.rules', () => {
     await assertFails(setDoc(doc(viewer(), 'admins/viewer@example.com'), { addedAt: 2 }));
     await assertSucceeds(setDoc(doc(admin(), 'admins/friend@example.com'), { addedAt: 2 }));
     await assertFails(setDoc(doc(admin(), 'admins/Friend@Example.com'), { addedAt: 2 }));
+  });
+
+  it('lets a linked player in a live session set when they leave, and nothing else', async () => {
+    const live = (db: ReturnType<typeof anon>) => doc(db, 'sessions/live1');
+    await assertSucceeds(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': 7, updatedAt: 1 }));
+    await assertSucceeds(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': null }));
+    await assertSucceeds(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': deleteField() }));
+    // Not for someone else, not other fields, not odd values.
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p2.leaveAfter': 3 }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1.status': 'left' }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': 5, 'attendees.p1.level': 5.5 }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': 5, title: 'Mine' }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': 'soon' }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': -1 }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1.leaveAfter': 2.5 }));
+    await assertFails(updateDoc(live(vikram()), { 'attendees.p1': deleteField() }));
+    // Only in a live session they are part of, and only once linked.
+    await assertFails(updateDoc(doc(vikram(), 'sessions/done1'), { 'attendees.p1.leaveAfter': 4 }));
+    await assertFails(updateDoc(live(uppli()), { 'attendees.p3.leaveAfter': 4 }));
+    await assertFails(updateDoc(live(viewer()), { 'attendees.p1.leaveAfter': 4 }));
+    await assertFails(updateDoc(live(anon()), { 'attendees.p1.leaveAfter': 4 }));
+    await assertFails(updateDoc(live(impostor()), { 'attendees.p1.leaveAfter': 4 }));
+    // Admins still change anything.
+    await assertSucceeds(updateDoc(live(admin()), { 'attendees.p2.leaveAfter': 6, 'attendees.p2.status': 'resting' }));
   });
 });

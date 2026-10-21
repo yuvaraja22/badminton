@@ -50,7 +50,7 @@ export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessio
               </td>
               <td className="w-full max-w-0 px-2 py-2 text-left">
                 <Link to={pathOf(r.playerId)} className="flex min-w-0 items-center gap-2 font-semibold hover:underline">
-                  <Avatar name={nameOf(r.playerId)} photo={playersById.get(r.playerId)?.photo} size={26} className="hidden sm:inline-flex" />
+                  <Avatar name={nameOf(r.playerId)} photo={playersById.get(r.playerId)?.photo} size={24} />
                   <span className="truncate">{nameOf(r.playerId)}</span>
                 </Link>
               </td>

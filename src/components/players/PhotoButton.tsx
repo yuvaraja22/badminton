@@ -8,11 +8,11 @@ import { Avatar } from '../ui/Avatar';
 import { Dialog } from '../ui/Dialog';
 import { PhotoCropper } from './PhotoCropper';
 
-/** A player's photo. Admins can tap it to pick a new one, then zoom and position it. */
+/** A player's photo. Admins (and the player themselves, once linked) tap it to pick a new one. */
 export function PhotoButton({ player, size = 64 }: { player: Player; size?: number }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, playerId } = useAuth();
   const [src, setSrc] = useState<string | null>(null);
-  if (!isAdmin) return <Avatar name={player.name} photo={player.photo} size={size} />;
+  if (!isAdmin && playerId !== player.id) return <Avatar name={player.name} photo={player.photo} size={size} />;
 
   const close = () => {
     if (src) URL.revokeObjectURL(src);

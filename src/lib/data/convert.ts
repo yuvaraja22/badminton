@@ -1,5 +1,5 @@
 import type { DocumentData } from 'firebase/firestore';
-import type { AppConfig, Attendee, HistorySession, Match, Player, Session } from '../types';
+import type { AppConfig, Attendee, HistorySession, Match, PlannedSession, Player, Session } from '../types';
 import { DEFAULT_CONFIG } from '../types';
 import { sortedMatches } from '../engine/games';
 
@@ -12,6 +12,27 @@ export function toPlayer(id: string, d: DocumentData): Player {
     level: Number(d.level ?? 3),
     active: d.active !== false,
     photo: typeof d.photo === 'string' ? d.photo : null,
+    bio: typeof d.bio === 'string' ? d.bio : null,
+    hand: d.hand === 'left' || d.hand === 'right' ? d.hand : null,
+    position: d.position === 'front' || d.position === 'back' || d.position === 'both' ? d.position : null,
+    racket: typeof d.racket === 'string' ? d.racket : null,
+    createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
+  };
+}
+
+export function toPlanned(id: string, d: DocumentData): PlannedSession {
+  const rsvps: PlannedSession['rsvps'] = {};
+  for (const [pid, r] of Object.entries((d.rsvps ?? {}) as Record<string, DocumentData>)) {
+    if (r?.status === 'in' || r?.status === 'out') rsvps[pid] = { status: r.status, at: Number(r.at ?? 0) };
+  }
+  return {
+    id,
+    date: String(d.date ?? ''),
+    time: typeof d.time === 'string' && d.time ? d.time : null,
+    note: typeof d.note === 'string' && d.note ? d.note : null,
+    status: d.status === 'started' || d.status === 'cancelled' ? d.status : 'planned',
+    sessionId: typeof d.sessionId === 'string' ? d.sessionId : null,
+    rsvps,
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
   };
 }
@@ -66,11 +87,10 @@ export function toSession(id: string, d: DocumentData): Session {
   };
 }
 
-export function toConfig(d: DocumentData | undefined): AppConfig & { importedKeys: string[] } {
+export function toConfig(d: DocumentData | undefined): AppConfig {
   return {
     groupName: typeof d?.groupName === 'string' && d.groupName.trim() ? d.groupName : DEFAULT_CONFIG.groupName,
     pointsToWin: Number(d?.pointsToWin ?? DEFAULT_CONFIG.pointsToWin),
-    importedKeys: Array.isArray(d?.importedKeys) ? d.importedKeys : [],
   };
 }
 

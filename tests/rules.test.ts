@@ -16,6 +16,9 @@ beforeAll(async () => {
     await setDoc(doc(db, 'players/p1'), { name: 'Vikram', level: 5, active: true });
     await setDoc(doc(db, 'sessions/s1'), { title: 'Sunday Badminton Tournament', status: 'live', matches: {} });
     await setDoc(doc(db, 'meta/history'), { sessions: {} });
+    await setDoc(doc(db, 'players/p2'), { name: 'Anu', level: 4, active: true });
+    await setDoc(doc(db, 'links/vikram@example.com'), { playerId: 'p1' });
+    await setDoc(doc(db, 'events/e1'), { date: '2026-10-26', status: 'planned', rsvps: {} });
   });
 });
 
@@ -26,6 +29,8 @@ afterAll(async () => {
 const anon = () => env.unauthenticatedContext().firestore();
 const viewer = () => env.authenticatedContext('viewer', { email: 'viewer@example.com', email_verified: true }).firestore();
 const admin = () => env.authenticatedContext('admin', { email: 'admin@example.com', email_verified: true }).firestore();
+// Vikram's Google account, linked to players/p1 by an admin.
+const vikram = () => env.authenticatedContext('vikram', { email: 'vikram@example.com', email_verified: true }).firestore();
 // Someone who signed up with the admin's address but never verified it.
 const impostor = () => env.authenticatedContext('impostor', { email: 'admin@example.com', email_verified: false }).firestore();
 
@@ -64,6 +69,43 @@ describe('firestore.rules', () => {
     // Everyone may check their own entry (that's how the app knows who is an admin).
     await assertSucceeds(getDoc(doc(viewer(), 'admins/viewer@example.com')));
     await assertSucceeds(getDocs(collection(admin(), 'admins')));
+  });
+
+  it('lets a linked player edit their own profile fields', async () => {
+    await assertSucceeds(updateDoc(doc(vikram(), 'players/p1'), { bio: 'Smash first', hand: 'right', position: 'back', racket: 'Astrox 88D' }));
+    await assertSucceeds(updateDoc(doc(vikram(), 'players/p1'), { name: 'Vikram K', photo: 'data:image/jpeg;base64,abc' }));
+    await assertSucceeds(updateDoc(doc(vikram(), 'players/p1'), { bio: null, racket: null }));
+  });
+
+  it('keeps levels, other players and oversized values out of reach', async () => {
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { level: 5.5 }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { active: false }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p2'), { bio: 'not me' }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { bio: 'x'.repeat(161) }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { hand: 'both' }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { name: '   ' }));
+    await assertFails(updateDoc(doc(viewer(), 'players/p1'), { bio: 'hi' }));
+    await assertFails(setDoc(doc(vikram(), 'sessions/s2'), { title: 'Mine' }));
+  });
+
+  it('lets a linked player RSVP only for themselves', async () => {
+    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at: 1 } }));
+    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'out', at: 2 } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p2': { status: 'in', at: 3 } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'maybe', at: 4 } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { date: '2026-10-27' }));
+    await assertFails(updateDoc(doc(viewer(), 'events/e1'), { 'rsvps.p2': { status: 'in', at: 5 } }));
+    await assertSucceeds(updateDoc(doc(admin(), 'events/e1'), { note: 'Court 2' }));
+  });
+
+  it('keeps player links private and admin-managed', async () => {
+    await assertSucceeds(getDoc(doc(vikram(), 'links/vikram@example.com')));
+    await assertFails(getDoc(doc(viewer(), 'links/vikram@example.com')));
+    await assertFails(getDocs(collection(vikram(), 'links')));
+    await assertFails(setDoc(doc(vikram(), 'links/vikram@example.com'), { playerId: 'p2' }));
+    await assertSucceeds(setDoc(doc(admin(), 'links/anu@example.com'), { playerId: 'p2' }));
+    await assertFails(setDoc(doc(admin(), 'links/Anu@Example.com'), { playerId: 'p2' }));
+    await assertSucceeds(getDocs(collection(admin(), 'links')));
   });
 
   it('only admins can add admins, using lowercase emails', async () => {

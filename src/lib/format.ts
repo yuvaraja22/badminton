@@ -26,7 +26,7 @@ function parseISODate(date: string): Date {
   return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
 }
 
-export function weekdayName(date: string): string {
+function weekdayName(date: string): string {
   return parseISODate(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
 }
 
@@ -37,6 +37,19 @@ export function longDate(date: string): string {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** "Saturday, October 24" (adds the year when it isn't the current year). */
+export function dayDate(date: string): string {
+  const d = parseISODate(date);
+  const sameYear = d.getUTCFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
     timeZone: 'UTC',
   });
 }
@@ -55,14 +68,31 @@ export function shortDate(date: string): string {
 }
 
 export function todayISO(): string {
-  const d = new Date();
+  return toISO(new Date());
+}
+
+function toISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** The coming Saturday or Sunday (never today), a sensible default when planning a session. */
+export function nextWeekendISO(): string {
+  const d = new Date();
+  do d.setDate(d.getDate() + 1);
+  while (d.getDay() !== 6 && d.getDay() !== 0);
+  return toISO(d);
+}
+
+/** "19:00" → "7:00 PM" */
+export function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(2000, 0, 1, h || 0, m || 0).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
 export function isoDaysAgo(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return toISO(d);
 }
 
 export function defaultSessionTitle(date: string, groupName: string): string {
@@ -83,8 +113,4 @@ export function capitalize(s: string): string {
 export function listJoin(items: string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
-export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
 }

@@ -1,7 +1,7 @@
 import { toast } from './toast';
 
 /** WhatsApp "send to…" link (opens the app on phones, WhatsApp Web/desktop on computers). */
-export function whatsappUrl(text: string): string {
+function whatsappUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 

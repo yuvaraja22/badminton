@@ -17,9 +17,8 @@ import {
 import { db } from '../firebase';
 import { newId } from '../ids';
 import { toast } from '../toast';
-import type { AppConfig, Attendee, AttendeeStatus, Lineup, Match, Player, PlayerId, Session } from '../types';
+import type { AppConfig, Attendee, AttendeeStatus, Lineup, Match, OwnProfileFields, Player, PlayerId, RsvpStatus, Session } from '../types';
 import { sortedMatches } from '../engine/games';
-import type { PastSessionFixture } from '../engine/fixtures/pastSessions';
 import { sessionData, toHistory, toSession } from './convert';
 
 /**
@@ -58,10 +57,20 @@ function putHistory(batch: WriteBatch, session: Session) {
 
 // ---------------------------------------------------------------- players
 
-export function createPlayer(input: { name: string; level: number; photo?: string | null }): PlayerId {
+export function createPlayer(input: { name: string; level: number } & Partial<OwnProfileFields>): PlayerId {
   const ref = doc(playersCol);
   run(
-    setDoc(ref, { name: input.name.trim(), level: input.level, active: true, photo: input.photo ?? null, createdAt: Date.now() }),
+    setDoc(ref, {
+      name: input.name.trim(),
+      level: input.level,
+      active: true,
+      photo: input.photo ?? null,
+      bio: input.bio ?? null,
+      hand: input.hand ?? null,
+      position: input.position ?? null,
+      racket: input.racket ?? null,
+      createdAt: Date.now(),
+    }),
     'Adding player',
   );
   return ref.id;
@@ -69,6 +78,67 @@ export function createPlayer(input: { name: string; level: number; photo?: strin
 
 export function updatePlayer(id: PlayerId, patch: Partial<Omit<Player, 'id'>>) {
   run(updateDoc(doc(playersCol, id), patch), 'Saving player');
+}
+
+/** A linked player editing their own profile (the rules only allow these fields). */
+export function updateOwnProfile(id: PlayerId, patch: Partial<OwnProfileFields>) {
+  run(updateDoc(doc(playersCol, id), patch), 'Saving your profile');
+}
+
+// ---------------------------------------------------------------- player accounts
+
+const linksCol = collection(db, 'links');
+
+/** Admin view of which Google account is linked to which player: playerId → email. */
+export async function listPlayerLinks(): Promise<Record<PlayerId, string>> {
+  const snap = await getDocs(linksCol);
+  const out: Record<PlayerId, string> = {};
+  for (const d of snap.docs) {
+    const pid = d.data().playerId;
+    if (typeof pid === 'string') out[pid] = d.id;
+  }
+  return out;
+}
+
+/** Link (or unlink, with email = null) a player's profile to a Google account. */
+export async function setPlayerLink(playerId: PlayerId, email: string | null, previous: string | null) {
+  const batch = writeBatch(db);
+  if (previous) batch.delete(doc(linksCol, previous));
+  if (email) batch.set(doc(linksCol, email.trim().toLowerCase()), { playerId, addedAt: Date.now() });
+  await batch.commit();
+}
+
+// ---------------------------------------------------------------- planned sessions (RSVP)
+
+const eventsCol = collection(db, 'events');
+
+export function planSession(input: { date: string; time: string | null; note: string | null }): string {
+  const ref = doc(eventsCol);
+  run(
+    setDoc(ref, { ...input, status: 'planned', sessionId: null, rsvps: {}, createdAt: Date.now() }),
+    'Planning the session',
+  );
+  return ref.id;
+}
+
+export function updatePlannedSession(id: string, patch: { date: string; time: string | null; note: string | null }) {
+  run(updateDoc(doc(eventsCol, id), patch), 'Saving the session');
+}
+
+export function cancelPlannedSession(id: string) {
+  run(deleteDoc(doc(eventsCol, id)), 'Cancelling the session');
+}
+
+/** "I'm in" / "Can't make it" (null clears the answer). */
+export function setRsvp(eventId: string, playerId: PlayerId, status: RsvpStatus | null) {
+  run(
+    updateDoc(doc(eventsCol, eventId), { [`rsvps.${playerId}`]: status ? { status, at: Date.now() } : deleteField() }),
+    'Saving your answer',
+  );
+}
+
+export function markPlannedStarted(eventId: string, sessionId: string) {
+  run(updateDoc(doc(eventsCol, eventId), { status: 'started', sessionId }), 'Updating the planned session');
 }
 
 // ---------------------------------------------------------------- sessions
@@ -302,68 +372,4 @@ export async function rebuildHistory(): Promise<number> {
   const sessions = Object.fromEntries(snap.docs.map((d) => [d.id, toHistory(toSession(d.id, d.data()))]));
   await setDoc(historyRef, { sessions });
   return snap.size;
-}
-
-/** Import the sessions from the original PDF reports as completed sessions. */
-export async function importPastSessions(
-  items: { fixture: PastSessionFixture; date: string; title: string }[],
-  players: Player[],
-  importedKeys: string[],
-) {
-  const batch = writeBatch(db);
-  const byName = new Map(players.map((p) => [p.name.trim().toLowerCase(), p]));
-  const idFor = (name: string): PlayerId => {
-    const key = name.trim().toLowerCase();
-    const existing = byName.get(key);
-    if (existing) return existing.id;
-    const ref = doc(playersCol);
-    const player: Player = { id: ref.id, name: name.trim(), level: 3, active: true, photo: null };
-    batch.set(ref, { name: player.name, level: player.level, active: true, photo: null, createdAt: Date.now() });
-    byName.set(key, player);
-    return ref.id;
-  };
-  for (const { fixture, date, title } of items) {
-    const ref = doc(sessionsCol);
-    const ids = fixture.players.map(idFor);
-    const attendees: Record<PlayerId, Attendee> = {};
-    ids.forEach((id, i) => {
-      attendees[id] = { level: byName.get(fixture.players[i].toLowerCase())?.level ?? 3, status: 'available', since: 0, catchUp: [], order: i };
-    });
-    const matches: Record<string, Match> = {};
-    fixture.matches.forEach((m, i) => {
-      const id = newId();
-      matches[id] = {
-        id,
-        number: i + 1,
-        teamA: [idFor(m.t1[0]), idFor(m.t1[1])],
-        teamB: [idFor(m.t2[0]), idFor(m.t2[1])],
-        scoreA: m.s1,
-        scoreB: m.s2,
-        status: m.unfinished ? 'unfinished' : 'completed',
-        available: ids,
-        completedAt: null,
-      };
-    });
-    const now = Date.now();
-    const session: Session = {
-      id: ref.id,
-      date,
-      title,
-      status: 'completed',
-      pointsToWin: fixture.pointsToWin,
-      attendees,
-      matches,
-      nextPick: null,
-      shuffle: 0,
-      takeaways: fixture.takeaways,
-      playerIds: ids,
-      createdAt: now,
-      updatedAt: now,
-      completedAt: now,
-    };
-    batch.set(ref, sessionData(session));
-    putHistory(batch, session);
-  }
-  batch.set(configRef, { importedKeys: [...new Set([...importedKeys, ...items.map((i) => i.fixture.key)])] }, { merge: true });
-  await batch.commit();
 }

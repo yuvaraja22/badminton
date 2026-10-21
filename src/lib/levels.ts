@@ -2,10 +2,9 @@
  * Skill levels are stored as numbers (1–5.5 in half steps) so team balancing can add them up,
  * and shown as names: each tier has a Low and a High step (1 = Amateur Low … 5.5 = Professional High).
  */
-export const LEVEL_TIERS = ['Amateur', 'Beginner', 'Intermediate', 'Advanced', 'Professional'] as const;
+const LEVEL_TIERS = ['Amateur', 'Beginner', 'Intermediate', 'Advanced', 'Professional'] as const;
 export const MIN_LEVEL = 1;
 export const MAX_LEVEL = 5.5;
-export const DEFAULT_LEVEL = 3;
 
 export function clampLevel(level: number): number {
   return Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round(level * 2) / 2));

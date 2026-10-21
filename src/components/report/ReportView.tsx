@@ -69,7 +69,7 @@ function SummaryCard({ color, label, value, lines }: { color: string; label: str
   );
 }
 
-export function Takeaway({ text }: { text: string }) {
+function Takeaway({ text }: { text: string }) {
   const i = text.indexOf(': ');
   if (i > 0 && i < 48) {
     return (

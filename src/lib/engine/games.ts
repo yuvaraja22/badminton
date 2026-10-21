@@ -97,7 +97,3 @@ export function historyGames(sessionId: string, h: HistorySession): GameRecord[]
 export function sortedHistory(history: Record<string, HistorySession>): [string, HistorySession][] {
   return Object.entries(history).sort(([ia, a], [ib, b]) => a.date.localeCompare(b.date) || ia.localeCompare(ib));
 }
-
-export function allHistoryGames(history: Record<string, HistorySession>): GameRecord[] {
-  return sortedHistory(history).flatMap(([id, h]) => historyGames(id, h));
-}

@@ -17,6 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [adminFor, setAdminFor] = useState<{ email: string; isAdmin: boolean } | null>(null);
+  const [linkFor, setLinkFor] = useState<{ email: string; playerId: string | null } | null>(null);
 
   useEffect(
     () =>
@@ -39,11 +40,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [email]);
 
+  // Player = a links/{email} document points this Google account at a player profile.
+  useEffect(() => {
+    if (!email) return;
+    return onSnapshot(
+      doc(db, 'links', email),
+      (snap) => setLinkFor({ email, playerId: snap.exists() ? String(snap.data().playerId ?? '') || null : null }),
+      () => setLinkFor({ email, playerId: null }),
+    );
+  }, [email]);
+
   const value = useMemo<AuthValue>(() => {
     const adminKnown = !email || adminFor?.email === email;
     return {
       user,
       isAdmin: Boolean(email && adminFor?.email === email && adminFor.isAdmin),
+      playerId: email && linkFor?.email === email ? linkFor.playerId : null,
       loading: authLoading || !adminKnown,
       signIn: async (emulatorEmail?: string) => {
         if (usingEmulators && emulatorEmail) {
@@ -65,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: () => fbSignOut(auth),
     };
-  }, [user, email, adminFor, authLoading]);
+  }, [user, email, adminFor, linkFor, authLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

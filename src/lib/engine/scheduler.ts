@@ -54,7 +54,7 @@ export interface SchedulerInput {
 }
 
 /** Tuned with simulations of 5–9 player rosters (see scheduler.test.ts). */
-export const WEIGHTS = {
+const WEIGHTS = {
   /** Per match of waiting skipped: choosing someone who just played over someone who sat out. */
   wait: 20,
   /** Team level gap g costs levelGap·g + levelGapSq·g², so lopsided matches get expensive fast. */
@@ -124,7 +124,7 @@ function bump<K>(map: Map<K, number>, key: K, by = 1) {
   map.set(key, (map.get(key) ?? 0) + by);
 }
 
-export function matchupKey(a: Team, b: Team): string {
+function matchupKey(a: Team, b: Team): string {
   const x = pairKey(a[0], a[1]);
   const y = pairKey(b[0], b[1]);
   return x < y ? `${x}~${y}` : `${y}~${x}`;
@@ -317,7 +317,7 @@ function commonPlayed(state: State, avail: PlayerId[]): number | null {
   return counts.size === 1 ? [...counts][0] : null;
 }
 
-export function isValidLineup(lineup: Lineup, allowed: Iterable<PlayerId>): boolean {
+function isValidLineup(lineup: Lineup, allowed: Iterable<PlayerId>): boolean {
   const ids = [...lineup.teamA, ...lineup.teamB];
   const ok = new Set(allowed);
   return new Set(ids).size === 4 && ids.every((id) => ok.has(id));

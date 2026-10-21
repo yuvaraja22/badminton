@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
-import type { AppConfig, HistorySession, Player, PlayerId, Session } from '../types';
+import type { AppConfig, HistorySession, PlannedSession, Player, PlayerId, Session } from '../types';
 
 export interface DataValue {
   players: Player[];
@@ -10,11 +10,12 @@ export interface DataValue {
   pathOf: (id: PlayerId) => string;
   /** Compact copies of all completed sessions (meta/history). */
   history: Record<string, HistorySession>;
-  config: AppConfig & { importedKeys: string[] };
+  config: AppConfig;
   liveSessions: Session[];
+  /** Upcoming sessions people can RSVP to, soonest first. */
+  planned: PlannedSession[];
   /** Players and history have loaded at least once (from cache or server). */
   ready: boolean;
-  error: string | null;
 }
 
 export const DataContext = createContext<DataValue | null>(null);
@@ -28,6 +29,8 @@ export function useData(): DataValue {
 export interface AuthValue {
   user: User | null;
   isAdmin: boolean;
+  /** The player profile linked to this Google account (null if none). */
+  playerId: string | null;
   loading: boolean;
   /** Google sign-in. With the local emulators, pass a test email instead. */
   signIn: (emulatorEmail?: string) => Promise<void>;

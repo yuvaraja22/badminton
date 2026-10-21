@@ -23,7 +23,7 @@ export interface SessionSummary {
   mvpId: PlayerId | null;
 }
 
-export function summarizeSession(id: string, h: HistorySession, nameOf: NameOf): SessionSummary {
+function summarizeSession(id: string, h: HistorySession, nameOf: NameOf): SessionSummary {
   const games = historyGames(id, h);
   const standings = computeStandings(games, nameOf);
   const top = standings[0];

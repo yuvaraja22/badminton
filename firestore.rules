@@ -1,6 +1,8 @@
 rules_version = '2';
 
-// Anyone with the link can read; only admins listed in /admins/{email} can write.
+// Anyone with the link can read. Admins (listed in /admins/{email}) can change everything.
+// A player linked to a profile (/links/{email} → playerId) can edit a few fields of their own
+// profile and their own RSVP for planned sessions, nothing else.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -8,20 +10,63 @@ service cloud.firestore {
       return request.auth.token.get('email', '').lower();
     }
 
+    function verified() {
+      return request.auth != null && request.auth.token.get('email_verified', false) == true;
+    }
+
     function isAdmin() {
-      return request.auth != null
-        && request.auth.token.get('email_verified', false) == true
-        && exists(/databases/$(database)/documents/admins/$(signedInEmail()));
+      return verified() && exists(/databases/$(database)/documents/admins/$(signedInEmail()));
+    }
+
+    function hasLink() {
+      return verified() && exists(/databases/$(database)/documents/links/$(signedInEmail()));
+    }
+
+    function linkedPlayerId() {
+      return get(/databases/$(database)/documents/links/$(signedInEmail())).data.playerId;
+    }
+
+    function optionalString(d, field, max) {
+      return !(field in d) || d[field] == null || (d[field] is string && d[field].size() <= max);
+    }
+
+    // Own-profile edits: only these fields, with sensible limits.
+    function validOwnProfileUpdate() {
+      let d = request.resource.data;
+      return d.diff(resource.data).affectedKeys().hasOnly(['name', 'photo', 'bio', 'hand', 'position', 'racket'])
+        && d.name is string && d.name.trim().size() > 0 && d.name.size() <= 30
+        && optionalString(d, 'photo', 100000)
+        && optionalString(d, 'bio', 160)
+        && optionalString(d, 'racket', 40)
+        && (!('hand' in d) || d.hand == null || d.hand in ['left', 'right'])
+        && (!('position' in d) || d.position == null || d.position in ['front', 'back', 'both']);
+    }
+
+    // RSVP edits: only the signed-in player's own entry, set to "in" or "out" (or removed).
+    function validOwnRsvpUpdate() {
+      let me = linkedPlayerId();
+      let after = request.resource.data.rsvps;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps'])
+        && after.diff(resource.data.rsvps).affectedKeys().hasOnly([me])
+        && (!(me in after) || after[me].status in ['in', 'out']);
     }
 
     match /players/{playerId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (hasLink() && linkedPlayerId() == playerId && validOwnProfileUpdate());
     }
 
     match /sessions/{sessionId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Planned sessions people RSVP to.
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (hasLink() && validOwnRsvpUpdate());
     }
 
     match /meta/{docId} {
@@ -34,6 +79,15 @@ service cloud.firestore {
       allow get: if request.auth != null && signedInEmail() == email;
       allow read: if isAdmin();
       allow write: if isAdmin() && email == email.lower();
+    }
+
+    // Which Google account belongs to which player. Private: admins, and each person for
+    // their own entry (that's how the app knows whose profile is "yours").
+    match /links/{email} {
+      allow get: if request.auth != null && signedInEmail() == email;
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && email == email.lower() && request.resource.data.playerId is string;
+      allow delete: if isAdmin();
     }
   }
 }

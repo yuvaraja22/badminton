@@ -10,7 +10,7 @@ try {
     body: JSON.stringify({ fields: { addedAt: { integerValue: String(Date.now()) } } }),
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  console.log(`${email} is now an admin in the emulator. Sign in with that email from the app's "Admin" button.`);
+  console.log(`${email} is now an admin in the emulator. Sign in with that email from the app's "Sign in" button.`);
 } catch (e) {
   console.error(`Couldn't reach the Firestore emulator. Is "npm run emulators" running?\n${e.message}`);
   process.exit(1);

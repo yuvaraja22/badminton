@@ -12,20 +12,12 @@ import { shareLink } from '../lib/share';
 import { findPlayer } from '../lib/slug';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { PhotoButton } from '../components/players/PhotoButton';
+import { ProfileDetails } from '../components/players/ProfileDetails';
 import { WinRateChart } from '../components/stats/WinRateChart';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-xl bg-surface-2 px-3 py-2.5">
-      <div className="text-xs font-medium text-muted">{label}</div>
-      <div className="mt-0.5 text-xl font-bold">{value}</div>
-      {sub && <div className="text-xs text-muted">{sub}</div>}
-    </div>
-  );
-}
+import { Stat } from '../components/ui/Stat';
 
 function RelationTable({ rows, title, subtitle }: { rows: RelationLine[]; title: string; subtitle: string }) {
   const { nameOf, pathOf } = useData();
@@ -56,7 +48,7 @@ export default function PlayerPage() {
   // The URL ends with the player's name (/players/vikram); older links with the id still work.
   const { id: param = '' } = useParams();
   const { players, history, nameOf, pathOf, ready } = useData();
-  const { isAdmin } = useAuth();
+  const { isAdmin, playerId: myPlayerId } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [editing, setEditing] = useState(false);
@@ -81,6 +73,7 @@ export default function PlayerPage() {
   }
 
   const { line, sessions } = profile;
+  const isMe = myPlayerId === player.id;
   const chartData = [...sessions].reverse().map((s) => ({
     label: shortDate(s.date),
     title: s.title,
@@ -97,11 +90,13 @@ export default function PlayerPage() {
         <ChevronLeft size={16} /> Players
       </Link>
 
-      <Card className="flex items-center gap-4 p-4">
+      <Card className="space-y-3 p-4">
+      <div className="flex items-center gap-4">
         <PhotoButton player={player} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl font-bold">{player.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+            {isMe && <Badge tone="good">You</Badge>}
             <Badge tone="info">{levelName(player.level)}</Badge>
             {!player.active && <Badge>Archived</Badge>}
             {profile.firstDate && <span>Playing since {longDate(profile.firstDate)}</span>}
@@ -123,12 +118,14 @@ export default function PlayerPage() {
           >
             <Share2 size={14} /> Share
           </Button>
-          {isAdmin && (
+          {(isAdmin || isMe) && (
             <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
               <Pencil size={14} /> Edit
             </Button>
           )}
         </div>
+      </div>
+      <ProfileDetails player={player} />
       </Card>
 
       {!line ? (
@@ -253,7 +250,7 @@ export default function PlayerPage() {
           </Card>
         </>
       )}
-      <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} />
+      <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} mode={isAdmin ? 'admin' : 'self'} />
     </div>
   );
 }

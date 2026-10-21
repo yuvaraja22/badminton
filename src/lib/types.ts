@@ -1,14 +1,43 @@
 export type PlayerId = string;
 export type Team = [PlayerId, PlayerId];
 
+export type Hand = 'left' | 'right';
+export type CourtPosition = 'front' | 'back' | 'both';
+
 export interface Player {
   id: PlayerId;
   name: string;
-  /** Skill level 1–5 in 0.5 steps; used as the default for new sessions. */
+  /** Skill level 1–5.5 in 0.5 steps (Amateur Low … Professional High); default for new sessions. */
   level: number;
   active: boolean;
   /** Small inline JPEG data URL (no Firebase Storage needed). */
   photo?: string | null;
+  /** Set by the player (once linked) or an admin. */
+  bio?: string | null;
+  hand?: Hand | null;
+  position?: CourtPosition | null;
+  racket?: string | null;
+  createdAt?: number;
+}
+
+/** Fields a linked player may change on their own profile (also enforced by firestore.rules). */
+export type OwnProfileFields = Pick<Player, 'name' | 'photo' | 'bio' | 'hand' | 'position' | 'racket'>;
+
+export const PROFILE_LIMITS = { name: 30, bio: 160, racket: 40 } as const;
+
+export type RsvpStatus = 'in' | 'out';
+
+/** A session the admins have scheduled; players RSVP before it starts. */
+export interface PlannedSession {
+  id: string;
+  /** YYYY-MM-DD */
+  date: string;
+  /** HH:MM (24h) or null */
+  time: string | null;
+  note: string | null;
+  status: 'planned' | 'started' | 'cancelled';
+  sessionId: string | null;
+  rsvps: Record<PlayerId, { status: RsvpStatus; at: number }>;
   createdAt?: number;
 }
 

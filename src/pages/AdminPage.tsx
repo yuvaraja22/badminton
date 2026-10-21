@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Database, Download, FileUp, LogOut, RefreshCw, Settings, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { Link } from 'react-router';
+import { Database, Download, LogOut, RefreshCw, Settings, ShieldCheck, Trash2, UserCheck, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
-import { addAdmin, importPastSessions, listAdmins, rebuildHistory, removeAdmin, saveConfig } from '../lib/data/mutations';
-import { PAST_SESSIONS } from '../lib/engine/fixtures/pastSessions';
+import { addAdmin, listAdmins, listPlayerLinks, rebuildHistory, removeAdmin, saveConfig, setPlayerLink } from '../lib/data/mutations';
 import { defaultSessionTitle } from '../lib/format';
 import { toast } from '../lib/toast';
 import { AdminOnly } from '../components/AdminOnly';
 import { Button } from '../components/ui/Button';
-import { Card, CardHeader, Notice, PageTitle, Spinner } from '../components/ui/Card';
+import { Card, CardHeader, PageTitle, Spinner } from '../components/ui/Card';
 import { Field, Input, Select } from '../components/ui/Field';
 
 function SettingsCard() {
@@ -39,6 +39,67 @@ function SettingsCard() {
         >
           Save settings
         </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** Which Google account is linked to which player (set from each player's Edit dialog). */
+function PlayerAccountsCard() {
+  const { nameOf, pathOf } = useData();
+  const [links, setLinks] = useState<Record<string, string> | null>(null);
+  const [version, setVersion] = useState(0);
+  const refresh = () => setVersion((v) => v + 1);
+
+  useEffect(() => {
+    let alive = true;
+    listPlayerLinks()
+      .then((map) => alive && setLinks(map))
+      .catch((e) => toast(`Couldn't load player accounts: ${(e as Error).message}`, 'error'));
+    return () => {
+      alive = false;
+    };
+  }, [version]);
+
+  const rows = links ? Object.entries(links).sort((a, b) => nameOf(a[0]).localeCompare(nameOf(b[0]))) : null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Player accounts"
+        subtitle="Linked players can sign in with Google to edit their profile, RSVP and see their Me tab. To link someone, open their profile → Edit → Linked Google account."
+        action={<UserCheck size={18} className="text-muted" />}
+      />
+      <div className="p-4">
+        {rows === null ? (
+          <Spinner label="Loading…" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted">No players are linked yet.</p>
+        ) : (
+          <ul className="divide-y divide-line rounded-xl border border-line text-sm">
+            {rows.map(([playerId, email]) => (
+              <li key={email} className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0">
+                  <Link to={pathOf(playerId)} className="block truncate font-semibold hover:underline">
+                    {nameOf(playerId)}
+                  </Link>
+                  <span className="block truncate text-xs text-muted">{email}</span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Unlink ${email}`}
+                  onClick={async () => {
+                    await setPlayerLink(playerId, null, email).catch((e) => toast((e as Error).message, 'error'));
+                    refresh();
+                  }}
+                >
+                  Unlink
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </Card>
   );
@@ -113,76 +174,6 @@ function AdminsCard() {
   );
 }
 
-function ImportCard() {
-  const { players, config } = useData();
-  const [dates, setDates] = useState<Record<string, string>>(() => Object.fromEntries(PAST_SESSIONS.map((f) => [f.key, f.knownDate ?? ''])));
-  const [picked, setPicked] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(PAST_SESSIONS.map((f) => [f.key, !config.importedKeys.includes(f.key)])),
-  );
-  const [busy, setBusy] = useState(false);
-  const chosen = PAST_SESSIONS.filter((f) => picked[f.key] && !config.importedKeys.includes(f.key));
-  const missingDate = chosen.some((f) => !dates[f.key]);
-
-  const run = async () => {
-    setBusy(true);
-    try {
-      await importPastSessions(
-        chosen.map((f) => ({ fixture: f, date: dates[f.key], title: defaultSessionTitle(dates[f.key], config.groupName) })),
-        players,
-        config.importedKeys,
-      );
-      toast(`Imported ${chosen.length} session${chosen.length === 1 ? '' : 's'}`, 'success');
-    } catch (e) {
-      toast(`Import failed: ${(e as Error).message}`, 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader title="Import past reports" subtitle="The four PDF reports, match by match. Missing players are created at level 3 (adjust them afterwards)." action={<FileUp size={18} className="text-muted" />} />
-      <div className="space-y-3 p-4">
-        {PAST_SESSIONS.map((f) => {
-          const done = config.importedKeys.includes(f.key);
-          return (
-            <div key={f.key} className="rounded-xl border border-line p-3">
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 size-4"
-                  disabled={done}
-                  checked={done || !!picked[f.key]}
-                  onChange={(e) => setPicked((p) => ({ ...p, [f.key]: e.target.checked }))}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{f.file}</span>
-                  <span className="block text-xs text-muted">
-                    {f.matches.length} matches · {f.players.join(', ')}
-                  </span>
-                </span>
-                {done && <span className="text-xs font-semibold text-good">Imported</span>}
-              </label>
-              {!done && picked[f.key] && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 pl-7">
-                  <Input type="date" value={dates[f.key]} onChange={(e) => setDates((d) => ({ ...d, [f.key]: e.target.value }))} className="w-44" aria-label={`Date for ${f.file}`} />
-                  <span className="text-xs text-muted">
-                    {dates[f.key] ? defaultSessionTitle(dates[f.key], config.groupName) : `Which ${f.weekdayHint} was this?`}
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {missingDate && <Notice tone="warn">Pick a date for each selected report.</Notice>}
-        <Button disabled={!chosen.length || missingDate || busy} onClick={run}>
-          {busy ? 'Importing…' : `Import ${chosen.length || ''} selected`}
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
 function DataCard() {
   const { history, players } = useData();
   const [busy, setBusy] = useState(false);
@@ -250,8 +241,8 @@ export default function AdminPage() {
           </Button>
         }
       />
-      <ImportCard />
       <SettingsCard />
+      <PlayerAccountsCard />
       <AdminsCard />
       <DataCard />
     </div>

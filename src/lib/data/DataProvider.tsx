@@ -2,23 +2,23 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { playerPath } from '../slug';
-import type { HistorySession, Player, Session } from '../types';
+import type { HistorySession, PlannedSession, Player, Session } from '../types';
 import { DataContext, type DataValue } from './context';
-import { toConfig, toHistoryMap, toPlayer, toSession } from './convert';
+import { toConfig, toHistoryMap, toPlanned, toPlayer, toSession } from './convert';
 
 /**
- * Live listeners shared by every page. A visit costs roughly one read per player plus three:
- * the history cache, the settings and any live session.
+ * Live listeners shared by every page. A visit costs roughly one read per player plus a few more:
+ * the history cache, the settings, any live session and the next planned session.
  */
 export function DataProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [history, setHistory] = useState<Record<string, HistorySession> | null>(null);
   const [config, setConfig] = useState(toConfig(undefined));
   const [liveSessions, setLiveSessions] = useState<Session[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [planned, setPlanned] = useState<PlannedSession[]>([]);
 
   useEffect(() => {
-    const onError = (e: Error) => setError(e.message);
+    const onError = (e: Error) => console.error('Firestore listener failed:', e);
     const unsubs = [
       onSnapshot(
         collection(db, 'players'),
@@ -30,6 +30,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(
         query(collection(db, 'sessions'), where('status', '==', 'live')),
         (snap) => setLiveSessions(snap.docs.map((d) => toSession(d.id, d.data())).sort((a, b) => b.date.localeCompare(a.date))),
+        onError,
+      ),
+      onSnapshot(
+        query(collection(db, 'events'), where('status', '==', 'planned')),
+        (snap) =>
+          setPlanned(
+            snap.docs
+              .map((d) => toPlanned(d.id, d.data()))
+              .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? '')),
+          ),
         onError,
       ),
     ];
@@ -48,10 +58,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       history: history ?? {},
       config,
       liveSessions,
+      planned,
       ready: players !== null && history !== null,
-      error,
     };
-  }, [players, history, config, liveSessions, error]);
+  }, [players, history, config, liveSessions, planned]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

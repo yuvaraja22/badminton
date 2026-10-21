@@ -15,6 +15,7 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const PlayersPage = lazy(() => import('./pages/PlayersPage'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
+const MePage = lazy(() => import('./pages/MePage'));
 
 function RouteError() {
   const error = useRouteError() as Error | undefined;
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
       { path: 'leaderboard', element: <LeaderboardPage /> },
       { path: 'players', element: <PlayersPage /> },
       { path: 'players/:id', element: <PlayerPage /> },
+      { path: 'me', element: <MePage /> },
       { path: 'admin', element: <AdminPage /> },
       { path: '*', element: <NotFound /> },
     ],

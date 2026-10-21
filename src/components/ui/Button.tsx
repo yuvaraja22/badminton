@@ -40,16 +40,3 @@ export function Button({ variant = 'primary', size = 'md', block, className, typ
     />
   );
 }
-
-export function IconButton({ className, type = 'button', ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type={type}
-      className={cn(
-        'inline-flex size-9 items-center justify-center rounded-full text-muted transition hover:bg-surface-2 hover:text-ink disabled:opacity-40',
-        className,
-      )}
-      {...rest}
-    />
-  );
-}

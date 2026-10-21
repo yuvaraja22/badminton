@@ -1,8 +1,8 @@
 import clsx from 'clsx';
 import { Suspense, useState } from 'react';
-import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router';
-import { CalendarDays, Home, LogIn, LogOut, Monitor, Moon, ShieldCheck, Sun, Trophy, Users } from 'lucide-react';
-import { useAuth } from '../../lib/data/context';
+import { Link, NavLink, Outlet, ScrollRestoration, useNavigate } from 'react-router';
+import { CalendarDays, Home, LogIn, LogOut, Monitor, Moon, ShieldCheck, Sun, Trophy, UserRound, Users } from 'lucide-react';
+import { useAuth, useData } from '../../lib/data/context';
 import { usingEmulators } from '../../lib/firebase';
 import { useThemePref } from '../../lib/theme';
 import { Logo } from '../Logo';
@@ -36,7 +36,9 @@ function EmulatorSignIn({ open, onClose }: { open: boolean; onClose: () => void 
 }
 
 function AccountButton() {
-  const { user, isAdmin, signIn, signOut, loading } = useAuth();
+  const { user, isAdmin, playerId, signIn, signOut, loading } = useAuth();
+  const { nameOf } = useData();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [emulatorOpen, setEmulatorOpen] = useState(false);
   if (loading && !user) return null;
@@ -52,9 +54,9 @@ function AccountButton() {
             await signIn();
             setBusy(false);
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted hover:bg-surface-2 hover:text-ink"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium whitespace-nowrap text-muted hover:bg-surface-2 hover:text-ink"
         >
-          <LogIn size={16} /> Admin
+          <LogIn size={16} /> Sign in
         </button>
         {usingEmulators && <EmulatorSignIn open={emulatorOpen} onClose={() => setEmulatorOpen(false)} />}
       </>
@@ -71,10 +73,11 @@ function AccountButton() {
       }
       items={[
         {
-          label: isAdmin ? `${user.email} · admin` : `${user.email} · viewer`,
+          label: `${user.email}${isAdmin ? ' · admin' : playerId ? '' : ' · viewer'}`,
           icon: <ShieldCheck size={16} className={isAdmin ? 'text-good' : 'text-muted'} />,
           onClick: () => undefined,
         },
+        ...(playerId ? [{ label: `My stats (${nameOf(playerId)})`, icon: <UserRound size={16} />, onClick: () => navigate('/me') }] : []),
         { label: 'Sign out', icon: <LogOut size={16} />, onClick: () => void signOut() },
       ]}
     />
@@ -106,8 +109,12 @@ const NAV = [
 ];
 
 export function AppShell() {
-  const { isAdmin } = useAuth();
-  const items = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck }] : NAV;
+  const { isAdmin, playerId } = useAuth();
+  const items = [
+    ...NAV,
+    ...(playerId ? [{ to: '/me', label: 'Me', icon: UserRound }] : []),
+    ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
+  ];
   return (
     <div className="min-h-dvh bg-bg">
       <header className="sticky top-0 z-40 border-b border-line bg-header pt-[env(safe-area-inset-top)] text-header-ink">
@@ -116,7 +123,7 @@ export function AppShell() {
             <Logo className="size-8 shrink-0" />
             <span className="truncate">Badminton Stats</span>
           </Link>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {usingEmulators && <span className="mr-1 rounded bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Emulator</span>}
             <ThemeMenu />
             <AccountButton />

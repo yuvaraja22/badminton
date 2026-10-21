@@ -12,7 +12,11 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
 - **Session report.** Same layout as the old PDF reports: MVP, best partnership, tightest contest, standings,
   partnerships, auto-written (editable) takeaways and the match log. Share it as a **PDF** straight to WhatsApp or as a link.
 - **Player profiles**, an all-time **leaderboard**, partnerships, head-to-head and past sessions.
-- **Roles.** Anyone with the link can view. Only **admins** (Google sign-in) can change anything.
+- **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
+- **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
+  player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.
+- **Next session.** Admins plan the next date; players tap **I'm in** or **Can't make it**, and starting the session
+  pre-ticks everyone who said they're in.
 - **Phone-first.** Installable as an app, and keeps working without signal at the court (changes sync later).
   Light and dark themes (Claude-style warm dark), following the phone or picked from the header.
 - **Home and leaderboard** show the last 30 days, with all-time one tap away. Admins tap a player's photo to change it.
@@ -39,7 +43,7 @@ npm run emulator:admin
 npm run dev
 ```
 
-Open http://localhost:5173, tap **Admin** (top right) and sign in as `admin@example.com`.
+Open http://localhost:5173, tap **Sign in** (top right) and sign in as `admin@example.com`.
 Emulator data is temporary and resets when the emulators stop.
 
 ## Put it online
@@ -79,8 +83,8 @@ Emulator data is temporary and resets when the emulators stop.
 
 ### 3. First run
 
-Open the site, tap **Admin** and sign in with Google. Then go to **Admin → Import past reports**, pick the date of each old
-report, and import. Their 46 matches then count in everyone's all-time stats.
+Open the site, tap **Sign in** (top right) and use the Google account you made admin. To give a player their own login,
+open their profile → **Edit** → **Linked Google account** and enter their Gmail address.
 
 ## How "Next match" decides
 
@@ -99,7 +103,7 @@ Tuning and guarantees are covered by `src/lib/engine/scheduler.test.ts`.
 
 ## Free-tier budget
 
-- **Reads.** A visit reads the player list plus about three documents. All-time stats come from one compact summary
+- **Reads.** A visit reads the player list plus a few documents. All-time stats come from one compact summary
   document (`meta/history`) instead of one read per session, so the free 50,000 reads a day covers thousands of visits.
 - **Writes.** A session is roughly 50–100 writes, against 20,000 a day.
 - **Storage.** The summary document holds roughly 500 sessions before reaching Firestore's 1 MB per-document limit.
@@ -124,8 +128,8 @@ Tuning and guarantees are covered by `src/lib/engine/scheduler.test.ts`.
 src/lib/engine/      Pure logic: stats, report, takeaways, scheduler (+ tests, fixtures from the PDFs)
 src/lib/data/        Firebase listeners (DataProvider, AuthProvider, useSession) and all writes (mutations.ts)
 src/components/      UI: session (court, matches, report tabs), report (web + PDF), stats, ui primitives
-src/pages/           Home, Sessions, New session, Session, Leaderboard, Players, Player, Admin
-firestore.rules      Public read, admin-only write
+src/pages/           Home, Sessions, New session, Session, Leaderboard, Players, Player, Me, Admin
+firestore.rules      Public read; admins write everything, linked players only their own profile and RSVP
 ```
 
 ## Notes on the original reports

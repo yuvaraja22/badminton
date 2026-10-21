@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, FileText, Plus, Trophy, Upload, UserPlus } from 'lucide-react';
+import { ChevronRight, FileText, Plus, Trophy, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { useQueuePlan } from '../lib/data/usePlan';
 import { allTimeStats, summarizeHistory } from '../lib/engine/alltime';
@@ -8,6 +8,7 @@ import { sortedMatches } from '../lib/engine/games';
 import { isoDaysAgo, matchCode, shortDate } from '../lib/format';
 import type { Session } from '../lib/types';
 import { InstallCard } from '../components/InstallCard';
+import { NextSessionCard } from '../components/session/NextSessionCard';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -83,6 +84,8 @@ export default function HomePage() {
         </Card>
       )}
 
+      <NextSessionCard />
+
       <InstallCard />
 
       {latest && (
@@ -133,23 +136,15 @@ export default function HomePage() {
 
       {!liveSessions.length && !latest && (
         <Empty icon={<Trophy size={28} />} title="No sessions yet">
-          {isAdmin ? (
-            <div className="mt-2 flex flex-wrap justify-center gap-2">
-              {!players.length && (
-                <Link to="/players">
-                  <Button variant="secondary" size="sm">
-                    <UserPlus size={15} /> Add players
-                  </Button>
-                </Link>
-              )}
-              <Link to="/admin">
+          Results will appear here after the first session.
+          {isAdmin && !players.length && (
+            <div className="mt-3 flex justify-center">
+              <Link to="/players">
                 <Button variant="secondary" size="sm">
-                  <Upload size={15} /> Import past reports
+                  <UserPlus size={15} /> Add players
                 </Button>
               </Link>
             </div>
-          ) : (
-            'Results will appear here after the first session.'
           )}
         </Empty>
       )}

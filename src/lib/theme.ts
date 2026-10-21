@@ -7,7 +7,7 @@ const KEY = 'theme';
 // Browser/status-bar color per theme (matches the header).
 const BAR = { light: '#faf9f5', dark: '#1f1e1d' };
 
-export function readThemePref(): ThemePref {
+function readThemePref(): ThemePref {
   try {
     const v = localStorage.getItem(KEY);
     return v === 'light' || v === 'dark' ? v : 'system';
@@ -20,7 +20,7 @@ function systemPrefersDark(): boolean {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }
 
-export function applyThemePref(pref: ThemePref) {
+function applyThemePref(pref: ThemePref) {
   const root = document.documentElement;
   if (pref === 'system') delete root.dataset.theme;
   else root.dataset.theme = pref;

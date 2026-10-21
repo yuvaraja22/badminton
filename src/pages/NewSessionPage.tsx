@@ -1,12 +1,12 @@
 import clsx from 'clsx';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Check, Info, Play, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
-import { createPlayer, createSession, updatePlayer } from '../lib/data/mutations';
+import { createPlayer, createSession, markPlannedStarted, updatePlayer } from '../lib/data/mutations';
 import { defaultSessionTitle, todayISO } from '../lib/format';
 import { levelName } from '../lib/levels';
-import type { PlayerId } from '../lib/types';
+import type { PlannedSession, PlayerId } from '../lib/types';
 import { AdminOnly } from '../components/AdminOnly';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
@@ -16,20 +16,36 @@ import { Field, Input, LevelStepper, Select } from '../components/ui/Field';
 const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
 export default function NewSessionPage() {
-  const { players, config, ready, liveSessions } = useData();
+  const { planned, ready } = useData();
   const { isAdmin } = useAuth();
+  const [params] = useSearchParams();
+  if (!ready) return <Spinner />;
+  if (!isAdmin) return <AdminOnly what="start a session" />;
+  // Started from a planned session: pre-fill its date and the players who said they're in.
+  const eventId = params.get('event');
+  const event = (eventId && planned.find((p) => p.id === eventId)) || null;
+  return <NewSessionForm key={event?.id ?? 'new'} event={event} />;
+}
+
+function NewSessionForm({ event }: { event: PlannedSession | null }) {
+  const { players, config, liveSessions } = useData();
   const navigate = useNavigate();
-  const [date, setDate] = useState(todayISO());
+  const rsvpIn = event
+    ? Object.entries(event.rsvps)
+        .filter(([id, r]) => r.status === 'in' && players.some((p) => p.id === id && p.active))
+        .sort((a, b) => a[1].at - b[1].at)
+        .map(([id]) => id)
+    : [];
+  const [date, setDate] = useState(event && event.date >= todayISO() ? event.date : todayISO());
   const [title, setTitle] = useState<string | null>(null);
   const [points, setPoints] = useState<number | null>(null);
-  const [order, setOrder] = useState<PlayerId[]>([]);
-  const [levels, setLevels] = useState<Record<PlayerId, number>>({});
+  const [order, setOrder] = useState<PlayerId[]>(rsvpIn);
+  const [levels, setLevels] = useState<Record<PlayerId, number>>(() =>
+    Object.fromEntries(rsvpIn.map((id) => [id, players.find((p) => p.id === id)?.level ?? 3])),
+  );
   const [newName, setNewName] = useState('');
   const [newLevel, setNewLevel] = useState(3);
   const [error, setError] = useState<string | null>(null);
-
-  if (!ready) return <Spinner />;
-  if (!isAdmin) return <AdminOnly what="start a session" />;
 
   const effectiveTitle = title ?? defaultSessionTitle(date, config.groupName);
   const pointsToWin = points ?? config.pointsToWin;
@@ -71,6 +87,7 @@ export default function NewSessionPage() {
       pointsToWin,
       players: order.map((pid) => ({ id: pid, level: levels[pid] ?? 3 })),
     });
+    if (event) markPlannedStarted(event.id, id);
     navigate(`/sessions/${id}`);
   };
 
@@ -79,6 +96,11 @@ export default function NewSessionPage() {
   return (
     <div className="space-y-4 pb-24">
       <PageTitle title="New session" subtitle="Tick who's here and check their levels. You can add late arrivals later." />
+      {event && (
+        <Notice tone="good">
+          From the planned session: {rsvpIn.length} {rsvpIn.length === 1 ? 'player said' : 'players said'} they're in and {rsvpIn.length === 1 ? 'is' : 'are'} ticked below. Add or untick anyone who turned up differently.
+        </Notice>
+      )}
       {liveSessions.length > 0 && <Notice tone="warn">“{liveSessions[0].title}” is still live. You can run two sessions, but you may want to end that one first.</Notice>}
 
       <Card className="space-y-4 p-4">

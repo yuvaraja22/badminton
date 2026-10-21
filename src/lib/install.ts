@@ -35,7 +35,7 @@ window.addEventListener('appinstalled', () => {
 
 export type InstallPlatform = 'ios' | 'android' | 'mac-safari' | 'desktop';
 
-export function installPlatform(): InstallPlatform {
+function installPlatform(): InstallPlatform {
   const ua = navigator.userAgent;
   // iPadOS reports itself as a Mac, so also check for touch.
   if (/iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
@@ -45,7 +45,7 @@ export function installPlatform(): InstallPlatform {
 }
 
 /** Already running as an installed app (home-screen icon, dock or app window). */
-export function runningInstalled(): boolean {
+function runningInstalled(): boolean {
   return window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 }
 

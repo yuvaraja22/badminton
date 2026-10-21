@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { playerPath } from '../slug';
 import type { HistorySession, Player, Session } from '../types';
 import { DataContext, type DataValue } from './context';
 import { toConfig, toHistoryMap, toPlayer, toSession } from './convert';
@@ -38,10 +39,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<DataValue>(() => {
     const list = [...(players ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     const byId = new Map(list.map((p) => [p.id, p]));
+    const paths = new Map(list.map((p) => [p.id, playerPath(list, p.id)]));
     return {
       players: list,
       playersById: byId,
       nameOf: (id) => byId.get(id)?.name ?? 'Unknown',
+      pathOf: (id) => paths.get(id) ?? `/players/${id}`,
       history: history ?? {},
       config,
       liveSessions,

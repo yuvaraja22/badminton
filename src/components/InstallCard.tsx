@@ -112,6 +112,18 @@ export function InstallCard() {
       </Button>
       <Dialog open={help} onClose={() => setHelp(false)} title={phone ? 'Add to your home screen' : 'Install on this computer'}>
         <div className="space-y-4">
+          {/* The browser can become ready while these steps are open; then install in one tap. */}
+          {canPrompt && (
+            <Button
+              block
+              onClick={() => {
+                setHelp(false);
+                void install();
+              }}
+            >
+              <Download size={16} /> Install now
+            </Button>
+          )}
           <Steps platform={platform} />
           {phone && (
             <Notice>

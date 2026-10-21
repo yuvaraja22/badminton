@@ -6,6 +6,8 @@ export interface DataValue {
   players: Player[];
   playersById: Map<PlayerId, Player>;
   nameOf: (id: PlayerId) => string;
+  /** Profile URL, e.g. /players/vikram */
+  pathOf: (id: PlayerId) => string;
   /** Compact copies of all completed sessions (meta/history). */
   history: Record<string, HistorySession>;
   config: AppConfig & { importedKeys: string[] };

@@ -1,13 +1,15 @@
 import clsx from 'clsx';
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { ChevronLeft, Pencil, Trophy } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { ChevronLeft, Pencil, Share2, Trophy } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { playerProfile } from '../lib/engine/alltime';
 import { partnerOf, sideOf, teamOf, otherSide, winnerSide } from '../lib/engine/games';
 import type { RelationLine } from '../lib/engine/stats';
 import { longDate, oneDecimal, pct, pctRound, shortDate, signed } from '../lib/format';
 import { levelName } from '../lib/levels';
+import { shareLink } from '../lib/share';
+import { findPlayer } from '../lib/slug';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { PhotoButton } from '../components/players/PhotoButton';
 import { WinRateChart } from '../components/stats/WinRateChart';
@@ -26,7 +28,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 }
 
 function RelationTable({ rows, title, subtitle }: { rows: RelationLine[]; title: string; subtitle: string }) {
-  const { nameOf } = useData();
+  const { nameOf, pathOf } = useData();
   if (!rows.length) return null;
   return (
     <Card>
@@ -34,7 +36,7 @@ function RelationTable({ rows, title, subtitle }: { rows: RelationLine[]; title:
       <ul className="tabular divide-y divide-line pt-2 text-sm">
         {rows.map((r) => (
           <li key={r.otherId} className="flex items-center justify-between gap-2 px-4 py-2.5">
-            <Link to={`/players/${r.otherId}`} className="min-w-0 truncate font-semibold hover:underline">
+            <Link to={pathOf(r.otherId)} className="min-w-0 truncate font-semibold hover:underline">
               {nameOf(r.otherId)}
             </Link>
             <span className="flex shrink-0 items-center gap-3">
@@ -51,15 +53,32 @@ function RelationTable({ rows, title, subtitle }: { rows: RelationLine[]; title:
 }
 
 export default function PlayerPage() {
-  const { id = '' } = useParams();
-  const { playersById, history, nameOf, ready } = useData();
+  // The URL ends with the player's name (/players/vikram); older links with the id still work.
+  const { id: param = '' } = useParams();
+  const { players, history, nameOf, pathOf, ready } = useData();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [editing, setEditing] = useState(false);
-  const profile = useMemo(() => playerProfile(history, nameOf, id), [history, nameOf, id]);
-  const player = playersById.get(id);
+  const player = useMemo(() => findPlayer(players, param), [players, param]);
+  const profile = useMemo(() => playerProfile(history, nameOf, player?.id ?? ''), [history, nameOf, player]);
+  const canonical = player ? pathOf(player.id) : null;
+
+  // Show the name-based address even when the page was opened with an id link.
+  useEffect(() => {
+    if (canonical && decodeURIComponent(location.pathname) !== decodeURIComponent(canonical)) {
+      navigate(canonical, { replace: true });
+    }
+  }, [canonical, location.pathname, navigate]);
 
   if (!ready) return <Spinner />;
-  if (!player) return <Empty title="Player not found" />;
+  if (!player) {
+    return (
+      <Empty title="Player not found">
+        The name in the link may have changed. <Link to="/players" className="font-semibold underline">See all players</Link>
+      </Empty>
+    );
+  }
 
   const { line, sessions } = profile;
   const chartData = [...sessions].reverse().map((s) => ({
@@ -88,11 +107,28 @@ export default function PlayerPage() {
             {profile.firstDate && <span>Playing since {longDate(profile.firstDate)}</span>}
           </div>
         </div>
-        {isAdmin && (
-          <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-            <Pencil size={14} /> Edit
+        <div className="flex shrink-0 flex-col gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              shareLink({
+                title: `${player.name} · Badminton Stats`,
+                text: line
+                  ? `${player.name}'s badminton record: ${line.won}-${line.lost} (${pct(line.winRate)} wins) in ${line.played} matches.`
+                  : `${player.name}'s badminton profile.`,
+                url: `${window.location.origin}${pathOf(player.id)}`,
+              })
+            }
+          >
+            <Share2 size={14} /> Share
           </Button>
-        )}
+          {isAdmin && (
+            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+              <Pencil size={14} /> Edit
+            </Button>
+          )}
+        </div>
       </Card>
 
       {!line ? (
@@ -189,10 +225,10 @@ export default function PlayerPage() {
             <CardHeader title="Recent matches" />
             <ul className="divide-y divide-line pt-2 text-sm">
               {profile.recent.map((g) => {
-                const side = sideOf(g, id)!;
+                const side = sideOf(g, player.id)!;
                 const won = winnerSide(g) === side;
                 const [f, a] = side === 'A' ? [g.scoreA, g.scoreB] : [g.scoreB, g.scoreA];
-                const partner = partnerOf(g, id)!;
+                const partner = partnerOf(g, player.id)!;
                 const opp = teamOf(g, otherSide(side));
                 return (
                   <li key={`${g.sessionId}-${g.number}`} className="flex items-center gap-3 px-4 py-2.5">

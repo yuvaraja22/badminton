@@ -1,11 +1,11 @@
-/** App mark: a white shuttlecock on Claude orange (works on light and dark headers). */
+/** App mark: a white shuttlecock on royal blue (works on light and dark headers). */
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 512 512" className={className} aria-hidden>
-      <rect width="512" height="512" rx="112" fill="#b85a38" />
+      <rect width="512" height="512" rx="112" fill="#2f5bd3" />
       <g transform="rotate(-38 256 256)">
         <path d="M160 96 L352 96 L302 302 L210 302 Z" fill="#ffffff" />
-        <path d="M200 100 L230 298 M256 100 L256 298 M312 100 L282 298" stroke="#b85a38" strokeWidth="9" strokeLinecap="round" opacity="0.35" />
+        <path d="M200 100 L230 298 M256 100 L256 298 M312 100 L282 298" stroke="#2f5bd3" strokeWidth="9" strokeLinecap="round" opacity="0.35" />
         <rect x="202" y="294" width="108" height="26" rx="9" fill="#1f1e1d" />
         <path d="M208 320 H304 V328 A48 48 0 0 1 208 328 Z" fill="#faf9f5" />
       </g>

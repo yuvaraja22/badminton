@@ -13,7 +13,7 @@ import { Card, Empty, PageTitle, Spinner } from '../components/ui/Card';
 import { Input, Toggle } from '../components/ui/Field';
 
 export default function PlayersPage() {
-  const { players, history, nameOf, ready } = useData();
+  const { players, history, nameOf, pathOf, ready } = useData();
   const { isAdmin } = useAuth();
   const [q, setQ] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -55,7 +55,7 @@ export default function PlayersPage() {
           {list.map((p) => {
             const l = lines.get(p.id);
             return (
-              <Link key={p.id} to={`/players/${p.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2">
+              <Link key={p.id} to={pathOf(p.id)} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2">
                 <Avatar name={p.name} photo={p.photo} size={40} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">

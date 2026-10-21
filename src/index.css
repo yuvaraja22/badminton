@@ -27,8 +27,8 @@
 }
 
 /*
- * Light theme (default). Warm neutrals with Claude-orange actions.
- * --primary is the button fill (white text, AA); --primary-text is orange used as text on the page.
+ * Light theme (default). Warm neutrals with royal-blue actions.
+ * --primary is the button fill (white text, AA); --primary-text is the blue used as text on the page.
  */
 :root {
   color-scheme: light;
@@ -40,9 +40,9 @@
   --line: #e6e3d9;
   --header: #faf9f5;
   --header-ink: #1f1e1d;
-  --primary: #b85a38;
+  --primary: #2f5bd3;
   --primary-ink: #ffffff;
-  --primary-text: #ae5630;
+  --primary-text: #2b54c4;
   --accent: #b23a3a;
   --accent-ink: #ffffff;
   --good: #2a7142;
@@ -73,9 +73,9 @@
     --line: #45443f;
     --header: #1f1e1d;
     --header-ink: #faf9f5;
-    --primary: #b85a38;
+    --primary: #2f5bd3;
     --primary-ink: #ffffff;
-    --primary-text: #e08a6a;
+    --primary-text: #8ea8ff;
     --accent: #ec7b71;
     --accent-ink: #1f1e1d;
     --good: #7fc893;
@@ -101,9 +101,9 @@
   --line: #45443f;
   --header: #1f1e1d;
   --header-ink: #faf9f5;
-  --primary: #b85a38;
+  --primary: #2f5bd3;
   --primary-ink: #ffffff;
-  --primary-text: #e08a6a;
+  --primary-text: #8ea8ff;
   --accent: #ec7b71;
   --accent-ink: #1f1e1d;
   --good: #7fc893;

@@ -20,7 +20,7 @@ function rankClass(rank: number) {
 
 /** On phones: rank, player, W-L, win %, diff. Wider screens add games, PPG, sessions and MVPs. */
 export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessions?: boolean }) {
-  const { nameOf, playersById } = useData();
+  const { nameOf, pathOf, playersById } = useData();
   const wide = 'hidden sm:table-cell';
   return (
     <div className="overflow-x-auto">
@@ -49,7 +49,7 @@ export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessio
                 </span>
               </td>
               <td className="w-full max-w-0 px-2 py-2 text-left">
-                <Link to={`/players/${r.playerId}`} className="flex min-w-0 items-center gap-2 font-semibold hover:underline">
+                <Link to={pathOf(r.playerId)} className="flex min-w-0 items-center gap-2 font-semibold hover:underline">
                   <Avatar name={nameOf(r.playerId)} photo={playersById.get(r.playerId)?.photo} size={26} className="hidden sm:inline-flex" />
                   <span className="truncate">{nameOf(r.playerId)}</span>
                 </Link>

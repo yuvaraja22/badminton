@@ -158,7 +158,7 @@ export default function LeaderboardPage() {
             <Card>
               <CardHeader
                 title="Skill ratings"
-                subtitle={`From every game, on the level scale (1 = Amateur Low, 5.5 = Professional High). Beating stronger teams and winning by more count for more. Provisional until ${PROVISIONAL_GAMES} games.`}
+                subtitle={`From every game, on the level scale. Beating stronger teams and winning by more count for more. Provisional until ${PROVISIONAL_GAMES} games.`}
               />
               <div className="pt-1 pb-1">
                 <RatingTable rows={ratingRows} />

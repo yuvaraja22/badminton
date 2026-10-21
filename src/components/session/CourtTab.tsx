@@ -6,7 +6,7 @@ import { saveMatch, setNextPick, shuffleNext, startMatch } from '../../lib/data/
 import { useQueuePlan } from '../../lib/data/usePlan';
 import { sortedMatches } from '../../lib/engine/games';
 import type { PlannedMatch } from '../../lib/engine/scheduler';
-import { matchCode } from '../../lib/format';
+import { matchCode, oneDecimal } from '../../lib/format';
 import { levelName } from '../../lib/levels';
 import { checkScores, lineupComplete, lineupOptions, type LineupOption } from '../../lib/lineup';
 import type { Lineup, Match, PlayerId, Session, Team } from '../../lib/types';
@@ -311,7 +311,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{nameOf(id)}</span>
                   <span className="tabular text-xs text-muted">
-                    {levelName(a.level)} · {plan?.played[id] ?? 0} game{(plan?.played[id] ?? 0) === 1 ? '' : 's'}
+                    {plan && plan.skills[id] !== a.level ? `Rating ${oneDecimal(plan.skills[id])}` : levelName(a.level)} · {plan?.played[id] ?? 0} game{(plan?.played[id] ?? 0) === 1 ? '' : 's'}
                   </span>
                 </span>
                 {a.status === 'resting' && <Badge tone="warn">Resting</Badge>}
@@ -333,7 +333,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
           options={lineupOptions(session, nameOf, true, plan?.skills)}
         />
       )}
-      <MatchDialog open={editMatch !== null} onClose={() => setEditMatch(null)} session={session} match={editMatch} options={lineupOptions(session, nameOf)} />
+      <MatchDialog open={editMatch !== null} onClose={() => setEditMatch(null)} session={session} match={editMatch} options={lineupOptions(session, nameOf, false, plan?.skills)} />
       <AttendeeDialog session={session} playerId={attendee} onClose={() => setAttendee(null)} />
       <AddPlayerDialog session={session} open={addOpen} onClose={() => setAddOpen(false)} />
     </div>

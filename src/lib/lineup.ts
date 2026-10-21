@@ -1,3 +1,4 @@
+import { oneDecimal } from './format';
 import { levelName } from './levels';
 import type { Lineup, Match, PlayerId, Session } from './types';
 
@@ -8,8 +9,8 @@ export interface LineupOption {
 }
 
 /**
- * Session players for the lineup pickers, e.g. "Anu · Intermediate High" or "Yuva · Advanced Low – resting".
- * `skills` (from the queue plan) replaces the session level for the balance label, as the scheduler does.
+ * Session players for the lineup pickers, e.g. "Anu · Intermediate High", "Vikram · Rating 4.7" or
+ * "Yuva · Advanced Low – resting". `skills` (from the queue plan) replaces the session level, as the scheduler does.
  */
 export function lineupOptions(
   session: Session,
@@ -20,11 +21,11 @@ export function lineupOptions(
   return Object.entries(session.attendees)
     .filter(([, a]) => !onlyAvailable || a.status === 'available')
     .sort(([, a], [, b]) => a.order - b.order)
-    .map(([id, a]) => ({
-      id,
-      level: skills?.[id] ?? a.level,
-      label: `${nameOf(id)} · ${levelName(a.level)}${a.status === 'available' ? '' : a.status === 'resting' ? ' – resting' : ' – left'}`,
-    }));
+    .map(([id, a]) => {
+      const level = skills?.[id] ?? a.level;
+      const shown = level !== a.level ? `Rating ${oneDecimal(level)}` : levelName(a.level);
+      return { id, level, label: `${nameOf(id)} · ${shown}${a.status === 'available' ? '' : a.status === 'resting' ? ' – resting' : ' – left'}` };
+    });
 }
 
 export function lineupComplete(l: Lineup): boolean {

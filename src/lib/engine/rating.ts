@@ -16,7 +16,7 @@ import { historyGames, isCounted, sortedHistory } from './games';
  * - Shown on the familiar level scale (μ converted back to 1–5.5).
  */
 
-/** μ per level step, and the μ of a level-3 (Beginner High) player. */
+/** μ per level (1 = Amateur Low … 5.5 = Professional High), and the μ of a level-3 (Intermediate Low) player. */
 const MU_PER_LEVEL = 8;
 const MU_AT_LEVEL_3 = 25;
 /** Starting uncertainty (default OpenSkill is 25/3): lower, since admins set the starting level by hand. */
@@ -34,7 +34,7 @@ export interface PlayerRating {
   playerId: PlayerId;
   mu: number;
   sigma: number;
-  /** μ on the level scale (unrounded, clamped to 1–5.5). */
+  /** μ on the level scale (1–5.5), unrounded. */
   level: number;
   /** Level the rating was seeded from. */
   seedLevel: number;
@@ -63,6 +63,7 @@ export function levelToMu(level: number): number {
   return MU_AT_LEVEL_3 + (level - 3) * MU_PER_LEVEL;
 }
 
+/** μ on the level scale (1–5.5). */
 export function muToLevel(mu: number): number {
   return Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, 3 + (mu - MU_AT_LEVEL_3) / MU_PER_LEVEL));
 }
@@ -162,6 +163,8 @@ export function ratingStandings(ratings: Map<PlayerId, PlayerRating>, include?: 
  * - a level the admin changed for this session (differs from the profile level) is respected;
  * - otherwise an established rating (not provisional);
  * - otherwise the session level.
+ * Rounded to 0.01 so every phone plans the same matches: exp/log can differ in the last bit
+ * between browser engines, and planQueue must give identical results everywhere.
  */
 export function sessionSkills(
   attendees: Record<PlayerId, Pick<Attendee, 'level'>>,
@@ -173,7 +176,7 @@ export function sessionSkills(
     const r = ratings.get(id);
     const profile = playersById.get(id)?.level;
     const overridden = profile !== undefined && profile !== a.level;
-    out[id] = !overridden && r && !r.provisional ? r.level : a.level;
+    out[id] = !overridden && r && !r.provisional ? Math.round(r.level * 100) / 100 : a.level;
   }
   return out;
 }

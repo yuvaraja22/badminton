@@ -138,7 +138,8 @@ describe('sessionSkills', () => {
 
   it('uses an established rating, keeps a session override, and falls back to the session level', () => {
     const skills = sessionSkills({ A: { level: 3 }, B: { level: 4 }, N: { level: 2 }, X: { level: 3.5 } }, ratings, profiles);
-    expect(skills.A).toBeCloseTo(ratings.get('A')!.level); // established rating
+    expect(skills.A).toBeCloseTo(ratings.get('A')!.level, 2); // established rating, rounded
+    expect(skills.A).toBe(Math.round(skills.A * 100) / 100);
     expect(skills.A).toBeGreaterThan(3);
     expect(skills.B).toBe(4); // admin changed B's level for this session
     expect(skills.N).toBe(2); // provisional rating

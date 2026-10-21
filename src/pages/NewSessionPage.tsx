@@ -126,7 +126,7 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       <Card>
         <CardHeader
           title={`Who's playing · ${n} selected`}
-          subtitle="Levels run from Amateur Low to Professional High and balance the teams. They're remembered for next time."
+          subtitle="Levels run from Amateur Low to Professional High and balance the teams until a player has a skill rating (8 games). They're remembered for next time."
         />
         <ul className="divide-y divide-line px-2 pt-2 pb-1">
           {active.map((p) => {

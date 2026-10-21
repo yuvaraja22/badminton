@@ -12,7 +12,6 @@ import { Dialog } from '../ui/Dialog';
 import { Input } from '../ui/Field';
 import { Menu } from '../ui/Menu';
 import { Toaster } from '../ui/Toaster';
-import { UpdatePrompt } from './UpdatePrompt';
 
 function EmulatorSignIn({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { signIn } = useAuth();
@@ -150,7 +149,6 @@ export function AppShell() {
       </nav>
 
       <Toaster />
-      <UpdatePrompt />
       <ScrollRestoration />
     </div>
   );

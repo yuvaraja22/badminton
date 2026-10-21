@@ -1,15 +1,34 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Identifies this build. The app compares it with /version.json to spot newer deploys.
+const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || new Date().toISOString();
+
+function versionFile(): Plugin {
+  return {
+    name: 'version-file',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ id: BUILD_ID }) });
+    },
+  };
+}
+
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     tailwindcss(),
+    versionFile(),
     VitePWA({
-      registerType: 'prompt',
+      // Registered in src/lib/appUpdate.ts. New versions take over silently (no "Update" banner).
+      registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Badminton Stats',
@@ -29,8 +48,21 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        navigateFallback: 'index.html',
+        // Pages are NOT precached: they always come from the network when online, so the latest
+        // deploy shows straight away. Hashed scripts, styles and icons are cached for offline use.
+        globPatterns: ['**/*.{js,css,svg,png,ico,woff2}'],
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            // Network first; the last copy of each page is used only offline or on a very slow network.
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: { cacheName: 'pages', networkTimeoutSeconds: 4, expiration: { maxEntries: 40 } },
+          },
+        ],
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // The PDF renderer chunk is large; keep it cached so reports can be exported offline.
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       },

@@ -61,6 +61,11 @@ export function pairKey(a: PlayerId, b: PlayerId): string {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
+/** Number of the latest match (live or not), 0 before the first one. */
+export function lastMatchNumber(session: Pick<Session, 'matches'>): number {
+  return Math.max(0, ...Object.values(session.matches ?? {}).map((m) => m.number));
+}
+
 export function sortedMatches(session: Pick<Session, 'matches'>): Match[] {
   return Object.values(session.matches ?? {}).sort((a, b) => a.number - b.number);
 }

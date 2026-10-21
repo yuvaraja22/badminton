@@ -18,6 +18,7 @@ import { db } from '../firebase';
 import { newId } from '../ids';
 import { toast } from '../toast';
 import type { AppConfig, Attendee, AttendeeStatus, Lineup, Match, OwnProfileFields, Player, PlayerId, RsvpStatus, Session } from '../types';
+import { availableAt, withStatus } from '../engine/attendance';
 import { sortedMatches } from '../engine/games';
 import { sessionData, toHistory, toSession } from './convert';
 
@@ -43,12 +44,6 @@ function run(p: Promise<unknown>, what: string) {
 
 function lastNumber(session: Session): number {
   return sortedMatches(session).at(-1)?.number ?? 0;
-}
-
-function availableIds(session: Session): PlayerId[] {
-  return Object.entries(session.attendees)
-    .filter(([, a]) => a.status === 'available')
-    .map(([id]) => id);
 }
 
 function putHistory(batch: WriteBatch, session: Session) {
@@ -202,10 +197,12 @@ function writeMatches(session: Session, changed: Match[], removed: string[] = []
 /** Put a lineup on court as the next match. */
 export function startMatch(session: Session, lineup: Lineup) {
   const id = newId();
-  const available = new Set([...availableIds(session), ...lineup.teamA, ...lineup.teamB]);
+  const number = lastNumber(session) + 1;
+  // Who could have played this match (fair-share accounting); leaving early takes people out after their last.
+  const available = new Set([...availableAt(session.attendees, number), ...lineup.teamA, ...lineup.teamB]);
   const match: Match = {
     id,
-    number: lastNumber(session) + 1,
+    number,
     teamA: lineup.teamA,
     teamB: lineup.teamB,
     scoreA: null,
@@ -232,12 +229,16 @@ export function deleteMatch(session: Session, matchId: string) {
     .filter((m) => m.number > target.number)
     .map((m) => ({ ...m, number: m.number - 1 }));
   const shift = (n: number) => (n > target.number ? n - 1 : n);
+  const last = lastNumber(session);
   const extra: Record<string, unknown> = {};
   for (const [pid, a] of Object.entries(session.attendees)) {
-    if (!a.catchUp.length && a.since <= target.number) continue;
+    // A departure that has happened (or is under way) names a real match, so it moves with it.
+    // A future one stays put: "after M10" still means ten matches.
+    const leaveAfter = a.leaveAfter != null && a.leaveAfter <= last ? shift(a.leaveAfter) : (a.leaveAfter ?? null);
+    if (!a.catchUp.length && a.since <= target.number && leaveAfter === (a.leaveAfter ?? null)) continue;
     const windows = a.catchUp.map((w) => ({ from: shift(w.from), to: shift(w.to) })).filter((w) => w.from <= w.to);
     if (session.status === 'completed') continue;
-    extra[`attendees.${pid}`] = { ...a, since: shift(a.since), catchUp: windows };
+    extra[`attendees.${pid}`] = { ...a, since: shift(a.since), catchUp: windows, leaveAfter };
   }
   writeMatches(session, later, [matchId], extra);
 }
@@ -274,21 +275,33 @@ export function addAttendee(session: Session, playerId: PlayerId, level: number,
   );
 }
 
-/** Rest / leave / come back. Coming back with "catch up" credits the matches missed while away. */
+/** Rest / leave / come back (see withStatus). Writes single fields so a level or override saved alongside is kept. */
 export function setAttendeeStatus(session: Session, playerId: PlayerId, status: AttendeeStatus, mode: JoinMode = 'fair') {
   const a = session.attendees[playerId];
   if (!a) return;
-  const last = lastNumber(session);
-  let catchUp = a.catchUp;
-  if (status === 'available' && a.status !== 'available' && mode === 'catchUp' && last > a.since) {
-    catchUp = [...catchUp, { from: a.since + 1, to: last }];
-  }
+  const next = withStatus(a, status, mode, lastNumber(session));
+  const at = `attendees.${playerId}`;
   run(
     updateDoc(doc(sessionsCol, session.id), {
-      [`attendees.${playerId}`]: { ...a, status, since: last, catchUp },
+      [`${at}.status`]: next.status,
+      [`${at}.since`]: next.since,
+      [`${at}.catchUp`]: next.catchUp,
+      [`${at}.leaveAfter`]: next.leaveAfter,
       updatedAt: Date.now(),
     }),
     'Updating player',
+  );
+}
+
+/**
+ * Leaving early: the last match this player can play, or null to stay to the end. Admins set it for
+ * anyone; a linked player may set their own (firestore.rules allows exactly this field).
+ */
+export function setLeaveAfter(session: Session, playerId: PlayerId, leaveAfter: number | null) {
+  if (!session.attendees[playerId]) return;
+  run(
+    updateDoc(doc(sessionsCol, session.id), { [`attendees.${playerId}.leaveAfter`]: leaveAfter, updatedAt: Date.now() }),
+    'Saving the leave time',
   );
 }
 

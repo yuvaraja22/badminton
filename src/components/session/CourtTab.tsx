@@ -1,16 +1,17 @@
 import clsx from 'clsx';
 import { useState } from 'react';
 import { CheckCircle2, Pencil, Play, Shuffle, UserPlus, Users } from 'lucide-react';
-import { useData } from '../../lib/data/context';
-import { saveMatch, setNextPick, shuffleNext, startMatch } from '../../lib/data/mutations';
+import { useAuth, useData } from '../../lib/data/context';
+import { saveMatch, setLeaveAfter, setNextPick, shuffleNext, startMatch } from '../../lib/data/mutations';
 import { useQueuePlan } from '../../lib/data/usePlan';
 import { useWinChance } from '../../lib/data/useWinChance';
-import { sortedMatches } from '../../lib/engine/games';
+import { statusAt } from '../../lib/engine/attendance';
+import { lastMatchNumber, sortedMatches } from '../../lib/engine/games';
 import type { PlannedMatch } from '../../lib/engine/scheduler';
 import { matchCode, oneDecimal } from '../../lib/format';
 import { levelName } from '../../lib/levels';
 import { checkScores, lineupComplete, lineupOptions, type LineupOption } from '../../lib/lineup';
-import type { Lineup, Match, PlayerId, Session, Team } from '../../lib/types';
+import type { Attendee, Lineup, Match, PlayerId, Session, Team } from '../../lib/types';
 import { Avatar } from '../ui/Avatar';
 import { Badge, LiveDot } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -19,6 +20,7 @@ import { Dialog } from '../ui/Dialog';
 import { Input } from '../ui/Field';
 import { AddPlayerDialog, AttendeeDialog } from './AttendanceDialogs';
 import { BalanceLabel } from './BalanceLabel';
+import { LeaveAfterSelect } from './LeaveAfterSelect';
 import { LineupFields } from './LineupFields';
 import { MatchDialog } from './MatchDialog';
 
@@ -180,8 +182,34 @@ function LineupForm({ session, initial, options, onDone }: { session: Session; i
   );
 }
 
+/** Leaving early, in the player list: "leaves after M10", "last game" (on court now) or "left after M10". */
+function departureNote(a: Attendee, nextNumber: number, onCourt: boolean): string | null {
+  if (a.leaveAfter == null || a.status === 'left') return null;
+  if (nextNumber <= a.leaveAfter) return `leaves after ${matchCode(a.leaveAfter)}`;
+  if (a.status !== 'available') return null;
+  return onCourt ? 'last game' : `left after ${matchCode(a.leaveAfter)}`;
+}
+
+/** The signed-in player's own departure: they pick their last match, the planner fits in their games. */
+function YourDeparture({ session, playerId, onCourt }: { session: Session; playerId: PlayerId; onCourt: boolean }) {
+  const a = session.attendees[playerId];
+  const gone = !onCourt && statusAt(a, lastMatchNumber(session) + 1) === 'left';
+  return (
+    <Card className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold">{gone ? "You've left this session" : 'Leaving early?'}</div>
+        <p className="text-xs text-muted">
+          {gone ? 'Changed your mind? Pick “Staying to the end” to play again.' : 'Pick your last match. The planner makes sure you get your fair share of games before then.'}
+        </p>
+      </div>
+      <LeaveAfterSelect session={session} value={a.leaveAfter ?? null} onChange={(v) => setLeaveAfter(session, playerId, v)} label="Your last match" className="h-9 w-auto text-sm" />
+    </Card>
+  );
+}
+
 export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: boolean }) {
   const { nameOf, playersById } = useData();
+  const { playerId: myId } = useAuth();
   const plan = useQueuePlan(session, 5);
   const chanceOf = useWinChance();
   const matches = sortedMatches(session);
@@ -195,8 +223,13 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
   const attendees = Object.entries(session.attendees).sort(([, a], [, b]) => a.order - b.order);
   const onCourt = new Set(live ? [...live.teamA, ...live.teamB] : []);
   const upNext = new Set(next ? [...next.teamA, ...next.teamB] : []);
+  const nextNumber = lastMatchNumber(session) + 1;
+  // On court (possibly in their last match before leaving) counts as playing.
+  const playing = (id: PlayerId, a: Attendee) => onCourt.has(id) && a.status === 'available';
+  const statusOf = (id: PlayerId, a: Attendee) => (playing(id, a) ? 'available' : statusAt(a, nextNumber));
   const counts = { available: 0, resting: 0, left: 0 };
-  for (const [, a] of attendees) counts[a.status] += 1;
+  for (const [id, a] of attendees) counts[statusOf(id, a)] += 1;
+  const me = myId ? session.attendees[myId] : undefined;
   const evenCount = plan && plan.evenNow ? plan.played[plan.available[0]] : null;
 
   return (
@@ -214,6 +247,9 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
         />
         <div className="space-y-3 px-4 pt-3 pb-4">
           {plan?.blocked && <Notice tone="warn">{plan.blocked}</Notice>}
+          {plan?.endsAfter != null && (
+            <Notice tone="warn">Fewer than four players stay after {matchCode(plan.endsAfter)}, so no matches are planned after it.</Notice>
+          )}
           {plan && !plan.nextPickValid && (
             <Notice tone="warn">
               Your saved lineup includes someone who is resting or has left, so the suggestion is shown instead.{' '}
@@ -290,6 +326,8 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
         </Card>
       )}
 
+      {myId && me && me.status !== 'left' && <YourDeparture session={session} playerId={myId} onCourt={onCourt.has(myId)} />}
+
       <Card>
         <CardHeader
           title="Players"
@@ -303,28 +341,34 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
           }
         />
         <ul className="divide-y divide-line px-2 pt-2 pb-1">
-          {attendees.map(([id, a]) => (
-            <li key={id}>
-              <button
-                type="button"
-                disabled={!isAdmin}
-                onClick={() => setAttendee(id)}
-                className={clsx('flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left', isAdmin && 'hover:bg-surface-2', a.status !== 'available' && 'opacity-60')}
-              >
-                <Avatar name={nameOf(id)} photo={playersById.get(id)?.photo} size={34} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{nameOf(id)}</span>
-                  <span className="tabular text-xs text-muted">
-                    {plan && plan.skills[id] !== a.level ? `Rating ${oneDecimal(plan.skills[id])}` : levelName(a.level)} · {plan?.played[id] ?? 0} game{(plan?.played[id] ?? 0) === 1 ? '' : 's'}
+          {attendees.map(([id, a]) => {
+            const status = statusOf(id, a);
+            const note = departureNote(a, nextNumber, playing(id, a));
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  disabled={!isAdmin}
+                  onClick={() => setAttendee(id)}
+                  className={clsx('flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left', isAdmin && 'hover:bg-surface-2', status !== 'available' && 'opacity-60')}
+                >
+                  <Avatar name={nameOf(id)} photo={playersById.get(id)?.photo} size={34} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{nameOf(id)}</span>
+                    <span className="tabular text-xs text-muted">
+                      {plan && plan.skills[id] !== a.level ? `Rating ${oneDecimal(plan.skills[id])}` : levelName(a.level)} · {plan?.played[id] ?? 0} game
+                      {(plan?.played[id] ?? 0) === 1 ? '' : 's'}
+                      {note && ` · ${note}`}
+                    </span>
                   </span>
-                </span>
-                {a.status === 'resting' && <Badge tone="warn">Resting</Badge>}
-                {a.status === 'left' && <Badge>Left</Badge>}
-                {a.status === 'available' && onCourt.has(id) && <Badge tone="live">On court</Badge>}
-                {a.status === 'available' && !onCourt.has(id) && upNext.has(id) && <Badge tone="info">Up next</Badge>}
-              </button>
-            </li>
-          ))}
+                  {status === 'resting' && <Badge tone="warn">Resting</Badge>}
+                  {status === 'left' && <Badge>Left</Badge>}
+                  {playing(id, a) && <Badge tone="live">On court</Badge>}
+                  {status === 'available' && !onCourt.has(id) && upNext.has(id) && <Badge tone="info">Up next</Badge>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </Card>
 

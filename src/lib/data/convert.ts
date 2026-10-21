@@ -45,6 +45,7 @@ function toAttendee(d: DocumentData, order: number): Attendee {
     catchUp: Array.isArray(d?.catchUp) ? d.catchUp.map((w: DocumentData) => ({ from: Number(w.from), to: Number(w.to) })) : [],
     order: Number(d?.order ?? order),
     levelOverride: d?.levelOverride === true,
+    leaveAfter: typeof d?.leaveAfter === 'number' ? d.leaveAfter : null,
   };
 }
 

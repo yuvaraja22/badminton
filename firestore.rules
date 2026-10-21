@@ -2,7 +2,7 @@ rules_version = '2';
 
 // Anyone with the link can read. Admins (listed in /admins/{email}) can change everything.
 // A player linked to a profile (/links/{email} → playerId) can edit a few fields of their own
-// profile and their own RSVP for planned sessions, nothing else.
+// profile, their own RSVP for planned sessions and when they leave a live session, nothing else.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -57,9 +57,25 @@ service cloud.firestore {
       allow update: if isAdmin() || (hasLink() && linkedPlayerId() == playerId && validOwnProfileUpdate());
     }
 
+    // Leaving early: a linked player in a live session may set or clear the last match they can play
+    // (attendees.{them}.leaveAfter: a whole number, or null), and nothing else.
+    function validOwnLeaveUpdate() {
+      let me = linkedPlayerId();
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'live'
+        && before.attendees is map && me in before.attendees
+        && after.diff(before).affectedKeys().hasOnly(['attendees', 'updatedAt'])
+        && after.attendees.diff(before.attendees).affectedKeys().hasOnly([me])
+        && after.attendees[me].diff(before.attendees[me]).affectedKeys().hasOnly(['leaveAfter'])
+        && (!('leaveAfter' in after.attendees[me]) || after.attendees[me].leaveAfter == null
+          || (after.attendees[me].leaveAfter is int && after.attendees[me].leaveAfter >= 0 && after.attendees[me].leaveAfter <= 999));
+    }
+
     match /sessions/{sessionId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (hasLink() && validOwnLeaveUpdate());
     }
 
     // Planned sessions people RSVP to.

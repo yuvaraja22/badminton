@@ -1,5 +1,6 @@
 import type { Attendee, Lineup, Match, PlayerId, Team } from '../types';
 import { hash32 } from '../rng';
+import { availableAt } from './attendance';
 import { pairKey } from './games';
 
 /**
@@ -17,6 +18,8 @@ import { pairKey } from './games';
  *    repeat opponents, exact rematches, partners from recent sessions). Skill is the session level,
  *    or the player's rating when the caller passes `skills` (see sessionSkills in rating.ts).
  * 3. Deterministic tie-breaks (seeded by session + match number) so all phones agree.
+ * 4. Leaving early: someone with `leaveAfter` is planned only up to that match, and plays ahead of the
+ *    others when they would otherwise leave owed half a game or more (see mustPlayBeforeLeaving).
  */
 
 export interface PlannedMatch extends Lineup {
@@ -44,6 +47,8 @@ export interface QueuePlan {
   alternatives: number;
   /** Skill used for balancing each attendee (input.skills, else the session level). */
   skills: Record<PlayerId, number>;
+  /** Leaving early: the last match that can be planned before fewer than four players remain, or null. */
+  endsAfter: number | null;
 }
 
 export interface SchedulerInput {
@@ -222,37 +227,64 @@ function splits(four: PlayerId[]): [Team, Team][] {
   ];
 }
 
+/** What every planning step needs besides the running state. */
+interface Ctx {
+  input: SchedulerInput;
+  levels: Record<PlayerId, number>;
+  /** Players who can be put in match n (leaving early takes people out after their last match). */
+  availableFor: (n: number) => PlayerId[];
+  /** Leaving early: the last match each such player can play. */
+  leaveAfter: Record<PlayerId, number>;
+}
+
+/**
+ * Leaving early: true when someone must play this match to go home with their fair share, i.e. they
+ * need every match from this one until they leave to avoid leaving owed half a game or more.
+ */
+function mustPlayBeforeLeaving(owed: number, accrual: number, number: number, leaveAfter: number | undefined): boolean {
+  if (leaveAfter === undefined || leaveAfter < number) return false;
+  const remaining = leaveAfter - number + 1;
+  const owedWhenLeaving = owed + accrual * (remaining - 1);
+  return Math.ceil(owedWhenLeaving - 0.5 + 1e-9) >= remaining;
+}
+
 /**
  * Fairness: players clearly owed more than the rest must play; the remaining slots are filled from
  * the equally-owed pool. Waiting longest is a strong preference within the pool (see WEIGHTS.wait)
  * rather than a hard rule, so that e.g. eight players don't lock into two fixed groups of four.
+ * Someone leaving soon who needs this match for their fair share plays first.
  */
 function eligible(
   state: State,
   avail: PlayerId[],
   number: number,
+  leaveAfter: Record<PlayerId, number>,
 ): { fixed: PlayerId[]; pool: PlayerId[]; need: number; waited: Map<PlayerId, number> } {
   const accrual = 4 / avail.length;
-  const info = avail.map((p) => ({
-    p,
-    owed: (state.share.get(p) ?? 0) + accrual - (state.played.get(p) ?? 0),
-    waited: number - 1 - (state.lastPlayed.get(p) ?? 0),
-  }));
-  info.sort((x, y) => y.owed - x.owed || y.waited - x.waited || (x.p < y.p ? -1 : 1));
-  const threshold = info[3].owed;
-  const fixed = info.filter((x) => x.owed > threshold + TIE).map((x) => x.p);
-  const pool = info.filter((x) => x.owed <= threshold + TIE && x.owed >= threshold - TIE).map((x) => x.p);
-  return { fixed, pool, need: 4 - fixed.length, waited: new Map(info.map((x) => [x.p, x.waited])) };
+  const info = avail.map((p) => {
+    const owed = (state.share.get(p) ?? 0) + accrual - (state.played.get(p) ?? 0);
+    return {
+      p,
+      owed,
+      waited: number - 1 - (state.lastPlayed.get(p) ?? 0),
+      leaving: mustPlayBeforeLeaving(owed, accrual, number, leaveAfter[p]),
+    };
+  });
+  type Info = (typeof info)[number];
+  const byOwed = (x: Info, y: Info) => y.owed - x.owed || y.waited - x.waited || (x.p < y.p ? -1 : 1);
+  const waited = new Map(info.map((x) => [x.p, x.waited]));
+  const leaving = info.filter((x) => x.leaving).sort(byOwed).slice(0, 4);
+  const rest = info.filter((x) => !leaving.includes(x)).sort(byOwed);
+  const slots = 4 - leaving.length;
+  if (slots === 0) return { fixed: leaving.map((x) => x.p), pool: [], need: 0, waited };
+  const threshold = rest[slots - 1].owed;
+  const fixed = [...leaving, ...rest.filter((x) => x.owed > threshold + TIE)].map((x) => x.p);
+  const pool = rest.filter((x) => x.owed <= threshold + TIE && x.owed >= threshold - TIE).map((x) => x.p);
+  return { fixed, pool, need: 4 - fixed.length, waited };
 }
 
-function rankCandidates(
-  state: State,
-  avail: PlayerId[],
-  levels: Record<PlayerId, number>,
-  number: number,
-  input: SchedulerInput,
-): Candidate[] {
-  const { fixed, pool, need, waited } = eligible(state, avail, number);
+function rankCandidates(state: State, number: number, ctx: Ctx): Candidate[] {
+  const { fixed, pool, need, waited } = eligible(state, ctx.availableFor(number), number, ctx.leaveAfter);
   // Penalty for picking players who have waited less than the longest-waiting ones.
   const bestWaitSum = pool
     .map((p) => waited.get(p) ?? 0)
@@ -266,8 +298,8 @@ function rankCandidates(
       candidates.push({
         teamA,
         teamB,
-        cost: waitPenalty + lineupCost(state, teamA, teamB, levels, input.recentPartners),
-        tie: hash32(`${input.sessionId}:${number}:${matchupKey(teamA, teamB)}`),
+        cost: waitPenalty + lineupCost(state, teamA, teamB, ctx.levels, ctx.input.recentPartners),
+        tie: hash32(`${ctx.input.sessionId}:${number}:${matchupKey(teamA, teamB)}`),
       });
     }
   }
@@ -279,21 +311,18 @@ function rankCandidates(
  * Greedy choices can leave a lopsided match for later (e.g. with 8 players the four who sit out
  * are forced to play next). Re-score the best few candidates by what they leave behind.
  */
-function chooseCandidates(
-  state: State,
-  avail: PlayerId[],
-  levels: Record<PlayerId, number>,
-  number: number,
-  input: SchedulerInput,
-): Candidate[] {
-  const ranked = rankCandidates(state, avail, levels, number, input);
+function chooseCandidates(state: State, number: number, ctx: Ctx): Candidate[] {
+  const ranked = rankCandidates(state, number, ctx);
+  // Nothing to look ahead to when too few players stay for another match.
+  if (ctx.availableFor(number + 1).length < 4) return ranked;
+  const avail = ctx.availableFor(number);
   let k = LOOKAHEAD_MIN;
   const head: (Candidate & { total: number })[] = [];
   for (let i = 0; i < ranked.length && i < k; i++) {
     const c = ranked[i];
     const next = cloneState(state);
     applyMatch(next, c.teamA, c.teamB, number, poolOf(c.teamA, c.teamB, avail));
-    const follow = rankCandidates(next, avail, levels, number + 1, input);
+    const follow = rankCandidates(next, number + 1, ctx);
     if (i === 0) k = Math.max(LOOKAHEAD_MIN, Math.floor(LOOKAHEAD_BUDGET / Math.max(1, follow.length)));
     head.push({ ...c, total: c.cost + LOOKAHEAD_WEIGHT * (follow[0]?.cost ?? 0) });
   }
@@ -328,18 +357,32 @@ function isValidLineup(lineup: Lineup, allowed: Iterable<PlayerId>): boolean {
   return new Set(ids).size === 4 && ids.every((id) => ok.has(id));
 }
 
+/** Leaving early: the last match before fewer than four players remain (null if that never happens). */
+function lastPlayable(attendees: Record<PlayerId, Attendee>, first: number): number | null {
+  const cutoffs = new Set<number>();
+  for (const a of Object.values(attendees)) if (a.status === 'available' && a.leaveAfter != null && a.leaveAfter >= first) cutoffs.add(a.leaveAfter);
+  return [...cutoffs].sort((x, y) => x - y).find((t) => availableAt(attendees, t + 1).length < 4) ?? null;
+}
+
 export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
   const state = buildState(input);
-  const available = Object.entries(input.attendees)
-    .filter(([, a]) => a.status === 'available')
-    .map(([id]) => id)
-    .sort();
+  const byNumber = new Map<number, PlayerId[]>();
+  const availableFor = (n: number): PlayerId[] => {
+    let ids = byNumber.get(n);
+    if (!ids) byNumber.set(n, (ids = availableAt(input.attendees, n)));
+    return ids;
+  };
+  const first = state.lastNumber + 1;
+  const available = availableFor(first);
   const levels: Record<PlayerId, number> = {};
   const played: Record<PlayerId, number> = {};
+  const leaveAfter: Record<PlayerId, number> = {};
   for (const [id, a] of Object.entries(input.attendees)) {
     levels[id] = input.skills?.[id] ?? a.level;
     played[id] = state.played.get(id) ?? 0;
+    if (a.leaveAfter != null) leaveAfter[id] = a.leaveAfter;
   }
+  const ctx: Ctx = { input, levels, availableFor, leaveAfter };
 
   const plan: QueuePlan = {
     upcoming: [],
@@ -351,22 +394,26 @@ export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
     nextPickValid: input.nextPick ? isValidLineup(input.nextPick, available) : true,
     alternatives: 0,
     skills: levels,
+    endsAfter: null,
   };
   if (available.length < 4) {
     plan.blocked = `Need at least 4 available players to plan a match (${available.length} available).`;
     return plan;
   }
   plan.evenNow = state.lastNumber > 0 && isEven(state, available);
+  plan.endsAfter = lastPlayable(input.attendees, first);
 
   const sim = cloneState(state);
   const lookahead = Math.max(count, Math.min(2 * available.length, 24));
-  let number = state.lastNumber + 1;
+  let number = first;
   for (let i = 0; i < lookahead; i++) {
+    const avail = availableFor(number);
+    if (avail.length < 4) break;
     let chosen: PlannedMatch;
     if (i === 0 && input.nextPick && plan.nextPickValid) {
       chosen = toPlanned(input.nextPick, number, levels, true);
     } else {
-      const candidates = chooseCandidates(sim, available, levels, number, input);
+      const candidates = chooseCandidates(sim, number, ctx);
       let index = 0;
       if (i === 0) {
         plan.alternatives = Math.min(SHUFFLE_POOL, candidates.length);
@@ -375,9 +422,9 @@ export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
       chosen = toPlanned(candidates[index], number, levels, false);
     }
     if (i < count) plan.upcoming.push(chosen);
-    applyMatch(sim, chosen.teamA, chosen.teamB, number, poolOf(chosen.teamA, chosen.teamB, available));
-    if (!plan.checkpoint && isEven(sim, available)) {
-      plan.checkpoint = { afterMatch: number, games: commonPlayed(sim, available) };
+    applyMatch(sim, chosen.teamA, chosen.teamB, number, poolOf(chosen.teamA, chosen.teamB, avail));
+    if (!plan.checkpoint && isEven(sim, avail)) {
+      plan.checkpoint = { afterMatch: number, games: commonPlayed(sim, avail) };
     }
     if (i >= count - 1 && plan.checkpoint) break;
     number += 1;

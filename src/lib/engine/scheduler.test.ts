@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Attendee, Match, PlayerId } from '../types';
+import { availableAt } from './attendance';
 import { pairKey } from './games';
 import { planQueue, type SchedulerInput } from './scheduler';
 
@@ -21,10 +22,8 @@ function equalLevels(n: number, level = 3): Record<PlayerId, number> {
   return Object.fromEntries(Array.from({ length: n }, (_, i) => [`P${i + 1}`, level]));
 }
 
-function availableIds(input: SchedulerInput): PlayerId[] {
-  return Object.entries(input.attendees)
-    .filter(([, a]) => a.status === 'available')
-    .map(([id]) => id);
+function availableIds(input: SchedulerInput, number: number): PlayerId[] {
+  return availableAt(input.attendees, number);
 }
 
 /** Start the suggested next match and record a result. */
@@ -38,7 +37,7 @@ function playNext(input: SchedulerInput): Match {
     scoreA: 21,
     scoreB: 17,
     status: 'completed',
-    available: availableIds(input),
+    available: availableIds(input, next.number),
   };
   input.matches.push(m);
   input.nextPick = null;
@@ -282,3 +281,87 @@ describe('roster changes re-plan the queue', () => {
     expect(plan.upcoming).toEqual([]);
   });
 });
+
+describe('leaving early', () => {
+  /** Fair share minus games played, over the matches so far. */
+  function owedOf(input: SchedulerInput, id: PlayerId): number {
+    let owed = 0;
+    for (const m of input.matches) {
+      const pool = new Set([...m.available, ...m.teamA, ...m.teamB]);
+      if (pool.has(id)) owed += 4 / pool.size;
+      if ([...m.teamA, ...m.teamB].includes(id)) owed -= 1;
+    }
+    return owed;
+  }
+
+  it('plans nobody past their last match, and stops counting them after it', () => {
+    const input = session(equalLevels(6));
+    input.attendees.P2.leaveAfter = 3;
+    const plan = planQueue(input, 6);
+    expect(plan.upcoming).toHaveLength(6);
+    for (const m of plan.upcoming.filter((x) => x.number > 3)) expect([...m.teamA, ...m.teamB]).not.toContain('P2');
+    for (let k = 0; k < 6; k++) playNext(input);
+    const later = input.matches.filter((m) => m.number > 3);
+    expect(later.flatMap((m) => [...m.teamA, ...m.teamB])).not.toContain('P2');
+    expect(later.some((m) => m.available.includes('P2'))).toBe(false);
+  });
+
+  // Rosters where the usual rotation would send them home owed half a game or more (found by simulation).
+  it.each([
+    [5, 'P4', 2],
+    [7, 'P6', 5],
+    [8, 'P4', 1],
+    [9, 'P6', 4],
+  ])('%i players: %s leaving after M%i still gets their fair share', (n, id, leaveAfter) => {
+    const input = session(equalLevels(n));
+    input.attendees[id].leaveAfter = leaveAfter;
+    for (let k = 0; k < leaveAfter; k++) playNext(input);
+    expect(owedOf(input, id)).toBeLessThan(0.5);
+    expect(owedOf(input, id)).toBeGreaterThan(-1);
+    for (let k = 0; k < 4; k++) playNext(input);
+    const stayers = Object.keys(input.attendees).filter((p) => p !== id).map((p) => owedOf(input, p));
+    expect(Math.max(...stayers) - Math.min(...stayers)).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
+  it('stops planning when fewer than four would be left', () => {
+    const input = session(equalLevels(5));
+    input.attendees.P1.leaveAfter = 2;
+    input.attendees.P2.leaveAfter = 2;
+    const plan = planQueue(input, 4);
+    expect(plan.endsAfter).toBe(2);
+    expect(plan.upcoming.map((m) => m.number)).toEqual([1, 2]);
+    playNext(input);
+    playNext(input);
+    const after = planQueue(input);
+    expect(after.blocked).toMatch(/at least 4/);
+    expect(after.endsAfter).toBeNull();
+  });
+
+  it('a resting player with a leave time plays again only until then', () => {
+    const input = session(equalLevels(6));
+    input.attendees.P1.status = 'resting';
+    input.attendees.P1.leaveAfter = 4;
+    playNext(input);
+    playNext(input);
+    input.attendees.P1.status = 'available';
+    const games = planQueue(input, 6)
+      .upcoming.filter((m) => [...m.teamA, ...m.teamB].includes('P1'))
+      .map((m) => m.number);
+    expect(games.length).toBeGreaterThan(0);
+    expect(Math.max(...games)).toBeLessThanOrEqual(4);
+  });
+
+  it('clearing the leave time brings them back, joining fairly', () => {
+    const input = session(equalLevels(6));
+    input.attendees.P1.leaveAfter = 2;
+    for (let k = 0; k < 6; k++) playNext(input);
+    input.attendees.P1.leaveAfter = null;
+    const before = playedCounts(input);
+    for (let k = 0; k < 6; k++) playNext(input);
+    const back = playedCounts(input).P1 - before.P1;
+    // About an equal share (6 matches × 4 slots ÷ 6 players), not a streak to make up for missed games.
+    expect(back).toBeGreaterThanOrEqual(3);
+    expect(back).toBeLessThanOrEqual(5);
+  });
+});
+

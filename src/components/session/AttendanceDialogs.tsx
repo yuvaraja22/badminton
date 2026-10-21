@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { useState } from 'react';
-import { addAttendee, createPlayer, setAttendeeLevel, setAttendeeStatus, type JoinMode } from '../../lib/data/mutations';
+import { addAttendee, createPlayer, setAttendeeLevel, setAttendeeStatus, setLeaveAfter, type JoinMode } from '../../lib/data/mutations';
 import { useData } from '../../lib/data/context';
+import { awaySince, statusAt, withStatus } from '../../lib/engine/attendance';
 import { sortedMatches } from '../../lib/engine/games';
 import { establishedLevel } from '../../lib/engine/rating';
 import { oneDecimal } from '../../lib/format';
@@ -11,6 +12,7 @@ import { Notice } from '../ui/Card';
 import { Dialog } from '../ui/Dialog';
 import { Field, Input, LevelStepper, Select } from '../ui/Field';
 import { Segmented } from '../ui/Segmented';
+import { LeaveAfterSelect } from './LeaveAfterSelect';
 
 function JoinModeChoice({ value, onChange, missedLabel }: { value: JoinMode; onChange: (m: JoinMode) => void; missedLabel: string }) {
   const option = (mode: JoinMode, title: string, body: string) => (
@@ -38,7 +40,7 @@ function JoinModeChoice({ value, onChange, missedLabel }: { value: JoinMode; onC
 
 const lastNumber = (s: Session) => sortedMatches(s).at(-1)?.number ?? 0;
 
-/** Change a session player's level or status (rest / left / back). */
+/** Change a session player's level, status (rest / left / back) or when they leave early. */
 export function AttendeeDialog({ session, playerId, onClose }: { session: Session; playerId: PlayerId | null; onClose: () => void }) {
   const { nameOf } = useData();
   return (
@@ -52,19 +54,26 @@ function AttendeeForm({ session, playerId, onDone }: { session: Session; playerI
   const { ratings } = useData();
   const a = session.attendees[playerId];
   const rated = establishedLevel(ratings.get(playerId));
+  const last = lastNumber(session);
+  // Someone whose planned departure has passed shows as Left; choosing Playing means they are staying after all.
+  const current = statusAt(a, last + 1);
+  const passed = a.leaveAfter != null && a.leaveAfter <= last;
   const [level, setLevel] = useState(a.level);
   // Rated players: balance by their rating, or by a level set for this session.
   const [byLevel, setByLevel] = useState(a.levelOverride === true);
-  const [status, setStatus] = useState<AttendeeStatus>(a.status);
+  const [status, setStatus] = useState<AttendeeStatus>(current);
   const [mode, setMode] = useState<JoinMode>('fair');
-  const last = lastNumber(session);
-  const returning = a.status !== 'available' && status === 'available';
-  const missed = last - a.since;
+  const [leaveAfter, setLeave] = useState<number | null>(passed ? null : (a.leaveAfter ?? null));
+  const returning = current !== 'available' && status === 'available';
+  const missed = last - awaySince(a);
 
   const save = () => {
     const override = rated === null ? a.levelOverride === true || level !== a.level : byLevel;
     if (level !== a.level || override !== (a.levelOverride === true)) setAttendeeLevel(session, playerId, level, override);
-    if (status !== a.status) setAttendeeStatus(session, playerId, status, mode);
+    if (status !== current) setAttendeeStatus(session, playerId, status, mode);
+    // The departure the status change leaves in place (coming back clears one that has passed).
+    const kept = status !== current ? withStatus(a, status, mode, last).leaveAfter : (a.leaveAfter ?? null);
+    if (status !== 'left' && leaveAfter !== kept) setLeaveAfter(session, playerId, leaveAfter);
     onDone();
   };
 
@@ -108,6 +117,11 @@ function AttendeeForm({ session, playerId, onDone }: { session: Session; playerI
         />
         <p className="mt-1.5 text-xs text-muted">Resting or left players are skipped by “Next match”. Their results so far still count.</p>
       </div>
+      {status !== 'left' && (
+        <Field label="Leaving early" hint="The planner makes sure they get their fair share of games before they go.">
+          <LeaveAfterSelect session={session} value={leaveAfter} onChange={setLeave} label="Last match they can play" />
+        </Field>
+      )}
       {returning && missed > 0 && (
         <JoinModeChoice value={mode} onChange={setMode} missedLabel={`away for ${missed} match${missed === 1 ? '' : 'es'}`} />
       )}

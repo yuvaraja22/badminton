@@ -15,9 +15,11 @@ export default defineConfig({
         name: 'Badminton Stats',
         short_name: 'Badminton',
         description: 'Fair match rotation, scores, player stats and session reports.',
-        theme_color: '#1f2a44',
-        background_color: '#f6f5f1',
+        theme_color: '#faf9f5',
+        background_color: '#faf9f5',
         display: 'standalone',
+        id: '/',
+        scope: '/',
         start_url: '/',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },

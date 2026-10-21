@@ -3,7 +3,7 @@
 Score tracking, fair match rotation and session reports for a one-court doubles group.
 Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan)**.
 
-- **Next match planner.** Pick who's here and set their levels. The app plans who plays next so everyone gets an
+- **Next match planner.** Pick who's here and set their levels (Amateur Low … Professional High). The app plans who plays next so everyone gets an
   equal (or near-equal) number of games, with balanced teams and rotating partners. Any edit (a score, a swap,
   someone resting, a late arrival, a corrected past match) re-plans the upcoming matches instantly on every phone.
 - **Late arrivals and breaks.** When someone joins late or comes back, you choose **Join fairly** (equal share from
@@ -14,6 +14,8 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
 - **Player profiles**, an all-time **leaderboard**, partnerships, head-to-head and past sessions.
 - **Roles.** Anyone with the link can view. Only **admins** (Google sign-in) can change anything.
 - **Phone-first.** Installable as an app, and keeps working without signal at the court (changes sync later).
+  Light and dark themes (Claude-style warm dark), following the phone or picked from the header.
+- **Home and leaderboard** show the last 30 days, with all-time one tap away. Admins tap a player's photo to change it.
 
 ## Run it locally (no Firebase account needed)
 

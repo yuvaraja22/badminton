@@ -14,10 +14,10 @@ export function UpdatePrompt() {
   if (!needRefresh) return null;
   return (
     <div className="fixed inset-x-0 top-[calc(3.75rem+env(safe-area-inset-top))] z-50 flex justify-center px-4">
-      <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-header px-4 py-3 text-sm text-white shadow-lg">
+      <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-toast px-4 py-3 text-sm text-toast-ink shadow-lg">
         <span>A new version is available.</span>
         <span className="flex gap-2">
-          <Button size="sm" variant="ghost" className="text-white hover:bg-white/10" onClick={() => setNeedRefresh(false)}>
+          <Button size="sm" variant="ghost" className="text-toast-ink hover:bg-white/10" onClick={() => setNeedRefresh(false)}>
             Later
           </Button>
           <Button size="sm" variant="accent" onClick={() => updateServiceWorker(true)}>

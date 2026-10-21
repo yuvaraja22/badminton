@@ -1,8 +1,8 @@
 /**
- * Center-crops and shrinks a photo to a small square JPEG data URL (~10–20 KB), small enough to
+ * Center-crops and shrinks a photo to a 256 px square JPEG data URL (~15–30 KB), small enough to
  * store directly on the player document, so no Firebase Storage (paid plan) is needed.
  */
-export async function photoToDataUrl(file: File, size = 160): Promise<string> {
+export async function photoToDataUrl(file: File, size = 256): Promise<string> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.max(size / bitmap.width, size / bitmap.height);
   const w = bitmap.width * scale;

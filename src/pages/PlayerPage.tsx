@@ -7,9 +7,10 @@ import { playerProfile } from '../lib/engine/alltime';
 import { partnerOf, sideOf, teamOf, otherSide, winnerSide } from '../lib/engine/games';
 import type { RelationLine } from '../lib/engine/stats';
 import { longDate, oneDecimal, pct, pctRound, shortDate, signed } from '../lib/format';
+import { levelName } from '../lib/levels';
 import { PlayerDialog } from '../components/players/PlayerDialog';
+import { PhotoButton } from '../components/players/PhotoButton';
 import { WinRateChart } from '../components/stats/WinRateChart';
-import { Avatar } from '../components/ui/Avatar';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
@@ -78,11 +79,11 @@ export default function PlayerPage() {
       </Link>
 
       <Card className="flex items-center gap-4 p-4">
-        <Avatar name={player.name} photo={player.photo} size={64} />
+        <PhotoButton player={player} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl font-bold">{player.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-            <Badge tone="info">Level {player.level.toFixed(1)}</Badge>
+            <Badge tone="info">{levelName(player.level)}</Badge>
             {!player.active && <Badge>Archived</Badge>}
             {profile.firstDate && <span>Playing since {longDate(profile.firstDate)}</span>}
           </div>

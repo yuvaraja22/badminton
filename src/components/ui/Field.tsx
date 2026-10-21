@@ -1,4 +1,5 @@
 import { cn } from '../../lib/cn';
+import { clampLevel, levelParts, MAX_LEVEL, MIN_LEVEL } from '../../lib/levels';
 import { Minus, Plus } from 'lucide-react';
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
@@ -27,7 +28,7 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
   return <textarea className={cn(control, 'min-h-28 py-2.5 leading-relaxed', className)} {...rest} />;
 }
 
-/** − 3.5 + stepper for skill levels (1–5 in half steps). */
+/** − Intermediate High + stepper for skill levels (Amateur Low … Professional High). */
 export function LevelStepper({
   value,
   onChange,
@@ -40,25 +41,27 @@ export function LevelStepper({
   /** e.g. "Vikram's level", for screen readers. */
   label?: string;
 }) {
-  const set = (v: number) => onChange(Math.min(5, Math.max(1, Math.round(v * 2) / 2)));
+  const set = (v: number) => onChange(clampLevel(v));
+  const { tier, part } = levelParts(value);
   return (
     <div className="inline-flex items-center rounded-xl border border-line bg-surface">
       <button
         type="button"
         aria-label={`Lower ${label}`}
-        disabled={disabled || value <= 1}
+        disabled={disabled || value <= MIN_LEVEL}
         onClick={() => set(value - 0.5)}
         className="inline-flex size-9 items-center justify-center text-muted disabled:opacity-30"
       >
         <Minus size={16} />
       </button>
-      <span className="tabular w-9 text-center text-sm font-semibold" aria-label={`${label} ${value}`}>
-        {value.toFixed(1)}
+      <span className="flex w-24 flex-col items-center leading-tight" aria-label={`${label}: ${tier} ${part}`}>
+        <span className="text-[13px] font-semibold">{tier}</span>
+        <span className="text-[11px] text-muted">{part}</span>
       </span>
       <button
         type="button"
         aria-label={`Raise ${label}`}
-        disabled={disabled || value >= 5}
+        disabled={disabled || value >= MAX_LEVEL}
         onClick={() => set(value + 0.5)}
         className="inline-flex size-9 items-center justify-center text-muted disabled:opacity-30"
       >

@@ -7,6 +7,7 @@ import { useQueuePlan } from '../../lib/data/usePlan';
 import { sortedMatches } from '../../lib/engine/games';
 import type { PlannedMatch } from '../../lib/engine/scheduler';
 import { matchCode } from '../../lib/format';
+import { levelName } from '../../lib/levels';
 import { checkScores, lineupComplete, lineupOptions, type LineupOption } from '../../lib/lineup';
 import type { Lineup, Match, PlayerId, Session, Team } from '../../lib/types';
 import { Avatar } from '../ui/Avatar';
@@ -16,20 +17,21 @@ import { Card, CardHeader, Notice } from '../ui/Card';
 import { Dialog } from '../ui/Dialog';
 import { Input } from '../ui/Field';
 import { AddPlayerDialog, AttendeeDialog } from './AttendanceDialogs';
+import { BalanceLabel } from './BalanceLabel';
 import { LineupFields } from './LineupFields';
 import { MatchDialog } from './MatchDialog';
 
-function TeamNames({ team, levels, strong }: { team: Team; levels?: Record<PlayerId, number>; strong?: boolean }) {
+function TeamNames({ team, strong }: { team: Team; strong?: boolean }) {
   const { nameOf } = useData();
-  const total = levels ? (levels[team[0]] ?? 0) + (levels[team[1]] ?? 0) : null;
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-2">
-      <span className={clsx('truncate text-[17px]', strong ? 'font-bold' : 'font-semibold')}>
-        {nameOf(team[0])} &amp; {nameOf(team[1])}
-      </span>
-      {total !== null && <span className="tabular shrink-0 text-xs font-semibold text-muted">lvl {total.toFixed(1)}</span>}
+    <div className={clsx('truncate text-[17px]', strong ? 'font-bold' : 'font-semibold')}>
+      {nameOf(team[0])} &amp; {nameOf(team[1])}
     </div>
   );
+}
+
+function teamLevel(session: Session, team: Team): number {
+  return (session.attendees[team[0]]?.level ?? 3) + (session.attendees[team[1]]?.level ?? 3);
 }
 
 function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Session; match: Match; next: PlannedMatch | null; isAdmin: boolean; onEdit: () => void }) {
@@ -37,7 +39,6 @@ function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Sessio
   const [b, setB] = useState(match.scoreB?.toString() ?? '');
   const [stopped, setStopped] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const levels = Object.fromEntries(Object.entries(session.attendees).map(([id, x]) => [id, x.level]));
 
   const save = (thenStart: boolean) => {
     const status = stopped ? 'unfinished' : 'completed';
@@ -79,17 +80,18 @@ function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Sessio
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-semibold uppercase text-muted">Team 1</div>
-                <TeamNames team={match.teamA} levels={levels} strong />
+                <TeamNames team={match.teamA} strong />
               </div>
               {scoreBox(a, setA, 'Team 1 score')}
             </div>
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-semibold uppercase text-muted">Team 2</div>
-                <TeamNames team={match.teamB} levels={levels} strong />
+                <TeamNames team={match.teamB} strong />
               </div>
               {scoreBox(b, setB, 'Team 2 score')}
             </div>
+            <BalanceLabel levelA={teamLevel(session, match.teamA)} levelB={teamLevel(session, match.teamB)} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--accent)]" />
               Stopped early (not counted in stats)
@@ -109,6 +111,7 @@ function NowPlaying({ session, match, next, isAdmin, onEdit }: { session: Sessio
             <TeamNames team={match.teamA} strong />
             <div className="text-center text-xs font-bold uppercase text-muted">vs</div>
             <TeamNames team={match.teamB} strong />
+            <BalanceLabel levelA={teamLevel(session, match.teamA)} levelB={teamLevel(session, match.teamB)} />
           </>
         )}
       </div>
@@ -174,7 +177,6 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
   const upNext = new Set(next ? [...next.teamA, ...next.teamB] : []);
   const counts = { available: 0, resting: 0, left: 0 };
   for (const [, a] of attendees) counts[a.status] += 1;
-  const levels = Object.fromEntries(attendees.map(([id, a]) => [id, a.level]));
   const evenCount = plan && plan.evenNow ? plan.played[plan.available[0]] : null;
 
   return (
@@ -205,10 +207,11 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
           {next && (
             <>
               <div className="space-y-1.5">
-                <TeamNames team={next.teamA} levels={levels} />
+                <TeamNames team={next.teamA} />
                 <div className="text-xs font-bold uppercase text-muted">vs</div>
-                <TeamNames team={next.teamB} levels={levels} />
+                <TeamNames team={next.teamB} />
               </div>
+              <BalanceLabel levelA={next.levelA} levelB={next.levelB} />
               {isAdmin && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button variant="secondary" size="sm" onClick={() => setLineupOpen(true)}>
@@ -241,9 +244,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
                   {nameOf(m.teamA[0])} &amp; {nameOf(m.teamA[1])} <span className="text-muted">vs</span> {nameOf(m.teamB[0])} &amp;{' '}
                   {nameOf(m.teamB[1])}
                 </span>
-                <span className="tabular shrink-0 text-xs text-muted">
-                  {m.levelA.toFixed(1)}–{m.levelB.toFixed(1)}
-                </span>
+                <BalanceLabel levelA={m.levelA} levelB={m.levelB} short className="shrink-0" />
               </li>
             ))}
           </ol>
@@ -294,7 +295,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{nameOf(id)}</span>
                   <span className="tabular text-xs text-muted">
-                    Level {a.level.toFixed(1)} · {plan?.played[id] ?? 0} game{(plan?.played[id] ?? 0) === 1 ? '' : 's'}
+                    {levelName(a.level)} · {plan?.played[id] ?? 0} game{(plan?.played[id] ?? 0) === 1 ? '' : 's'}
                   </span>
                 </span>
                 {a.status === 'resting' && <Badge tone="warn">Resting</Badge>}

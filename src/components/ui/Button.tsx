@@ -6,11 +6,11 @@ type Size = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-primary text-primary-ink hover:brightness-110 active:brightness-95',
-  accent: 'bg-accent text-white hover:brightness-110 active:brightness-95',
+  accent: 'bg-accent text-accent-ink hover:brightness-110 active:brightness-95',
   secondary: 'border border-line bg-surface text-ink hover:bg-surface-2',
   ghost: 'text-ink hover:bg-surface-2',
   danger: 'border border-bad/40 bg-bad-bg text-bad hover:brightness-95',
-  good: 'bg-good text-white hover:brightness-110',
+  good: 'bg-good text-good-bg hover:brightness-110',
 };
 
 const SIZES: Record<Size, string> = {

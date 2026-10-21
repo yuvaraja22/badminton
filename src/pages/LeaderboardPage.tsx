@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Swords, Trophy } from 'lucide-react';
 import { useData } from '../lib/data/context';
 import { allTimeStats } from '../lib/engine/alltime';
@@ -12,7 +12,8 @@ import { Card, CardHeader, Empty, PageTitle, Spinner } from '../components/ui/Ca
 import { Select } from '../components/ui/Field';
 import { Segmented } from '../components/ui/Segmented';
 
-type Period = 'all' | 'year' | '30d';
+/** Last 30 days is the default view; all-time is one tap away (and linkable as ?range=all). */
+type Period = '30d' | 'all';
 
 function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
   const { players, nameOf } = useData();
@@ -97,12 +98,14 @@ function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
 
 export default function LeaderboardPage() {
   const { history, nameOf, ready } = useData();
-  const [period, setPeriod] = useState<Period>('all');
+  const [params, setParams] = useSearchParams();
+  const period: Period = params.get('range') === 'all' ? 'all' : '30d';
+  const setPeriod = (p: Period) => setParams(p === 'all' ? { range: 'all' } : {}, { replace: true });
   const [minGames, setMinGames] = useState<string>('auto');
   const [allPairs, setAllPairs] = useState(false);
 
   const stats = useMemo(() => {
-    const from = period === 'year' ? `${new Date().getFullYear()}-01-01` : period === '30d' ? isoDaysAgo(30) : undefined;
+    const from = period === '30d' ? isoDaysAgo(30) : undefined;
     return allTimeStats(history, nameOf, { from, minGames: minGames === 'auto' ? undefined : Number(minGames) });
   }, [history, nameOf, period, minGames]);
 
@@ -117,13 +120,18 @@ export default function LeaderboardPage() {
         value={period}
         onChange={setPeriod}
         options={[
-          { value: 'all', label: 'All time' },
-          { value: 'year', label: 'This year' },
           { value: '30d', label: 'Last 30 days' },
+          { value: 'all', label: 'All time' },
         ]}
       />
       {!stats.standings.length ? (
-        <Empty icon={<Trophy size={28} />} title="No results in this period" />
+        <Empty icon={<Trophy size={28} />} title={period === '30d' ? 'No games in the last 30 days' : 'No results yet'}>
+          {period === '30d' && (
+            <Button variant="secondary" size="sm" className="mt-2" onClick={() => setPeriod('all')}>
+              Show all time
+            </Button>
+          )}
+        </Empty>
       ) : (
         <>
           <Card>

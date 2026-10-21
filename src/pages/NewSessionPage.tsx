@@ -5,6 +5,7 @@ import { Check, Info, Play, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { createPlayer, createSession, updatePlayer } from '../lib/data/mutations';
 import { defaultSessionTitle, todayISO } from '../lib/format';
+import { levelName } from '../lib/levels';
 import type { PlayerId } from '../lib/types';
 import { AdminOnly } from '../components/AdminOnly';
 import { Avatar } from '../components/ui/Avatar';
@@ -103,7 +104,7 @@ export default function NewSessionPage() {
       <Card>
         <CardHeader
           title={`Who's playing · ${n} selected`}
-          subtitle="Levels go from 1 (beginner) to 5 (strongest) and balance the teams. They're remembered for next time."
+          subtitle="Levels run from Amateur Low to Professional High and balance the teams. They're remembered for next time."
         />
         <ul className="divide-y divide-line px-2 pt-2 pb-1">
           {active.map((p) => {
@@ -131,7 +132,7 @@ export default function NewSessionPage() {
                 {on ? (
                   <LevelStepper value={levels[p.id] ?? p.level} onChange={(v) => setLevels((l) => ({ ...l, [p.id]: v }))} label={`${p.name}'s level`} />
                 ) : (
-                  <span className="tabular text-sm text-muted">{p.level.toFixed(1)}</span>
+                  <span className="text-right text-xs text-muted">{levelName(p.level)}</span>
                 )}
               </li>
             );

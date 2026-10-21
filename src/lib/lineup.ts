@@ -1,3 +1,4 @@
+import { levelName } from './levels';
 import type { Lineup, Match, PlayerId, Session } from './types';
 
 export interface LineupOption {
@@ -6,7 +7,7 @@ export interface LineupOption {
   level: number;
 }
 
-/** Session players for the lineup pickers, e.g. "Anu (3.5)" or "Yuva (4.0) – resting". */
+/** Session players for the lineup pickers, e.g. "Anu · Intermediate High" or "Yuva · Advanced Low – resting". */
 export function lineupOptions(session: Session, nameOf: (id: PlayerId) => string, onlyAvailable = false): LineupOption[] {
   return Object.entries(session.attendees)
     .filter(([, a]) => !onlyAvailable || a.status === 'available')
@@ -14,7 +15,7 @@ export function lineupOptions(session: Session, nameOf: (id: PlayerId) => string
     .map(([id, a]) => ({
       id,
       level: a.level,
-      label: `${nameOf(id)} (${a.level.toFixed(1)})${a.status === 'available' ? '' : a.status === 'resting' ? ' – resting' : ' – left'}`,
+      label: `${nameOf(id)} · ${levelName(a.level)}${a.status === 'available' ? '' : a.status === 'resting' ? ' – resting' : ' – left'}`,
     }));
 }
 

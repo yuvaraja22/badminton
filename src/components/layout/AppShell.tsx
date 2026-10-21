@@ -1,9 +1,10 @@
 import clsx from 'clsx';
 import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, ScrollRestoration } from 'react-router';
-import { CalendarDays, Home, LogIn, LogOut, ShieldCheck, Trophy, Users } from 'lucide-react';
+import { CalendarDays, Home, LogIn, LogOut, Monitor, Moon, ShieldCheck, Sun, Trophy, Users } from 'lucide-react';
 import { useAuth } from '../../lib/data/context';
 import { usingEmulators } from '../../lib/firebase';
+import { useThemePref } from '../../lib/theme';
 import { Logo } from '../Logo';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Card';
@@ -52,7 +53,7 @@ function AccountButton() {
             await signIn();
             setBusy(false);
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted hover:bg-surface-2 hover:text-ink"
         >
           <LogIn size={16} /> Admin
         </button>
@@ -65,7 +66,7 @@ function AccountButton() {
     <Menu
       label="Account"
       trigger={
-        <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white ring-1 ring-white/30">
+        <span className="inline-flex size-8 items-center justify-center rounded-full bg-surface-2 text-sm font-bold text-ink ring-1 ring-line">
           {initial}
         </span>
       }
@@ -76,6 +77,23 @@ function AccountButton() {
           onClick: () => undefined,
         },
         { label: 'Sign out', icon: <LogOut size={16} />, onClick: () => void signOut() },
+      ]}
+    />
+  );
+}
+
+/** Light / Dark / follow the phone. Remembered on this device. */
+function ThemeMenu() {
+  const [pref, setPref] = useThemePref();
+  const Icon = pref === 'light' ? Sun : pref === 'dark' ? Moon : Monitor;
+  return (
+    <Menu
+      label="Theme"
+      trigger={<Icon size={19} />}
+      items={[
+        { label: 'Match phone', icon: <Monitor size={16} />, checked: pref === 'system', onClick: () => setPref('system') },
+        { label: 'Light', icon: <Sun size={16} />, checked: pref === 'light', onClick: () => setPref('light') },
+        { label: 'Dark', icon: <Moon size={16} />, checked: pref === 'dark', onClick: () => setPref('dark') },
       ]}
     />
   );
@@ -93,14 +111,15 @@ export function AppShell() {
   const items = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: ShieldCheck }] : NAV;
   return (
     <div className="min-h-dvh bg-bg">
-      <header className="sticky top-0 z-40 bg-header pt-[env(safe-area-inset-top)] text-white shadow-sm">
+      <header className="sticky top-0 z-40 border-b border-line bg-header pt-[env(safe-area-inset-top)] text-header-ink">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
           <Link to="/" className="flex min-w-0 items-center gap-2.5 font-bold tracking-tight">
             <Logo className="size-8 shrink-0" />
             <span className="truncate">Badminton Stats</span>
           </Link>
-          <div className="flex items-center gap-2 text-ink">
-            {usingEmulators && <span className="rounded bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Emulator</span>}
+          <div className="flex items-center gap-1">
+            {usingEmulators && <span className="mr-1 rounded bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Emulator</span>}
+            <ThemeMenu />
             <AccountButton />
           </div>
         </div>
@@ -120,7 +139,7 @@ export function AppShell() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition', isActive ? 'text-primary' : 'text-muted hover:text-ink')
+                clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition', isActive ? 'text-primary-text' : 'text-muted hover:text-ink')
               }
             >
               <Icon size={22} strokeWidth={2} />

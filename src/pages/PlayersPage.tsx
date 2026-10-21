@@ -4,6 +4,7 @@ import { ChevronRight, Search, UserPlus, Users } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { allTimeStats } from '../lib/engine/alltime';
 import { pct } from '../lib/format';
+import { levelName } from '../lib/levels';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
@@ -62,7 +63,7 @@ export default function PlayersPage() {
                     {!p.active && <Badge>Archived</Badge>}
                   </div>
                   <div className="tabular text-sm text-muted">
-                    Level {p.level.toFixed(1)}
+                    {levelName(p.level)}
                     {l ? ` · ${l.won}-${l.lost} · ${pct(l.winRate)}` : ' · no matches yet'}
                   </div>
                 </div>

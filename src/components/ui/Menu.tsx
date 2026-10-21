@@ -1,11 +1,14 @@
 import { cn } from '../../lib/cn';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Check } from 'lucide-react';
 
 export interface MenuItem {
   label: string;
   onClick: () => void;
   icon?: ReactNode;
   danger?: boolean;
+  /** Shows a check mark (for choices like the theme). */
+  checked?: boolean;
 }
 
 export function Menu({ trigger, items, label = 'More actions' }: { trigger: ReactNode; items: MenuItem[]; label?: string }) {
@@ -53,6 +56,7 @@ export function Menu({ trigger, items, label = 'More actions' }: { trigger: Reac
             >
               {it.icon}
               {it.label}
+              {it.checked && <Check size={16} strokeWidth={2.5} className="ml-auto text-primary-text" aria-label="selected" />}
             </button>
           ))}
         </div>

@@ -66,7 +66,8 @@ function PlayerForm({ player, onDone }: { player: Player | null; onDone: () => v
       <Field label="Name">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Vikram" autoFocus={!player} />
       </Field>
-      <Field label="Level" hint="1 = beginner … 5 = strongest. Used as the default when starting a session.">
+      <Field label="Level" hint="From Amateur Low up to Professional High. Used as the default when starting a session.">
+
         <LevelStepper value={level} onChange={setLevel} />
       </Field>
       {player && (

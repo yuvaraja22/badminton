@@ -23,7 +23,7 @@ export function Toaster() {
           role={t.kind === 'error' ? 'alert' : 'status'}
           className={cn(
             'pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-lg',
-            t.kind === 'error' ? 'bg-bad text-white' : t.kind === 'success' ? 'bg-good text-white' : 'bg-header text-white',
+            t.kind === 'error' ? 'bg-bad text-bad-bg' : t.kind === 'success' ? 'bg-good text-good-bg' : 'bg-toast text-toast-ink',
           )}
         >
           <span>{t.message}</span>

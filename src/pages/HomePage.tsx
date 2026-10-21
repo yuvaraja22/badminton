@@ -5,8 +5,9 @@ import { useAuth, useData } from '../lib/data/context';
 import { useQueuePlan } from '../lib/data/usePlan';
 import { allTimeStats, summarizeHistory } from '../lib/engine/alltime';
 import { sortedMatches } from '../lib/engine/games';
-import { matchCode, shortDate } from '../lib/format';
+import { isoDaysAgo, matchCode, shortDate } from '../lib/format';
 import type { Session } from '../lib/types';
+import { InstallCard } from '../components/InstallCard';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -53,7 +54,11 @@ export default function HomePage() {
   const { liveSessions, history, nameOf, ready, players } = useData();
   const { isAdmin } = useAuth();
   const summaries = useMemo(() => summarizeHistory(history, nameOf), [history, nameOf]);
-  const top = useMemo(() => allTimeStats(history, nameOf).standings.filter((l) => l.qualified).slice(0, 5), [history, nameOf]);
+  // Home shows the last 30 days; all-time is one tap away on the leaderboard.
+  const top = useMemo(
+    () => allTimeStats(history, nameOf, { from: isoDaysAgo(30) }).standings.filter((l) => l.qualified).slice(0, 5),
+    [history, nameOf],
+  );
   const latest = summaries[0];
 
   if (!ready) return <Spinner />;
@@ -78,6 +83,8 @@ export default function HomePage() {
         </Card>
       )}
 
+      <InstallCard />
+
       {latest && (
         <Link to={`/sessions/${latest.id}`} className="block">
           <Card className="transition hover:shadow-md">
@@ -97,19 +104,30 @@ export default function HomePage() {
         </Link>
       )}
 
-      {top.length > 0 && (
+      {summaries.length > 0 && (
         <Card>
           <CardHeader
-            title="All-time leaders"
+            title="Leaders · last 30 days"
             action={
-              <Link to="/leaderboard" className="text-sm font-semibold text-primary hover:underline">
-                Full table
+              <Link to="/leaderboard?range=all" className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-primary-text hover:bg-surface-2">
+                All time
               </Link>
             }
           />
-          <div className="pt-2 pb-2">
-            <StandingsTable rows={top} />
-          </div>
+          {top.length > 0 ? (
+            <>
+              <div className="pt-2">
+                <StandingsTable rows={top} />
+              </div>
+              <div className="border-t border-line px-4 py-2.5 text-right">
+                <Link to="/leaderboard" className="text-sm font-semibold text-primary-text hover:underline">
+                  Full table
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="px-4 pt-2 pb-4 text-sm text-muted">No games in the last 30 days. Tap “All time” to see everyone's record.</p>
+          )}
         </Card>
       )}
 

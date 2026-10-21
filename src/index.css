@@ -8,9 +8,12 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-header: var(--header);
+  --color-header-ink: var(--header-ink);
   --color-primary: var(--primary);
   --color-primary-ink: var(--primary-ink);
+  --color-primary-text: var(--primary-text);
   --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
   --color-good: var(--good);
   --color-good-bg: var(--good-bg);
   --color-bad: var(--bad);
@@ -18,54 +21,101 @@
   --color-warn: var(--warn);
   --color-warn-bg: var(--warn-bg);
   --color-info-bg: var(--info-bg);
+  --color-toast: var(--toast);
+  --color-toast-ink: var(--toast-ink);
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/*
+ * Light theme (default). Warm neutrals with Claude-orange actions.
+ * --primary is the button fill (white text, AA); --primary-text is orange used as text on the page.
+ */
 :root {
   color-scheme: light;
-  --bg: #f6f5f1;
+  --bg: #faf9f5;
   --surface: #ffffff;
-  --surface-2: #f1efea;
-  --ink: #1c2437;
-  --muted: #687082;
-  --line: #e4e1d9;
-  --header: #1f2a44;
-  --primary: #1f2a44;
+  --surface-2: #f0eee6;
+  --ink: #1f1e1d;
+  --muted: #6f6d66;
+  --line: #e6e3d9;
+  --header: #faf9f5;
+  --header-ink: #1f1e1d;
+  --primary: #b85a38;
   --primary-ink: #ffffff;
+  --primary-text: #ae5630;
   --accent: #b23a3a;
-  --good: #2f7a47;
-  --good-bg: #e2f1e6;
+  --accent-ink: #ffffff;
+  --good: #2a7142;
+  --good-bg: #e3f0e4;
   --bad: #b23a3a;
-  --bad-bg: #f8e2e2;
-  --warn: #9a6a22;
-  --warn-bg: #f6ecd9;
-  --info-bg: #e8edf8;
+  --bad-bg: #f7e1df;
+  --warn: #855a18;
+  --warn-bg: #f5ead6;
+  --info-bg: #f0eee6;
+  --toast: #1f1e1d;
+  --toast-ink: #faf9f5;
   /* Chart series color, validated for the light surface (dataviz palette slot 1). */
   --series-1: #2a78d6;
 }
 
+/*
+ * Dark theme: Claude-style warm charcoal. Applies when the phone is in dark mode (unless the
+ * person picked Light) or when they picked Dark. The block is repeated for those two cases.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     color-scheme: dark;
-    --bg: #0e1320;
-    --surface: #161d2c;
-    --surface-2: #1d2638;
-    --ink: #e7eaf0;
-    --muted: #9aa3b5;
-    --line: #2a3447;
-    --header: #151d31;
-    --primary: #4a6bd6;
+    --bg: #262624;
+    --surface: #30302e;
+    --surface-2: #3a3936;
+    --ink: #faf9f5;
+    --muted: #a6a39a;
+    --line: #45443f;
+    --header: #1f1e1d;
+    --header-ink: #faf9f5;
+    --primary: #b85a38;
     --primary-ink: #ffffff;
-    --accent: #e06b6b;
-    --good: #6cc48a;
-    --good-bg: #183022;
-    --bad: #f08080;
-    --bad-bg: #3a1d21;
-    --warn: #e0b064;
-    --warn-bg: #362b17;
-    --info-bg: #1c2742;
+    --primary-text: #e08a6a;
+    --accent: #ec7b71;
+    --accent-ink: #1f1e1d;
+    --good: #7fc893;
+    --good-bg: #26382b;
+    --bad: #f08c82;
+    --bad-bg: #472826;
+    --warn: #e3b46a;
+    --warn-bg: #403422;
+    --info-bg: #3a3936;
+    --toast: #45443f;
+    --toast-ink: #faf9f5;
     --series-1: #3987e5;
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #262624;
+  --surface: #30302e;
+  --surface-2: #3a3936;
+  --ink: #faf9f5;
+  --muted: #a6a39a;
+  --line: #45443f;
+  --header: #1f1e1d;
+  --header-ink: #faf9f5;
+  --primary: #b85a38;
+  --primary-ink: #ffffff;
+  --primary-text: #e08a6a;
+  --accent: #ec7b71;
+  --accent-ink: #1f1e1d;
+  --good: #7fc893;
+  --good-bg: #26382b;
+  --bad: #f08c82;
+  --bad-bg: #472826;
+  --warn: #e3b46a;
+  --warn-bg: #403422;
+  --info-bg: #3a3936;
+  --toast: #45443f;
+  --toast-ink: #faf9f5;
+  --series-1: #3987e5;
 }
 
 /* Charts: recessive hairline grid, muted ticks; marks carry the series color. */

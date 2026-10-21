@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { useData } from '../../lib/data/context';
 import { createPlayer, updatePlayer } from '../../lib/data/mutations';
-import { photoToDataUrl } from '../../lib/image';
-import { toast } from '../../lib/toast';
 import type { Player } from '../../lib/types';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { Notice } from '../ui/Card';
 import { Dialog } from '../ui/Dialog';
 import { Field, Input, LevelStepper, Toggle } from '../ui/Field';
+import { PhotoCropper } from './PhotoCropper';
 
 /** Create a player (player = null) or edit one. */
 export function PlayerDialog({ open, onClose, player }: { open: boolean; onClose: () => void; player: Player | null }) {
@@ -27,14 +26,12 @@ function PlayerForm({ player, onDone }: { player: Player | null; onDone: () => v
   const [active, setActive] = useState(player?.active ?? true);
   const [photo, setPhoto] = useState<string | null>(player?.photo ?? null);
   const [error, setError] = useState<string | null>(null);
+  // A newly picked photo waiting to be zoomed and positioned.
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
-  const pickPhoto = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      setPhoto(await photoToDataUrl(file));
-    } catch {
-      toast("Couldn't read that image", 'error');
-    }
+  const closeCropper = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
   };
 
   const save = () => {
@@ -47,6 +44,19 @@ function PlayerForm({ player, onDone }: { player: Player | null; onDone: () => v
     onDone();
   };
 
+  if (cropSrc) {
+    return (
+      <PhotoCropper
+        src={cropSrc}
+        onCancel={closeCropper}
+        onDone={(cropped) => {
+          setPhoto(cropped);
+          closeCropper();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
@@ -54,7 +64,16 @@ function PlayerForm({ player, onDone }: { player: Player | null; onDone: () => v
         <div className="flex flex-wrap gap-2">
           <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-semibold hover:bg-surface-2">
             <Camera size={15} /> {photo ? 'Change photo' : 'Add photo'}
-            <input type="file" accept="image/*" className="sr-only" onChange={(e) => pickPhoto(e.target.files?.[0])} />
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) setCropSrc(URL.createObjectURL(file));
+              }}
+            />
           </label>
           {photo && (
             <Button variant="ghost" size="sm" onClick={() => setPhoto(null)}>
@@ -67,7 +86,6 @@ function PlayerForm({ player, onDone }: { player: Player | null; onDone: () => v
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Vikram" autoFocus={!player} />
       </Field>
       <Field label="Level" hint="From Amateur Low up to Professional High. Used as the default when starting a session.">
-
         <LevelStepper value={level} onChange={setLevel} />
       </Field>
       {player && (

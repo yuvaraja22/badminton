@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { computeRatings } from '../engine/rating';
 import { db } from '../firebase';
 import { playerPath } from '../slug';
 import type { HistorySession, PlannedSession, Player, Session } from '../types';
@@ -46,6 +47,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => unsubs.forEach((u) => u());
   }, []);
 
+  // Replaying every game is cheap (well under a millisecond per session) but only redo it when the inputs change.
+  const ratings = useMemo(() => computeRatings(history ?? {}, players ?? []).ratings, [history, players]);
+
   const value = useMemo<DataValue>(() => {
     const list = [...(players ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     const byId = new Map(list.map((p) => [p.id, p]));
@@ -56,12 +60,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       nameOf: (id) => byId.get(id)?.name ?? 'Unknown',
       pathOf: (id) => paths.get(id) ?? `/players/${id}`,
       history: history ?? {},
+      ratings,
       config,
       liveSessions,
       planned,
       ready: players !== null && history !== null,
     };
-  }, [players, history, config, liveSessions, planned]);
+  }, [players, history, ratings, config, liveSessions, planned]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

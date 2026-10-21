@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
+import type { RatingTable } from '../engine/rating';
 import type { AppConfig, HistorySession, PlannedSession, Player, PlayerId, Session } from '../types';
 
 export interface DataValue {
@@ -10,6 +11,8 @@ export interface DataValue {
   pathOf: (id: PlayerId) => string;
   /** Compact copies of all completed sessions (meta/history). */
   history: Record<string, HistorySession>;
+  /** OpenSkill ratings replayed from the history. */
+  ratings: RatingTable['ratings'];
   config: AppConfig;
   liveSessions: Session[];
   /** Upcoming sessions people can RSVP to, soonest first. */

@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { HistoryMatch, HistorySession, PlayerId } from '../types';
 import { PAST_SESSIONS } from './fixtures/pastSessions';
-import { PROVISIONAL_GAMES, SEED_SIGMA, computeRatings, levelToMu, marginWeight, muToLevel, ratingStandings, sessionSkills } from './rating';
+import {
+  PROVISIONAL_GAMES,
+  SEED_SIGMA,
+  computeRatings,
+  levelToMu,
+  marginWeight,
+  muToLevel,
+  ratingStandings,
+  sessionSkills,
+  winChance,
+  type PlayerRating,
+} from './rating';
 
 type Game = [a: [PlayerId, PlayerId], sa: number, sb: number, b: [PlayerId, PlayerId], unfinished?: boolean];
 
@@ -146,3 +157,59 @@ describe('sessionSkills', () => {
     expect(skills.X).toBe(3.5); // never rated
   });
 });
+
+describe('rating history', () => {
+  const games = (n: number, winner: 'A' | 'C' = 'A'): Game[] =>
+    Array.from({ length: n }, (): Game => (winner === 'A' ? [['A', 'B'], 21, 15, ['C', 'D']] : [['A', 'B'], 15, 21, ['C', 'D']]));
+  const { ratings } = computeRatings({
+    s1: session('2026-01-03', games(3), { A: 3.5 }),
+    s2: session('2026-01-10', games(3)),
+    s3: session('2026-01-17', games(3, 'C')),
+  });
+  const a = ratings.get('A')!;
+
+  it('has a starting point, then one point per session', () => {
+    expect(a.history.map((p) => p.sessionId)).toEqual([null, 's1', 's2', 's3']);
+    expect(a.history[0]).toMatchObject({ level: 3.5, games: 0, change: 0 });
+    expect(a.history.map((p) => p.games)).toEqual([0, 3, 6, 9]);
+    expect(a.history.at(-1)!.level).toBeCloseTo(a.level);
+    expect(a.history.at(-1)!.change).toBeCloseTo(a.lastChange);
+  });
+
+  it('changes add up from the starting level', () => {
+    const total = a.history.reduce((s, p) => s + p.change, 0);
+    expect(a.history[0].level + total).toBeCloseTo(a.level);
+    expect(a.history[1].change).toBeGreaterThan(0);
+    expect(a.history[3].change).toBeLessThan(0);
+  });
+
+  it('reports a peak only once established', () => {
+    const early = computeRatings({ s1: session('2026-01-03', games(3)) }).ratings.get('A')!;
+    expect(early.peak).toBeNull();
+    // Established after s3 (9 games): the peak is the highest point from then on.
+    expect(a.peak).toBeCloseTo(a.history[3].level);
+  });
+});
+
+describe('winChance', () => {
+  const none = new Map<string, PlayerRating>();
+
+  it('is even for equal teams and symmetric', () => {
+    const skills = { A: 3, B: 3, C: 3, D: 3 };
+    expect(winChance(['A', 'B'], ['C', 'D'], skills, none)).toBeCloseTo(0.5);
+    const uneven = { A: 4, B: 3, C: 3, D: 2.5 };
+    const p = winChance(['A', 'B'], ['C', 'D'], uneven, none);
+    expect(p).toBeGreaterThan(0.6);
+    expect(p).toBeLessThan(0.95);
+    expect(winChance(['C', 'D'], ['A', 'B'], uneven, none)).toBeCloseTo(1 - p);
+  });
+
+  it('is more confident when the players are well known', () => {
+    const skills = { A: 4, B: 3, C: 3, D: 3 };
+    const unknown = winChance(['A', 'B'], ['C', 'D'], skills, none);
+    // Only σ is read from the ratings; the skills decide μ.
+    const known = new Map(['A', 'B', 'C', 'D'].map((id) => [id, { playerId: id, sigma: 2 } as PlayerRating]));
+    expect(winChance(['A', 'B'], ['C', 'D'], skills, known)).toBeGreaterThan(unknown);
+  });
+});
+

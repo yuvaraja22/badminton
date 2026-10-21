@@ -30,6 +30,19 @@ const MARGIN_MAX = 1.4;
 /** Games before a rating is trusted for team balancing and ranked on the board. */
 export const PROVISIONAL_GAMES = 8;
 
+export interface RatingPoint {
+  /** null for the starting point (the level the rating was seeded from). */
+  sessionId: string | null;
+  date: string;
+  title: string;
+  /** Rating after this session, on the level scale. */
+  level: number;
+  /** Change over this session. */
+  change: number;
+  /** Rated games played up to and including this session. */
+  games: number;
+}
+
 export interface PlayerRating {
   playerId: PlayerId;
   mu: number;
@@ -43,6 +56,10 @@ export interface PlayerRating {
   /** Change in level over the player's most recent session (from the seed level after a first session). */
   lastChange: number;
   lastDate: string | null;
+  /** The starting point, then the rating after each session played, oldest first. */
+  history: RatingPoint[];
+  /** Highest rating after a session once established (null while provisional). */
+  peak: number | null;
 }
 
 export interface GamePrediction {
@@ -84,6 +101,12 @@ interface Track {
   games: number;
   lastDate: string | null;
   levelBeforeLastSession: number;
+  points: RatingPoint[];
+}
+
+function peakOf(points: RatingPoint[]): number | null {
+  const established = points.filter((p) => p.sessionId !== null && p.games >= PROVISIONAL_GAMES);
+  return established.length ? Math.max(...established.map((p) => p.level)) : null;
 }
 
 /** Replays every completed session, oldest first. */
@@ -101,7 +124,15 @@ export function computeRatings(history: Record<string, HistorySession>, players:
       let t = tracks.get(pid);
       if (!t) {
         const seedLevel = h.levels?.[pid] ?? profileLevel.get(pid) ?? 3;
-        t = { r: newRating({ mu: levelToMu(seedLevel), sigma: SEED_SIGMA }), seedLevel, games: 0, lastDate: null, levelBeforeLastSession: seedLevel };
+        const start: RatingPoint = { sessionId: null, date: h.date, title: 'Start', level: muToLevel(levelToMu(seedLevel)), change: 0, games: 0 };
+        t = {
+          r: newRating({ mu: levelToMu(seedLevel), sigma: SEED_SIGMA }),
+          seedLevel,
+          games: 0,
+          lastDate: null,
+          levelBeforeLastSession: seedLevel,
+          points: [start],
+        };
         tracks.set(pid, t);
       } else if (t.lastDate) {
         const weeks = Math.max(0, daysBetween(t.lastDate, h.date) / 7);
@@ -131,6 +162,12 @@ export function computeRatings(history: Record<string, HistorySession>, players:
       apply(g.teamA, a, na);
       apply(g.teamB, b, nb);
     }
+
+    for (const pid of inSession) {
+      const t = tracks.get(pid)!;
+      const level = muToLevel(t.r.mu);
+      t.points.push({ sessionId, date: h.date, title: h.title, level, change: level - t.levelBeforeLastSession, games: t.games });
+    }
   }
 
   const ratings = new Map<PlayerId, PlayerRating>();
@@ -146,6 +183,8 @@ export function computeRatings(history: Record<string, HistorySession>, players:
       provisional: t.games < PROVISIONAL_GAMES,
       lastChange: level - t.levelBeforeLastSession,
       lastDate: t.lastDate,
+      history: t.points,
+      peak: peakOf(t.points),
     });
   }
   return { ratings, predictions };
@@ -179,4 +218,13 @@ export function sessionSkills(
     out[id] = !overridden && r && !r.provisional ? Math.round(r.level * 100) / 100 : a.level;
   }
   return out;
+}
+
+/**
+ * Chance that team A beats team B, from the same skills the planner balances by (see sessionSkills),
+ * with each player's rating uncertainty (or the starting uncertainty if they have no rated games).
+ */
+export function winChance(teamA: Team, teamB: Team, skills: Record<PlayerId, number>, ratings: Map<PlayerId, PlayerRating>): number {
+  const player = (id: PlayerId): Rating => ({ mu: levelToMu(skills[id] ?? 3), sigma: ratings.get(id)?.sigma ?? SEED_SIGMA });
+  return predictWin([teamA.map(player), teamB.map(player)])[0];
 }

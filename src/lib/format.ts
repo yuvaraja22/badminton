@@ -4,6 +4,12 @@ export function pct(x: number, digits = 1): string {
   return `${(x * 100).toFixed(digits)}%`;
 }
 
+/** Win chances as whole percentages that add up to 100, kept between 1 and 99: 0.613 → [61, 39]. */
+export function odds(chanceA: number): [number, number] {
+  const a = Math.min(99, Math.max(1, Math.round(chanceA * 100)));
+  return [a, 100 - a];
+}
+
 export function pctRound(x: number): string {
   return `${Math.round(x * 100)}%`;
 }

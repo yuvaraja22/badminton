@@ -1,3 +1,4 @@
+import { useWinChance } from '../../lib/data/useWinChance';
 import type { LineupOption } from '../../lib/lineup';
 import type { Lineup, PlayerId, Team } from '../../lib/types';
 import { Select } from '../ui/Field';
@@ -7,6 +8,7 @@ import { BalanceLabel } from './BalanceLabel';
 export function LineupFields({ value, onChange, options }: { value: Lineup; onChange: (v: Lineup) => void; options: LineupOption[] }) {
   const slots: PlayerId[] = [...value.teamA, ...value.teamB];
   const level = (id: PlayerId) => options.find((o) => o.id === id)?.level ?? 0;
+  const chanceOf = useWinChance();
   const setSlot = (i: number, id: PlayerId) => {
     const next = [...slots];
     const j = next.indexOf(id);
@@ -36,7 +38,13 @@ export function LineupFields({ value, onChange, options }: { value: Lineup; onCh
     <div className="space-y-3">
       {team('Team 1', 0)}
       {team('Team 2', 2)}
-      {complete && <BalanceLabel levelA={level(slots[0]) + level(slots[1])} levelB={level(slots[2]) + level(slots[3])} />}
+      {complete && (
+        <BalanceLabel
+          levelA={level(slots[0]) + level(slots[1])}
+          levelB={level(slots[2]) + level(slots[3])}
+          chance={chanceOf(value.teamA, value.teamB, Object.fromEntries(options.map((o) => [o.id, o.level])))}
+        />
+      )}
     </div>
   );
 }

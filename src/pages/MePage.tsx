@@ -17,6 +17,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 import { Stat } from '../components/ui/Stat';
 import { RatingBadge } from '../components/stats/RatingBadge';
+import { RatingHistoryCard } from '../components/stats/RatingChart';
 
 /** Personal dashboard for a signed-in player linked to a profile. */
 export default function MePage() {
@@ -89,6 +90,8 @@ export default function MePage() {
         <Stat label="Point difference" value={line ? signed(line.diff) : '–'} sub={recent ? `${signed(recent.diff)} in the last 30 days` : undefined} />
         <Stat label="MVP awards" value={String(profile.mvps)} sub={`${profile.sessions.length} sessions`} />
       </div>
+
+      <RatingHistoryCard playerId={player.id} title="Your skill rating" />
 
       {profile.form.length > 0 && (
         <Card>

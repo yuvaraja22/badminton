@@ -7,53 +7,55 @@ import { oneDecimal, pct, pctRound, signed } from '../../lib/format';
 // Wrap at spaces only; never hyphenate names or words ("TOURNA-MENT").
 Font.registerHyphenationCallback((word) => [word]);
 
-const NAVY = '#1f2a44';
-const GREY = '#6b7180';
-const LINE = '#e3e1db';
+const INK = '#0f1f1a';
+const COURT = '#11624b';
+const VOLT = '#d4f53c';
+const GREY = '#5b6862';
+const LINE = '#e0d9c8';
 const B = 'Helvetica-Bold';
 
 const s = StyleSheet.create({
-  page: { backgroundColor: '#fbfaf7', paddingTop: 34, paddingBottom: 46, paddingHorizontal: 34, fontFamily: 'Helvetica', fontSize: 9, color: NAVY },
-  header: { backgroundColor: NAVY, borderRadius: 8, paddingVertical: 16, paddingLeft: 22, paddingRight: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', position: 'relative' },
-  headerAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, backgroundColor: '#b23a3a', borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
+  page: { backgroundColor: '#fffdf8', paddingTop: 34, paddingBottom: 46, paddingHorizontal: 34, fontFamily: 'Helvetica', fontSize: 9, color: INK },
+  header: { backgroundColor: COURT, borderRadius: 8, paddingVertical: 16, paddingLeft: 22, paddingRight: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', position: 'relative' },
+  headerAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, backgroundColor: VOLT, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
   title: { fontFamily: B, fontSize: 18, color: '#ffffff', textTransform: 'uppercase' },
-  subtitle: { fontSize: 8, color: '#d5d9e3', marginTop: 4 },
-  pill: { borderWidth: 1, borderColor: '#8a93aa', borderRadius: 10, paddingVertical: 4, paddingHorizontal: 9, fontFamily: B, fontSize: 7.5, color: '#ffffff', textTransform: 'uppercase', marginLeft: 8 },
+  subtitle: { fontSize: 8, color: '#cfe3da', marginTop: 4 },
+  pill: { backgroundColor: VOLT, borderRadius: 10, paddingVertical: 4, paddingHorizontal: 9, fontFamily: B, fontSize: 7.5, color: INK, textTransform: 'uppercase', marginLeft: 8 },
   cards: { flexDirection: 'row', marginTop: 12, gap: 8 },
   card: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderTopWidth: 3, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 6, alignItems: 'center' },
   cardLabel: { fontFamily: B, fontSize: 7, textTransform: 'uppercase' },
   cardValue: { fontFamily: B, fontSize: 14, marginTop: 4, textAlign: 'center' },
   cardLine: { fontSize: 7, color: GREY, marginTop: 3, textAlign: 'center' },
   section: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 7, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: LINE },
-  sectionMark: { width: 6, height: 6, backgroundColor: '#b23a3a', marginRight: 7 },
+  sectionMark: { width: 10, height: 5, borderRadius: 1, backgroundColor: VOLT, marginRight: 7 },
   sectionText: { fontFamily: B, fontSize: 10, textTransform: 'uppercase' },
   table: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6 },
-  th: { flexDirection: 'row', backgroundColor: '#f1f2f5', paddingVertical: 6, paddingHorizontal: 6 },
+  th: { flexDirection: 'row', backgroundColor: '#f4f0e6', paddingVertical: 6, paddingHorizontal: 6 },
   thText: { fontFamily: B, fontSize: 6.5, color: GREY, textTransform: 'uppercase' },
-  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 6, borderTopWidth: 1, borderTopColor: '#eceae4' },
+  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 6, borderTopWidth: 1, borderTopColor: '#ece7d9' },
   rank: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.2, alignItems: 'center', justifyContent: 'center' },
   bold: { fontFamily: B },
   diff: { borderRadius: 3, paddingVertical: 2, paddingHorizontal: 5, fontFamily: B, fontSize: 8, textAlign: 'center' },
-  barTrack: { height: 3, backgroundColor: '#e8e9ee', borderRadius: 2, width: 64 },
+  barTrack: { height: 3, backgroundColor: '#ece7d9', borderRadius: 2, width: 64 },
   box: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6, padding: 10 },
   boxTitle: { fontFamily: B, fontSize: 8.5, textTransform: 'uppercase', marginBottom: 6 },
   footer: { position: 'absolute', bottom: 20, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
 });
 
 const RANK_STYLES: Record<number, { bg: string; border: string }> = {
-  1: { bg: '#f7ecb5', border: '#d4b13c' },
-  2: { bg: '#e6ebf5', border: '#8c9cc4' },
-  3: { bg: '#f6e1d1', border: '#c98a5b' },
+  1: { bg: VOLT, border: '#9fbf1f' },
+  2: { bg: '#dfe4e2', border: '#9aa6a0' },
+  3: { bg: '#ecc9a4', border: '#b98758' },
 };
 
 function winColor(rate: number) {
-  if (rate > 0.5) return '#3c7a4a';
-  if (rate === 0.5) return '#b07f2f';
-  return '#a83c3c';
+  if (rate > 0.5) return '#1b6f3f';
+  if (rate === 0.5) return '#8a5a0c';
+  return '#b8321f';
 }
 
 function Diff({ value, width = 34 }: { value: number; width?: number }) {
-  const [bg, fg] = value > 0 ? ['#dff0e3', '#2f7a47'] : value < 0 ? ['#f6dede', '#a83c3c'] : ['#eeeef2', GREY];
+  const [bg, fg] = value > 0 ? ['#dcefdc', '#1b6f3f'] : value < 0 ? ['#f9e0d9', '#b8321f'] : ['#ece7d9', GREY];
   return <Text style={[s.diff, { backgroundColor: bg, color: fg, width }]}>{signed(value)}</Text>;
 }
 
@@ -112,15 +114,15 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
         </View>
 
         <View style={s.cards}>
-          <Card color="#3f5ba9" label="Total matches" value={String(report.matchCount)} lines={totalLines} />
+          <Card color={COURT} label="Total matches" value={String(report.matchCount)} lines={totalLines} />
           <Card
-            color="#c98a4b"
+            color="#8a5a0c"
             label={mvp?.undefeated ? 'Undefeated MVP' : 'MVP'}
             value={mvp ? `${mvp.name} (${mvp.won}-${mvp.lost})` : '-'}
             lines={mvp ? [mvp.line] : []}
           />
-          <Card color="#3e8a75" label="Best partnership" value={bestPair?.label ?? '-'} lines={bestPair ? [bestPair.line] : []} />
-          <Card color="#7a5ea8" label="Tightest contest" value={tightest?.score ?? '-'} lines={tightest ? [tightest.line] : []} />
+          <Card color="#0f766e" label="Best partnership" value={bestPair?.label ?? '-'} lines={bestPair ? [bestPair.line] : []} />
+          <Card color="#c2410c" label="Tightest contest" value={tightest?.score ?? '-'} lines={tightest ? [tightest.line] : []} />
         </View>
 
         <Section>Player standings &amp; performance leaderboard</Section>
@@ -138,7 +140,7 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
             <Text style={[s.thText, center, { width: COLS.ppg }]}>PPG</Text>
           </View>
           {report.standings.map((r) => {
-            const rs = RANK_STYLES[r.rank] ?? { bg: '#ffffff', border: '#d3d6de' };
+            const rs = RANK_STYLES[r.rank] ?? { bg: '#ffffff', border: '#e0d9c8' };
             return (
               <View key={r.playerId} style={s.tr} wrap={false}>
                 <View style={{ width: COLS.rank }}>
@@ -151,11 +153,11 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
                     {r.name}
                     {r.isNew ? ' (New)' : ''}
                   </Text>
-                  {r.rank === 1 && mvp && <Text style={{ fontSize: 6.5, color: '#c98a4b', fontFamily: B, marginTop: 1 }}>Top performer</Text>}
+                  {r.rank === 1 && mvp && <Text style={{ fontSize: 6.5, color: '#8a5a0c', fontFamily: B, marginTop: 1 }}>Top performer</Text>}
                 </View>
                 <Text style={[center, { width: COLS.played }]}>{r.played}</Text>
                 <Text style={[center, s.bold, { width: COLS.won }]}>{r.won}</Text>
-                <Text style={[center, { width: COLS.lost, color: '#a83c3c' }]}>{r.lost}</Text>
+                <Text style={[center, { width: COLS.lost, color: '#b8321f' }]}>{r.lost}</Text>
                 <View style={{ width: COLS.rate, alignItems: 'center' }}>
                   <View style={s.barTrack}>
                     <View style={{ height: 3, borderRadius: 2, width: `${Math.max(3, r.winRate * 100)}%`, backgroundColor: winColor(r.winRate) }} />
@@ -180,7 +182,7 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
               <View
                 key={p.label}
                 wrap={false}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderTopWidth: i ? 1 : 0, borderTopColor: '#eceae4' }}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderTopWidth: i ? 1 : 0, borderTopColor: '#ece7d9' }}
               >
                 <Text style={[s.bold, { flex: 1, fontSize: 8 }]}>{p.label}</Text>
                 <Text style={{ width: 62, fontSize: 8 }}>
@@ -225,15 +227,15 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
           {report.log.map((r) => {
             const done = r.status === 'completed';
             return (
-              <View key={r.number} style={[s.tr, { paddingVertical: 7 }, done ? {} : { backgroundColor: '#f4f4f6' }]} wrap={false}>
+              <View key={r.number} style={[s.tr, { paddingVertical: 7 }, done ? {} : { backgroundColor: '#f6f3ea' }]} wrap={false}>
                 <Text style={[s.bold, { width: LOG.match }]}>{r.code}</Text>
                 <Text style={[{ width: LOG.t1 }, r.winner === 'A' ? s.bold : {}]}>{r.team1}</Text>
-                <Text style={[s.bold, center, { width: LOG.score, color: done ? NAVY : '#7a8090' }]}>
+                <Text style={[s.bold, center, { width: LOG.score, color: done ? INK : '#7b8781' }]}>
                   {r.scoreA ?? '-'} : {r.scoreB ?? '-'}
                   {r.status === 'unfinished' ? '*' : ''}
                 </Text>
                 <Text style={[{ width: LOG.t2 }, r.winner === 'B' ? s.bold : {}]}>{r.team2}</Text>
-                <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#3c7a4a' : '#7a8090' }]}>
+                <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#1b6f3f' : '#7b8781' }]}>
                   {r.winner ? `Team ${r.winner === 'A' ? 1 : 2}` : '—'}
                 </Text>
                 <Text style={{ width: LOG.ctx, fontSize: 8.5 }}>{r.context}</Text>

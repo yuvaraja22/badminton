@@ -5,7 +5,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
 
 const KEY = 'theme';
 // Browser/status-bar color per theme (matches the header).
-const BAR = { light: '#faf9f5', dark: '#1f1e1d' };
+const BAR = { light: '#f4f0e6', dark: '#0a1310' };
 
 function readThemePref(): ThemePref {
   try {

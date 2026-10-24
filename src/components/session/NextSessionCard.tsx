@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { CalendarPlus, Check, MoreVertical, Pencil, Play, Trash2, X } from 'lucide-react';
 import { useAuth, useData } from '../../lib/data/context';
 import { cancelPlannedSession, planSession, setRsvp, updatePlannedSession } from '../../lib/data/mutations';
-import { dayDate, formatTime, longDate, nextWeekendISO, todayISO } from '../../lib/format';
+import { dateParts, dayDate, formatTime, longDate, nextWeekendISO, todayISO } from '../../lib/format';
 import { usingEmulators } from '../../lib/firebase';
 import { cn } from '../../lib/cn';
 import type { PlannedSession } from '../../lib/types';
@@ -64,8 +64,8 @@ export function NextSessionCard() {
     return (
       <Card className="flex items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <h2 className="font-bold">Next session</h2>
-          <p className="text-sm text-muted">Plan it so players can say whether they're coming.</p>
+          <h2 className="kicker">Next session</h2>
+          <p className="mt-1 text-sm text-muted">Plan it so players can say whether they're coming.</p>
         </div>
         <Button variant="secondary" onClick={() => setDialog('plan')}>
           <CalendarPlus size={16} /> Plan
@@ -84,35 +84,48 @@ export function NextSessionCard() {
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 px-4 pt-4">
-        <div className="min-w-0">
-          <h2 className="text-[13px] font-bold uppercase tracking-wide text-muted">Next session</h2>
-          <p className="mt-1 text-lg font-bold">{dayDate(next.date)}</p>
-          {(next.time || next.note) && (
-            <p className="text-sm text-muted">{[next.time && formatTime(next.time), next.note].filter(Boolean).join(' · ')}</p>
-          )}
+      <div className="flex items-stretch">
+        {/* Ticket stub: the date, with notches cut where it tears off. */}
+        <div className="relative flex w-24 shrink-0 flex-col items-center justify-center bg-chip py-4 text-chip-ink">
+          <span className="text-[11px] font-bold tracking-[0.2em] uppercase opacity-75">{dateParts(next.date).weekday}</span>
+          <span className="font-score text-[3.2rem] leading-[0.95] font-black">{dateParts(next.date).day}</span>
+          <span className="text-[11px] font-bold tracking-[0.2em] uppercase opacity-75">{dateParts(next.date).month}</span>
+          <span aria-hidden className="absolute -top-2.5 -right-2.5 size-5 rounded-full bg-bg" />
+          <span aria-hidden className="absolute -right-2.5 -bottom-2.5 size-5 rounded-full bg-bg" />
         </div>
-        {isAdmin && (
-          <Menu
-            trigger={<MoreVertical size={20} />}
-            items={[
-              { label: 'Edit', icon: <Pencil size={16} />, onClick: () => setDialog('edit') },
-              { label: 'Cancel session', icon: <Trash2 size={16} />, danger: true, onClick: () => setDialog('cancel') },
-            ]}
-          />
-        )}
+        <div className="min-w-0 flex-1 border-l-2 border-dashed border-line px-4 py-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="kicker">Next session</h2>
+            {isAdmin && (
+              <div className="-mt-2 -mr-2">
+                <Menu
+                  trigger={<MoreVertical size={20} />}
+                  items={[
+                    { label: 'Edit', icon: <Pencil size={16} />, onClick: () => setDialog('edit') },
+                    { label: 'Cancel session', icon: <Trash2 size={16} />, danger: true, onClick: () => setDialog('cancel') },
+                  ]}
+                />
+              </div>
+            )}
+          </div>
+          <p className="mt-1 text-lg leading-tight font-bold tracking-tight">{dayDate(next.date)}</p>
+          {(next.time || next.note) && (
+            <p className="mt-0.5 text-sm text-muted">{[next.time && formatTime(next.time), next.note].filter(Boolean).join(' · ')}</p>
+          )}
+          <p className="mt-2 flex items-baseline gap-2 text-sm">
+            <span className="font-score text-2xl leading-none font-black text-good">{ins.length}</span>
+            <span className="font-semibold text-good">in</span>
+            {outs.length > 0 && <span className="text-muted">· {outs.length} can't make it</span>}
+          </p>
+        </div>
       </div>
 
-      <div className="space-y-3 px-4 pt-3 pb-4">
-        <p className="text-sm">
-          <span className="font-semibold text-good">{ins.length} in</span>
-          {outs.length > 0 && <span className="text-muted"> · {outs.length} can't make it</span>}
-        </p>
+      <div className="space-y-3 border-t border-line px-4 pt-3.5 pb-4">
         {ins.length > 0 && (
           <ul className="flex flex-wrap gap-1.5">
             {ins.map((id) => (
-              <li key={id} className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 py-0.5 pr-2.5 pl-0.5 text-sm">
-                <Avatar name={nameOf(id)} photo={playersById.get(id)?.photo} size={24} />
+              <li key={id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2/70 py-0.5 pr-3 pl-0.5 text-sm font-semibold">
+                <Avatar name={nameOf(id)} photo={playersById.get(id)?.photo} size={26} />
                 {nameOf(id)}
               </li>
             ))}

@@ -9,10 +9,10 @@ import { Dialog } from '../ui/Dialog';
 import { PhotoCropper } from './PhotoCropper';
 
 /** A player's photo. Admins (and the player themselves, once linked) tap it to pick a new one. */
-export function PhotoButton({ player, size = 64 }: { player: Player; size?: number }) {
+export function PhotoButton({ player, size = 64, className }: { player: Player; size?: number; className?: string }) {
   const { isAdmin, playerId } = useAuth();
   const [src, setSrc] = useState<string | null>(null);
-  if (!isAdmin && playerId !== player.id) return <Avatar name={player.name} photo={player.photo} size={size} />;
+  if (!isAdmin && playerId !== player.id) return <Avatar name={player.name} photo={player.photo} size={size} className={className} />;
 
   const close = () => {
     if (src) URL.revokeObjectURL(src);
@@ -22,8 +22,8 @@ export function PhotoButton({ player, size = 64 }: { player: Player; size?: numb
   return (
     <>
       <label className="relative shrink-0 cursor-pointer" title={`Change ${player.name}'s photo`}>
-        <Avatar name={player.name} photo={player.photo} size={size} />
-        <span className="absolute -right-0.5 -bottom-0.5 inline-flex size-6 items-center justify-center rounded-full bg-primary text-primary-ink ring-2 ring-surface">
+        <Avatar name={player.name} photo={player.photo} size={size} className={className} />
+        <span className="absolute -right-0.5 -bottom-0.5 inline-flex size-7 items-center justify-center rounded-full bg-volt text-volt-ink ring-2 ring-surface">
           <Camera size={13} aria-hidden />
         </span>
         <input

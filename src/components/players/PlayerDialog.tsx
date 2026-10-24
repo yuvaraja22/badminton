@@ -132,7 +132,7 @@ function PlayerForm({ player, mode, onDone }: { player: Player | null; mode: Mod
       <div className="flex items-center gap-4">
         <Avatar name={name || '?'} photo={photo} size={64} />
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-semibold hover:bg-surface-2">
+          <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-line px-3.5 text-sm font-semibold hover:bg-surface-2">
             <Camera size={15} /> {photo ? 'Change photo' : 'Add photo'}
             <input
               type="file"

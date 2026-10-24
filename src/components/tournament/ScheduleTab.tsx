@@ -247,7 +247,7 @@ function ScoreForm({ t, m, onDone }: { t: Tournament; m: TournamentMatch; onDone
         </span>
       }
     >
-      <Input type="number" inputMode="numeric" min={0} max={99} value={value} onChange={(e) => set(e.target.value)} className="tabular h-14 text-center text-2xl font-bold" />
+      <Input type="number" inputMode="numeric" min={0} max={99} value={value} onChange={(e) => set(e.target.value)} className="font-score tabular h-16 text-center text-4xl font-black" />
     </Field>
   );
   return (
@@ -379,12 +379,12 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
               return (
                 <li key={m.id} className={cn('px-4 py-3', m.status === 'live' && 'bg-accent/5')}>
                   <div className="flex min-h-8 items-center gap-2">
-                    <span className="text-sm font-bold">{matchCode(m.order)}</span>
+                    <span className="font-score text-lg leading-none font-black tracking-wide">{matchCode(m.order)}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-muted">
                       {m.time ? formatTime(m.time) : 'No time'} · {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
                     </span>
                     {m.status === 'completed' && (
-                      <span className="tabular text-sm font-bold">
+                      <span className="font-score tabular text-xl leading-none font-black">
                         {m.scoreA}–{m.scoreB}
                       </span>
                     )}

@@ -19,17 +19,9 @@ import { Dialog } from '../ui/Dialog';
 import { Input } from '../ui/Field';
 import { AddPlayerDialog, AttendeeDialog } from './AttendanceDialogs';
 import { BalanceLabel } from './BalanceLabel';
+import { ChanceBar, CourtMatch, TeamStack } from './CourtView';
 import { LineupFields } from './LineupFields';
 import { MatchDialog } from './MatchDialog';
-
-function TeamNames({ team, strong }: { team: Team; strong?: boolean }) {
-  const { nameOf } = useData();
-  return (
-    <div className={clsx('truncate text-[17px]', strong ? 'font-bold' : 'font-semibold')}>
-      {nameOf(team[0])} &amp; {nameOf(team[1])}
-    </div>
-  );
-}
 
 /** Team strength as the scheduler sees it: rating-based skill when known, else the session level. */
 function teamLevel(session: Session, team: Team, skills: Record<PlayerId, number> | undefined): number {
@@ -77,64 +69,52 @@ function NowPlaying({
       value={value}
       onChange={(e) => set(e.target.value)}
       placeholder="–"
-      className="tabular h-14 w-20 shrink-0 text-center text-2xl font-bold"
+      className="font-score tabular h-16 w-[4.75rem] shrink-0 rounded-2xl border-white/25 bg-black/25 px-1 text-center text-[2.6rem] font-black text-court-ink placeholder:text-court-ink/45 hover:border-white/40 focus:border-volt focus:ring-volt/30"
     />
   );
 
   return (
-    <Card className="overflow-hidden border-accent/40">
-      <div className="flex items-center justify-between bg-accent/10 px-4 py-2.5">
-        <span className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-accent">
-          <LiveDot /> Now playing · {matchCode(match.number)}
+    <section className="court-mat relative overflow-hidden rounded-[1.6rem] p-3 shadow-[var(--shadow-card)]">
+      <div className="flex items-center gap-2 px-1 pt-0.5 pb-3">
+        <span className="inline-flex items-center gap-2 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold tracking-[0.14em] text-accent-ink uppercase">
+          <LiveDot /> Now playing
         </span>
+        <span className="font-score text-[1.6rem] leading-none font-black tracking-wide">{matchCode(match.number)}</span>
         {isAdmin && (
-          <button type="button" onClick={onEdit} className="flex items-center gap-1 text-sm font-medium text-muted hover:text-ink">
+          <button type="button" onClick={onEdit} className="ml-auto flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold hover:bg-white/20">
             <Pencil size={14} /> Edit
           </button>
         )}
       </div>
-      <div className="space-y-3 px-4 py-4">
-        {isAdmin ? (
+      <CourtMatch
+        teamA={match.teamA}
+        teamB={match.teamB}
+        scoreA={isAdmin ? scoreBox(a, setA, 'Team 1 score') : undefined}
+        scoreB={isAdmin ? scoreBox(b, setB, 'Team 2 score') : undefined}
+        className={isAdmin ? 'min-h-60' : 'min-h-44'}
+      />
+      <div className="space-y-3 px-1 pt-3.5">
+        {chance != null && <ChanceBar chance={chance} onCourt />}
+        <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} chance={chance} className="text-court-ink/85" />
+        {isAdmin && (
           <>
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold uppercase text-muted">Team 1</div>
-                <TeamNames team={match.teamA} strong />
-              </div>
-              {scoreBox(a, setA, 'Team 1 score')}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold uppercase text-muted">Team 2</div>
-                <TeamNames team={match.teamB} strong />
-              </div>
-              {scoreBox(b, setB, 'Team 2 score')}
-            </div>
-            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} chance={chance} />
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--accent)]" />
+              <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--volt)]" />
               Stopped early (not counted in stats)
             </label>
             {error && <Notice tone="bad">{error}</Notice>}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 pb-1">
               <Button variant="secondary" size="lg" onClick={() => save(false)}>
                 Save result
               </Button>
-              <Button size="lg" onClick={() => save(true)} disabled={!next}>
+              <Button variant="volt" size="lg" onClick={() => save(true)} disabled={!next}>
                 Save &amp; next <Play size={16} />
               </Button>
             </div>
           </>
-        ) : (
-          <>
-            <TeamNames team={match.teamA} strong />
-            <div className="text-center text-xs font-bold uppercase text-muted">vs</div>
-            <TeamNames team={match.teamB} strong />
-            <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} chance={chance} />
-          </>
         )}
       </div>
-    </Card>
+    </section>
   );
 }
 
@@ -203,16 +183,17 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
     <div className="space-y-4">
       {live && <NowPlaying key={live.id} session={session} match={live} next={next} skills={plan?.skills} isAdmin={isAdmin} onEdit={() => setEditMatch(live)} />}
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader
           title={
             <span className="flex items-center gap-2">
-              Up next{next ? ` · ${matchCode(next.number)}` : ''}
+              Up next
               {next?.pinned && <Badge tone="info">Your lineup</Badge>}
             </span>
           }
+          action={next && <span className="font-score -mt-1 text-[1.6rem] leading-none font-black tracking-wide text-muted">{matchCode(next.number)}</span>}
         />
-        <div className="space-y-3 px-4 pt-3 pb-4">
+        <div className="space-y-3.5 px-4 pt-3 pb-4">
           {plan?.blocked && <Notice tone="warn">{plan.blocked}</Notice>}
           {plan && !plan.nextPickValid && (
             <Notice tone="warn">
@@ -226,11 +207,12 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
           )}
           {next && (
             <>
-              <div className="space-y-1.5">
-                <TeamNames team={next.teamA} />
-                <div className="text-xs font-bold uppercase text-muted">vs</div>
-                <TeamNames team={next.teamB} />
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <TeamStack ids={next.teamA} />
+                <span className="font-score flex size-9 items-center justify-center rounded-full bg-chip text-sm font-black tracking-wider text-chip-ink">VS</span>
+                <TeamStack ids={next.teamB} align="end" />
               </div>
+              {plan && <ChanceBar chance={chanceOf(next.teamA, next.teamB, plan.skills)} />}
               <BalanceLabel levelA={next.levelA} levelB={next.levelB} chance={plan ? chanceOf(next.teamA, next.teamB, plan.skills) : null} />
               {isAdmin && (
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -259,7 +241,7 @@ export function CourtTab({ session, isAdmin }: { session: Session; isAdmin: bool
           <ol className="divide-y divide-line px-4 pt-2 pb-1">
             {plan.upcoming.slice(1).map((m) => (
               <li key={m.number} className="flex items-center gap-3 py-2.5 text-sm">
-                <span className="w-9 shrink-0 font-bold text-muted">{matchCode(m.number)}</span>
+                <span className="font-score w-11 shrink-0 rounded-lg bg-surface-2 py-1 text-center text-[15px] leading-none font-black tracking-wide text-muted">{matchCode(m.number)}</span>
                 <span className="min-w-0 flex-1">
                   {nameOf(m.teamA[0])} &amp; {nameOf(m.teamA[1])} <span className="text-muted">vs</span> {nameOf(m.teamB[0])} &amp;{' '}
                   {nameOf(m.teamB[1])}

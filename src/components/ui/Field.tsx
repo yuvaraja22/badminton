@@ -4,12 +4,12 @@ import { Minus, Plus } from 'lucide-react';
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
 const control =
-  'w-full rounded-xl border border-line bg-surface px-3 text-[15px] text-ink outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50';
+  'w-full rounded-2xl border border-line bg-surface px-3.5 text-[15px] text-ink outline-none transition placeholder:text-muted/70 hover:border-muted/40 focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-50';
 
 export function Field({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <label className={cn('block', className)}>
-      <span className="mb-1.5 block text-sm font-medium">{label}</span>
+      <span className="mb-1.5 block text-sm font-semibold">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
     </label>
@@ -44,13 +44,13 @@ export function LevelStepper({
   const set = (v: number) => onChange(clampLevel(v));
   const { tier, part } = levelParts(value);
   return (
-    <div className="inline-flex items-center rounded-xl border border-line bg-surface">
+    <div className="inline-flex items-center rounded-full border border-line bg-surface">
       <button
         type="button"
         aria-label={`Lower ${label}`}
         disabled={disabled || value <= MIN_LEVEL}
         onClick={() => set(value - 0.5)}
-        className="inline-flex size-9 items-center justify-center text-muted disabled:opacity-30"
+        className="inline-flex size-9 items-center justify-center rounded-full text-muted hover:text-ink disabled:opacity-30"
       >
         <Minus size={16} />
       </button>
@@ -63,7 +63,7 @@ export function LevelStepper({
         aria-label={`Raise ${label}`}
         disabled={disabled || value >= MAX_LEVEL}
         onClick={() => set(value + 0.5)}
-        className="inline-flex size-9 items-center justify-center text-muted disabled:opacity-30"
+        className="inline-flex size-9 items-center justify-center rounded-full text-muted hover:text-ink disabled:opacity-30"
       >
         <Plus size={16} />
       </button>

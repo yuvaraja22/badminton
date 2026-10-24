@@ -54,9 +54,9 @@ function AccountButton() {
             await signIn();
             setBusy(false);
           }}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium whitespace-nowrap text-muted hover:bg-surface-2 hover:text-ink"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold whitespace-nowrap text-ink hover:bg-surface-2"
         >
-          <LogIn size={16} /> Sign in
+          <LogIn size={16} className="hidden min-[400px]:block" /> Sign in
         </button>
         {usingEmulators && <EmulatorSignIn open={emulatorOpen} onClose={() => setEmulatorOpen(false)} />}
       </>
@@ -67,7 +67,7 @@ function AccountButton() {
     <Menu
       label="Account"
       trigger={
-        <span className="inline-flex size-8 items-center justify-center rounded-full bg-surface-2 text-sm font-bold text-ink ring-1 ring-line">
+        <span className="inline-flex size-9 items-center justify-center rounded-full bg-chip text-sm font-extrabold text-chip-ink">
           {initial}
         </span>
       }
@@ -118,29 +118,33 @@ export function AppShell() {
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
   return (
-    <div className="min-h-dvh bg-bg">
-      <header className="sticky top-0 z-40 border-b border-line bg-header pt-[env(safe-area-inset-top)] text-header-ink">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
-          <Link to="/" className="flex min-w-0 items-center gap-2.5 font-bold tracking-tight">
-            <Logo className="size-8 shrink-0" />
-            <span className="truncate">Badminton Stats</span>
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-40 border-b border-line/70 bg-header/80 pt-[env(safe-area-inset-top)] text-header-ink backdrop-blur-xl backdrop-saturate-150">
+        <div className="mx-auto flex h-15 max-w-5xl items-center justify-between gap-2 px-4">
+          <Link to="/" className="group flex min-w-0 items-center gap-2.5" aria-label="Badminton Stats, home">
+            <Logo className="size-9 shrink-0 drop-shadow-[0_4px_10px_rgb(17_98_75/0.35)] transition group-hover:-rotate-6" />
+            <span className="flex min-w-0 items-baseline gap-1.5 text-[1.2rem] leading-none font-extrabold tracking-[-0.04em]">
+              <span className="truncate">Badminton</span>
+              <span className="font-score -rotate-3 rounded-md bg-volt px-1.5 py-0.5 text-[0.95rem] font-black tracking-[0.06em] text-volt-ink uppercase">Stats</span>
+            </span>
           </Link>
           <div className="flex shrink-0 items-center gap-1">
-            {usingEmulators && <span className="mr-1 rounded bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Emulator</span>}
+            {usingEmulators && <span className="mr-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Emulator</span>}
             <ThemeMenu />
             <AccountButton />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      <main className="mx-auto max-w-5xl px-4 pt-5 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
         <Suspense fallback={<Spinner />}>
           <Outlet />
         </Suspense>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Main">
-        <div className="mx-auto flex max-w-5xl">
+      {/* Floating dock: the active tab is a volt pill. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" aria-label="Main">
+        <div className="mx-auto flex max-w-md gap-0.5 rounded-full border border-white/5 bg-dock p-1.5 text-dock-ink shadow-[0_18px_40px_-12px_rgb(6_14_11/0.6)]">
           {items.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -148,13 +152,13 @@ export function AppShell() {
               end={end}
               className={({ isActive }) =>
                 clsx(
-                  'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition',
-                  isActive || (inTournaments && to === '/sessions') ? 'text-primary-text' : 'text-muted hover:text-ink',
+                  'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10.5px] font-bold tracking-tight transition',
+                  isActive || (inTournaments && to === '/sessions') ? 'bg-volt text-volt-ink shadow-[0_6px_16px_-6px_var(--volt)]' : 'hover:text-white',
                 )
               }
             >
-              <Icon size={22} strokeWidth={2} />
-              {label}
+              <Icon size={21} strokeWidth={2.1} />
+              <span className="max-w-full truncate">{label}</span>
             </NavLink>
           ))}
         </div>

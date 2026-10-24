@@ -93,13 +93,13 @@ export default function TournamentPage() {
 
   return (
     <div>
-      <Link to="/tournaments" className="mb-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <Link to="/tournaments" className="mb-2 inline-flex items-center gap-1 rounded-full py-1 pr-3 text-sm font-semibold text-muted hover:text-ink">
         <ChevronLeft size={16} /> Tournaments
       </Link>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl leading-tight font-bold tracking-tight">{t.name}</h1>
-          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+          <h1 className="text-[1.9rem] leading-[1.02] font-extrabold tracking-[-0.035em]">{t.name}</h1>
+          <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
             {longDate(t.date)} <TournamentStatusBadge t={t} />
           </p>
         </div>
@@ -125,15 +125,15 @@ export default function TournamentPage() {
 
       {live && (
         <Link to={`/tournaments/${t.id}/matches/${live.id}`} className="mb-3 block">
-          <Card className="flex items-center gap-3 border-accent/40 px-4 py-3 transition hover:shadow-md">
-            <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold tracking-wide text-accent uppercase">
+          <Card className="flex items-center gap-3 border-accent/40 px-4 py-3 transition hover:-translate-y-0.5">
+            <span className="font-score flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-base leading-none font-black tracking-wide text-accent-ink">
               <LiveDot /> {matchCode(live.order)}
             </span>
             <span className="min-w-0 flex-1 space-y-0.5 text-sm">
               <SideNames t={t} team="a" ids={live.a} />
               <SideNames t={t} team="b" ids={live.b} />
             </span>
-            <span className="tabular text-xl font-black">
+            <span className="font-score tabular text-[2rem] leading-none font-black">
               {live.scoreA}–{live.scoreB}
             </span>
             <ChevronRight size={18} className="shrink-0 text-muted" />

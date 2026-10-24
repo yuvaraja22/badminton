@@ -9,16 +9,18 @@ import type { PlayerId, TeamKey, Tournament, TournamentMatch } from '../../lib/t
 // Wrap at spaces only; never hyphenate names.
 Font.registerHyphenationCallback((word) => [word]);
 
-const NAVY = '#1f2a44';
-const GREY = '#6b7180';
-const LINE = '#e3e1db';
+const INK = '#0f1f1a';
+const COURT = '#11624b';
+const VOLT = '#d4f53c';
+const GREY = '#5b6862';
+const LINE = '#e0d9c8';
 const B = 'Helvetica-Bold';
 
 const s = StyleSheet.create({
-  page: { backgroundColor: '#fbfaf7', paddingTop: 30, paddingBottom: 44, paddingHorizontal: 32, fontFamily: 'Helvetica', fontSize: 9, color: NAVY },
-  header: { backgroundColor: NAVY, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 18 },
+  page: { backgroundColor: '#fffdf8', paddingTop: 30, paddingBottom: 44, paddingHorizontal: 32, fontFamily: 'Helvetica', fontSize: 9, color: INK },
+  header: { backgroundColor: COURT, borderRadius: 8, borderLeftWidth: 5, borderLeftColor: VOLT, paddingVertical: 14, paddingHorizontal: 18 },
   title: { fontFamily: B, fontSize: 18, color: '#ffffff', textTransform: 'uppercase' },
-  subtitle: { fontSize: 8.5, color: '#d5d9e3', marginTop: 4 },
+  subtitle: { fontSize: 8.5, color: '#cfe3da', marginTop: 4 },
   teams: { flexDirection: 'row', gap: 10, marginTop: 12 },
   team: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6, overflow: 'hidden' },
   teamBar: { paddingVertical: 7, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -29,9 +31,9 @@ const s = StyleSheet.create({
   summaryMain: { fontFamily: B, fontSize: 11 },
   section: { fontFamily: B, fontSize: 10, textTransform: 'uppercase', marginTop: 16, marginBottom: 6, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: LINE },
   table: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6 },
-  th: { flexDirection: 'row', backgroundColor: '#f1f2f5', paddingVertical: 5, paddingHorizontal: 8 },
+  th: { flexDirection: 'row', backgroundColor: '#f4f0e6', paddingVertical: 5, paddingHorizontal: 8 },
   thText: { fontFamily: B, fontSize: 6.5, color: GREY, textTransform: 'uppercase' },
-  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5.5, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#eceae4' },
+  tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5.5, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#ece7d9' },
   side: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
   footer: { position: 'absolute', bottom: 18, left: 32, right: 32, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },

@@ -5,18 +5,9 @@ import type { PairLine, PlayerLine } from '../../lib/engine/stats';
 import { oneDecimal, pct, pctRound } from '../../lib/format';
 import { Avatar } from '../ui/Avatar';
 import { DiffPill } from '../ui/Badge';
+import { rankClass } from './rankClass';
 
 type Row = PlayerLine & { sessions?: number; mvps?: number };
-
-function rankClass(rank: number) {
-  return rank === 1
-    ? 'bg-[#f7ecb5] text-[#6b5512] ring-[#d4b13c]'
-    : rank === 2
-      ? 'bg-[#e6ebf5] text-[#33405f] ring-[#8c9cc4]'
-      : rank === 3
-        ? 'bg-[#f6e1d1] text-[#6b3f1f] ring-[#c98a5b]'
-        : 'bg-surface-2 text-muted ring-line';
-}
 
 /** On phones: rank, player, W-L, win %, diff. Wider screens add games, PPG, sessions and MVPs. */
 export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessions?: boolean }) {
@@ -26,7 +17,7 @@ export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessio
     <div className="overflow-x-auto">
       <table className="w-full text-sm sm:min-w-[560px]">
         <thead>
-          <tr className="text-[11px] font-bold uppercase text-muted">
+          <tr className="text-[10.5px] font-bold tracking-[0.12em] uppercase text-muted">
             <th className="py-2 pr-1 pl-4 text-left">#</th>
             <th className="px-2 py-2 text-left">Player</th>
             {showSessions && <th className={clsx(wide, 'px-2 py-2')}>Sess.</th>}
@@ -44,7 +35,7 @@ export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessio
           {rows.map((r, i) => (
             <tr key={r.playerId} className={clsx('border-t border-line', !r.qualified && 'text-muted')}>
               <td className="py-2 pr-1 pl-4 text-left">
-                <span className={clsx('inline-flex size-6 items-center justify-center rounded-full text-xs font-bold ring-1', rankClass(r.qualified ? i + 1 : 99))}>
+                <span className={clsx('font-score inline-flex size-7 items-center justify-center rounded-full text-[15px] font-black ring-1', rankClass(r.qualified ? i + 1 : 99))}>
                   {i + 1}
                 </span>
               </td>

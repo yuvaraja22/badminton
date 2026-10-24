@@ -7,6 +7,7 @@ import { PROVISIONAL_GAMES, ratingStandings } from '../lib/engine/rating';
 import { isCounted, sideOf } from '../lib/engine/games';
 import { headToHead } from '../lib/engine/stats';
 import { isoDaysAgo, pctRound, shortDate, signed } from '../lib/format';
+import { Podium } from '../components/stats/Podium';
 import { RatingTable } from '../components/stats/RatingTable';
 import { PartnershipList, StandingsTable } from '../components/stats/StandingsTable';
 import { Button } from '../components/ui/Button';
@@ -35,7 +36,7 @@ function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
               </option>
             ))}
           </Select>
-          <span className="text-xs font-bold uppercase text-muted">vs</span>
+          <span className="font-score flex size-9 items-center justify-center rounded-full bg-chip text-sm font-black tracking-wider text-chip-ink">VS</span>
           <Select value={p2} onChange={(e) => setP2(e.target.value)} aria-label="Second player">
             {players.map((p) => (
               <option key={p.id} value={p.id}>
@@ -47,18 +48,18 @@ function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
         {h && (
           <>
             <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="rounded-xl bg-surface-2 p-3">
-                <div className="text-xs font-bold uppercase text-muted">As partners</div>
-                <div className="tabular mt-1 text-2xl font-bold">
+              <div className="rounded-2xl bg-surface-2 p-3">
+                <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-muted">As partners</div>
+                <div className="font-score tabular mt-1 text-[2.4rem] leading-none font-black">
                   {h.together.won}-{h.together.lost}
                 </div>
                 <div className="text-xs text-muted">
                   {h.together.played ? `${pctRound(h.together.won / h.together.played)} · ${signed(h.together.diff)} pts` : 'Never paired'}
                 </div>
               </div>
-              <div className="rounded-xl bg-surface-2 p-3">
-                <div className="text-xs font-bold uppercase text-muted">Against each other</div>
-                <div className="tabular mt-1 text-2xl font-bold">
+              <div className="rounded-2xl bg-surface-2 p-3">
+                <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-muted">Against each other</div>
+                <div className="font-score tabular mt-1 text-[2.4rem] leading-none font-black">
                   {h.against.p1Won}-{h.against.p2Won}
                 </div>
                 <div className="text-xs text-muted">
@@ -138,6 +139,7 @@ export default function LeaderboardPage() {
         </Empty>
       ) : (
         <>
+          <Podium rows={stats.standings} />
           <Card>
             <CardHeader title="Players" subtitle="Ranked by win rate, then point difference. Players below the minimum games are listed last." />
             <div className="px-4 pt-3">

@@ -42,7 +42,7 @@ export function Menu({ trigger, items, label = 'More actions' }: { trigger: Reac
         {trigger}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl">
+        <div role="menu" className="animate-rise absolute right-0 z-30 mt-1.5 w-60 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-2xl">
           {items.map((it) => (
             <button
               key={it.label}
@@ -52,7 +52,10 @@ export function Menu({ trigger, items, label = 'More actions' }: { trigger: Reac
                 setOpen(false);
                 it.onClick();
               }}
-              className={cn('flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-surface-2', it.danger && 'text-bad')}
+              className={cn(
+                'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-surface-2',
+                it.danger && 'text-bad',
+              )}
             >
               {it.icon}
               {it.label}

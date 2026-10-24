@@ -16,13 +16,13 @@ export function Toaster() {
 
   if (!items.length) return null;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(6.25rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4">
       {items.map((t) => (
         <div
           key={t.id}
           role={t.kind === 'error' ? 'alert' : 'status'}
           className={cn(
-            'pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-lg',
+            'animate-rise pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-semibold shadow-2xl',
             t.kind === 'error' ? 'bg-bad text-bad-bg' : t.kind === 'success' ? 'bg-good text-good-bg' : 'bg-toast text-toast-ink',
           )}
         >
@@ -30,7 +30,7 @@ export function Toaster() {
           {t.action && (
             <button
               type="button"
-              className="shrink-0 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+              className="shrink-0 rounded-full bg-white/15 px-3.5 py-1 font-bold hover:bg-white/25"
               onClick={() => {
                 t.action!.onClick();
                 setItems((prev) => prev.filter((x) => x.id !== t.id));

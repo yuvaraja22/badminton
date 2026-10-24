@@ -9,15 +9,15 @@ export function SessionsSwitch({ current }: { current: 'sessions' | 'tournaments
       role="tab"
       aria-selected={on}
       className={cn(
-        'flex h-9 flex-1 items-center justify-center rounded-lg px-3 text-sm font-semibold whitespace-nowrap transition',
-        on ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink',
+        'flex h-9 flex-1 items-center justify-center rounded-full px-3 text-sm font-semibold whitespace-nowrap transition',
+        on ? 'bg-chip text-chip-ink shadow-sm' : 'text-muted hover:text-ink',
       )}
     >
       {label}
     </Link>
   );
   return (
-    <div role="tablist" className="mb-4 flex rounded-xl bg-surface-2 p-1">
+    <div role="tablist" className="mb-5 flex rounded-full border border-line bg-surface-2 p-1">
       {item('/sessions', 'Sessions', current === 'sessions')}
       {item('/tournaments', 'Tournaments', current === 'tournaments')}
     </div>

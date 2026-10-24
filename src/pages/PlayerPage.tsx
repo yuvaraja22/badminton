@@ -6,14 +6,14 @@ import { useAuth, useData } from '../lib/data/context';
 import { playerProfile } from '../lib/engine/alltime';
 import { partnerOf, sideOf, teamOf, otherSide, winnerSide } from '../lib/engine/games';
 import type { RelationLine } from '../lib/engine/stats';
-import { longDate, oneDecimal, pct, pctRound, shortDate, signed } from '../lib/format';
+import { oneDecimal, pct, pctRound, shortDate, signed } from '../lib/format';
 import { levelName } from '../lib/levels';
 import { shareLink } from '../lib/share';
 import { findPlayer } from '../lib/slug';
 import { PlayerDialog } from '../components/players/PlayerDialog';
-import { PhotoButton } from '../components/players/PhotoButton';
+import { PlayerHero } from '../components/players/PlayerHero';
+import { Avatar } from '../components/ui/Avatar';
 import { ProfileDetails } from '../components/players/ProfileDetails';
-import { RatingBadge } from '../components/stats/RatingBadge';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
 import { PlayerTournaments } from '../components/tournament/PlayerTournaments';
 import { WinRateChart } from '../components/stats/WinRateChart';
@@ -50,7 +50,7 @@ function RelationTable({ rows, title, subtitle }: { rows: RelationLine[]; title:
 export default function PlayerPage() {
   // The URL ends with the player's name (/players/vikram); older links with the id still work.
   const { id: param = '' } = useParams();
-  const { players, history, nameOf, pathOf, ready } = useData();
+  const { players, playersById, history, nameOf, pathOf, ready } = useData();
   const { isAdmin, playerId: myPlayerId } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -93,44 +93,47 @@ export default function PlayerPage() {
         <ChevronLeft size={16} /> Players
       </Link>
 
-      <Card className="space-y-3 p-4">
-      <div className="flex items-center gap-4">
-        <PhotoButton player={player} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-2xl font-bold">{player.name}</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-            {isMe && <Badge tone="good">You</Badge>}
+      <PlayerHero
+        player={player}
+        line={line}
+        badges={
+          <>
+            {isMe && <Badge tone="volt">You</Badge>}
             <Badge tone="info">{levelName(player.level)}</Badge>
-            <RatingBadge playerId={player.id} />
             {!player.active && <Badge>Archived</Badge>}
-            {profile.firstDate && <span>Playing since {longDate(profile.firstDate)}</span>}
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              shareLink({
-                title: `${player.name} · Badminton Stats`,
-                text: line
-                  ? `${player.name}'s badminton record: ${line.won}-${line.lost} (${pct(line.winRate)} wins) in ${line.played} matches.`
-                  : `${player.name}'s badminton profile.`,
-                url: `${window.location.origin}${pathOf(player.id)}`,
-              })
-            }
-          >
-            <Share2 size={14} /> Share
-          </Button>
-          {(isAdmin || isMe) && (
-            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-              <Pencil size={14} /> Edit
+            {profile.firstDate && <span className="text-xs opacity-75">Since {shortDate(profile.firstDate)}</span>}
+          </>
+        }
+        actions={
+          <>
+            <Button
+              variant="volt"
+              size="sm"
+              onClick={() =>
+                shareLink({
+                  title: `${player.name} · Badminton Stats`,
+                  text: line
+                    ? `${player.name}'s badminton record: ${line.won}-${line.lost} (${pct(line.winRate)} wins) in ${line.played} matches.`
+                    : `${player.name}'s badminton profile.`,
+                  url: `${window.location.origin}${pathOf(player.id)}`,
+                })
+              }
+            >
+              <Share2 size={14} /> Share
             </Button>
-          )}
-        </div>
-      </div>
-      <ProfileDetails player={player} />
-      </Card>
+            {(isAdmin || isMe) && (
+              <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                <Pencil size={14} /> Edit
+              </Button>
+            )}
+          </>
+        }
+      />
+      {(player.bio || player.hand || player.position || player.racket) && (
+        <Card className="p-4">
+          <ProfileDetails player={player} />
+        </Card>
+      )}
 
       {!line ? (
         <Empty title="No completed matches yet">Stats appear after this player's first finished session.</Empty>
@@ -155,7 +158,10 @@ export default function PlayerPage() {
               {profile.form.map((r, i) => (
                 <span
                   key={i}
-                  className={clsx('inline-flex size-8 items-center justify-center rounded-lg text-sm font-bold', r === 'W' ? 'bg-good-bg text-good' : 'bg-bad-bg text-bad')}
+                  className={clsx(
+                    'font-score inline-flex size-9 items-center justify-center rounded-xl text-lg font-black',
+                    r === 'W' ? 'bg-good text-good-bg' : 'border-2 border-bad/45 text-bad',
+                  )}
                   aria-label={r === 'W' ? 'Win' : 'Loss'}
                 >
                   {r}
@@ -178,20 +184,26 @@ export default function PlayerPage() {
           {(bestPartner || toughest) && (
             <div className="grid gap-2 sm:grid-cols-2">
               {bestPartner && (
-                <Card className="p-4">
-                  <div className="text-xs font-bold uppercase text-muted">Best partner (3+ games)</div>
-                  <div className="mt-1 text-lg font-bold">{nameOf(bestPartner.otherId)}</div>
-                  <div className="text-sm text-muted">
-                    {bestPartner.won}-{bestPartner.lost} together · {signed(bestPartner.diff)} pts
+                <Card className="flex items-center gap-3 p-4">
+                  <Avatar name={nameOf(bestPartner.otherId)} photo={playersById.get(bestPartner.otherId)?.photo} size={48} />
+                  <div className="min-w-0">
+                    <div className="kicker">Best partner</div>
+                    <div className="mt-1 truncate text-lg leading-tight font-bold tracking-tight">{nameOf(bestPartner.otherId)}</div>
+                    <div className="text-sm text-muted">
+                      {bestPartner.won}-{bestPartner.lost} together · {signed(bestPartner.diff)} pts (3+ games)
+                    </div>
                   </div>
                 </Card>
               )}
               {toughest && (
-                <Card className="p-4">
-                  <div className="text-xs font-bold uppercase text-muted">Toughest opponent (3+ games)</div>
-                  <div className="mt-1 text-lg font-bold">{nameOf(toughest.otherId)}</div>
-                  <div className="text-sm text-muted">
-                    {toughest.won}-{toughest.lost} against · {signed(toughest.diff)} pts
+                <Card className="flex items-center gap-3 p-4">
+                  <Avatar name={nameOf(toughest.otherId)} photo={playersById.get(toughest.otherId)?.photo} size={48} />
+                  <div className="min-w-0">
+                    <div className="kicker">Toughest opponent</div>
+                    <div className="mt-1 truncate text-lg leading-tight font-bold tracking-tight">{nameOf(toughest.otherId)}</div>
+                    <div className="text-sm text-muted">
+                      {toughest.won}-{toughest.lost} against · {signed(toughest.diff)} pts (3+ games)
+                    </div>
                   </div>
                 </Card>
               )}
@@ -235,7 +247,7 @@ export default function PlayerPage() {
                 const opp = teamOf(g, otherSide(side));
                 return (
                   <li key={`${g.sessionId}-${g.number}`} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className={clsx('inline-flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-bold', won ? 'bg-good-bg text-good' : 'bg-bad-bg text-bad')}>
+                    <span className={clsx('font-score inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-base font-black', won ? 'bg-good text-good-bg' : 'border-2 border-bad/45 text-bad')}>
                       {won ? 'W' : 'L'}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -246,7 +258,7 @@ export default function PlayerPage() {
                         {shortDate(g.date)} · M{g.number}
                       </span>
                     </span>
-                    <span className="tabular shrink-0 font-bold">
+                    <span className="font-score tabular shrink-0 text-xl leading-none font-black">
                       {f}-{a}
                     </span>
                   </li>

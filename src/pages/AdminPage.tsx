@@ -76,7 +76,7 @@ function PlayerAccountsCard() {
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted">No players are linked yet.</p>
         ) : (
-          <ul className="divide-y divide-line rounded-xl border border-line text-sm">
+          <ul className="divide-y divide-line rounded-2xl border border-line text-sm">
             {rows.map(([playerId, email]) => (
               <li key={email} className="flex items-center justify-between gap-2 px-3 py-2">
                 <span className="min-w-0">
@@ -140,7 +140,7 @@ function AdminsCard() {
         {admins === null ? (
           <Spinner label="Loading admins…" />
         ) : (
-          <ul className="divide-y divide-line rounded-xl border border-line">
+          <ul className="divide-y divide-line rounded-2xl border border-line">
             {admins.map((a) => (
               <li key={a} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                 <span className="truncate">

@@ -4,7 +4,7 @@ import { ChevronRight, Plus, Swords } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { createTournament } from '../lib/data/mutations';
 import { teamScore } from '../lib/engine/tournament';
-import { nextWeekendISO, shortDate } from '../lib/format';
+import { nextWeekendISO } from '../lib/format';
 import { teamName } from '../lib/teamColors';
 import type { Tournament } from '../lib/types';
 import { SessionsSwitch } from '../components/layout/SessionsSwitch';
@@ -13,25 +13,25 @@ import { Button } from '../components/ui/Button';
 import { Card, Empty, PageTitle, Spinner } from '../components/ui/Card';
 import { Dialog } from '../components/ui/Dialog';
 import { Field, Input } from '../components/ui/Field';
+import { DateStub } from '../components/ui/DateStub';
 
 function TournamentRow({ t }: { t: Tournament }) {
   const score = teamScore(t);
   const count = Object.keys(t.matches).length;
   return (
-    <Link to={`/tournaments/${t.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-2">
+    <Link to={`/tournaments/${t.id}`} className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-2">
+      <DateStub date={t.date} tone={t.status === 'completed' ? 'paper' : 'chip'} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate font-semibold">{t.name}</span>
+          <span className="truncate font-bold tracking-tight">{t.name}</span>
           <TournamentStatusBadge t={t} />
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted">
-          <span>{shortDate(t.date)}</span>
-          <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1.5">
             <TeamDot t={t} team="a" />
             {teamName(t, 'a')}
             {score.played > 0 && (
-              <strong className="tabular text-ink">
+              <strong className="font-score tabular text-base text-ink">
                 {score.won.a}–{score.won.b}
               </strong>
             )}

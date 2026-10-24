@@ -60,6 +60,16 @@ export function dayDate(date: string): string {
   });
 }
 
+/** { weekday: 'Sun', day: '11', month: 'Oct' } for calendar-style date stubs. */
+export function dateParts(date: string): { weekday: string; day: string; month: string } {
+  const d = parseISODate(date);
+  return {
+    weekday: d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+    day: String(d.getUTCDate()),
+    month: d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }),
+  };
+}
+
 /** "Sun, Oct 11" (adds the year when it isn't the current year). */
 export function shortDate(date: string): string {
   const d = parseISODate(date);

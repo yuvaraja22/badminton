@@ -19,7 +19,7 @@ function JoinModeChoice({ value, onChange, missedLabel }: { value: JoinMode; onC
       onClick={() => onChange(mode)}
       aria-pressed={value === mode}
       className={clsx(
-        'w-full rounded-xl border p-3 text-left transition',
+        'w-full rounded-2xl border p-3 text-left transition',
         value === mode ? 'border-primary bg-info-bg ring-2 ring-primary/20' : 'border-line hover:bg-surface-2',
       )}
     >

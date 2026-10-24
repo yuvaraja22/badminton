@@ -3,12 +3,12 @@ import { Link } from 'react-router';
 import { CalendarDays, ChevronRight, Plus, Trophy } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { summarizeHistory } from '../lib/engine/alltime';
-import { shortDate } from '../lib/format';
 import { Badge, LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, Empty, PageTitle, Spinner } from '../components/ui/Card';
 import { SessionsSwitch } from '../components/layout/SessionsSwitch';
 import { Select } from '../components/ui/Field';
+import { DateStub } from '../components/ui/DateStub';
 
 export default function SessionsPage() {
   const { history, nameOf, liveSessions, players, ready } = useData();
@@ -50,35 +50,37 @@ export default function SessionsPage() {
 
       <Card className="divide-y divide-line overflow-hidden">
         {live.map((s) => (
-          <Link key={s.id} to={`/sessions/${s.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-2">
+          <Link key={s.id} to={`/sessions/${s.id}`} className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-2">
+            <DateStub date={s.date} tone="chip" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="truncate font-semibold">{s.title}</span>
+                <span className="truncate font-bold tracking-tight">{s.title}</span>
                 <Badge tone="live">
                   <LiveDot /> Live
                 </Badge>
               </div>
-              <div className="text-sm text-muted">
-                {shortDate(s.date)} · {Object.keys(s.matches).length} matches so far
-              </div>
+              <div className="text-sm text-muted">{Object.keys(s.matches).length} matches so far</div>
             </div>
             <ChevronRight size={18} className="text-muted" />
           </Link>
         ))}
         {done.map((s) => (
-          <Link key={s.id} to={`/sessions/${s.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-2">
+          <Link key={s.id} to={`/sessions/${s.id}`} className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-2">
+            <DateStub date={s.date} />
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">{s.title}</div>
+              <div className="truncate font-bold tracking-tight">{s.title}</div>
               <div className="text-sm text-muted">
-                {shortDate(s.date)} · {s.matchCount} matches · {s.playerIds.length} players
-                {s.mvpId && <span className="sm:hidden"> · MVP {nameOf(s.mvpId)}</span>}
+                {s.matchCount} matches · {s.playerIds.length} players
               </div>
+              {s.mvpId && (
+                <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold">
+                  <span className="inline-flex size-4.5 items-center justify-center rounded-full bg-volt text-volt-ink">
+                    <Trophy size={10} strokeWidth={2.75} aria-hidden />
+                  </span>
+                  MVP {nameOf(s.mvpId)}
+                </span>
+              )}
             </div>
-            {s.mvpId && (
-              <span className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-warn sm:inline-flex">
-                <Trophy size={14} /> {nameOf(s.mvpId)}
-              </span>
-            )}
             <ChevronRight size={18} className="shrink-0 text-muted" />
           </Link>
         ))}

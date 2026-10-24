@@ -26,7 +26,7 @@ export function MatchesTab({ session, isAdmin }: { session: Session; isAdmin: bo
         </div>
       )}
       {!matches.length && <Empty title="No matches yet">Start the first match from the Court tab.</Empty>}
-      <Card className="divide-y divide-line">
+      <Card className="divide-y divide-line overflow-hidden">
         {matches.map((m) => {
           const w = m.status === 'completed' ? winnerSide({ ...m, sessionId: session.id, date: session.date }) : null;
           return (
@@ -37,7 +37,9 @@ export function MatchesTab({ session, isAdmin }: { session: Session; isAdmin: bo
               onClick={() => setEditing(m)}
               className={clsx('flex w-full items-center gap-3 px-4 py-3 text-left', isAdmin && 'hover:bg-surface-2')}
             >
-              <span className="w-9 shrink-0 font-bold text-muted">{matchCode(m.number)}</span>
+              <span className="font-score w-11 shrink-0 rounded-lg bg-surface-2 py-1 text-center text-[15px] leading-none font-black tracking-wide text-muted">
+                {matchCode(m.number)}
+              </span>
               <span className="min-w-0 flex-1 text-sm">
                 <span className={clsx('block truncate', w === 'A' && 'font-bold')}>
                   {nameOf(m.teamA[0])} &amp; {nameOf(m.teamA[1])}
@@ -47,8 +49,10 @@ export function MatchesTab({ session, isAdmin }: { session: Session; isAdmin: bo
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end gap-1">
-                <span className="tabular text-lg font-bold">
-                  {m.scoreA ?? '–'} : {m.scoreB ?? '–'}
+                <span className="font-score tabular text-2xl leading-none font-black tracking-wide">
+                  <span className={clsx(w === 'B' && 'text-muted')}>{m.scoreA ?? '–'}</span>
+                  <span className="px-0.5 text-muted">:</span>
+                  <span className={clsx(w === 'A' && 'text-muted')}>{m.scoreB ?? '–'}</span>
                 </span>
                 {m.status === 'live' && <Badge tone="live">On court</Badge>}
                 {m.status === 'unfinished' && <Badge tone="warn">Stopped early</Badge>}

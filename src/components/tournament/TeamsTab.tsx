@@ -80,7 +80,7 @@ function SpotPicker({ t, value, onChange, name }: { t: Tournament; value: Spot; 
     { value: 'out', label: 'Out', aria: 'Not playing' },
   ];
   return (
-    <div role="radiogroup" aria-label={`${name}'s team`} className="flex shrink-0 rounded-xl bg-surface-2 p-0.5">
+    <div role="radiogroup" aria-label={`${name}'s team`} className="flex shrink-0 rounded-full border border-line bg-surface-2 p-0.5">
       {options.map((o) => {
         const on = value === o.value;
         return (
@@ -91,7 +91,7 @@ function SpotPicker({ t, value, onChange, name }: { t: Tournament; value: Spot; 
             aria-checked={on}
             aria-label={o.aria}
             onClick={() => onChange(o.value)}
-            className={cn('inline-flex h-8 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold transition', on ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink')}
+            className={cn('inline-flex h-8 min-w-11 items-center justify-center gap-1 rounded-full px-2.5 text-xs font-semibold transition', on ? 'bg-chip text-chip-ink shadow-sm' : 'text-muted hover:text-ink')}
           >
             {o.team && <TeamDot t={t} team={o.team} className="size-2" />}
             {o.label}

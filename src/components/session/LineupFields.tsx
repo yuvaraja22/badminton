@@ -17,7 +17,7 @@ export function LineupFields({ value, onChange, options }: { value: Lineup; onCh
     onChange({ teamA: [next[0], next[1]] as Team, teamB: [next[2], next[3]] as Team });
   };
   const team = (label: string, offset: number) => (
-    <fieldset className="rounded-xl border border-line p-3">
+    <fieldset className="rounded-2xl border border-line p-3">
       <legend className="px-1 text-xs font-bold uppercase text-muted">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
         {[offset, offset + 1].map((i) => (

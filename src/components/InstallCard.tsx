@@ -9,7 +9,7 @@ import { Dialog } from './ui/Dialog';
 function Step({ n, children }: { n: number; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-ink">{n}</span>
+      <span className="font-score inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-volt text-sm font-black text-volt-ink">{n}</span>
       <span className="pt-0.5">{children}</span>
     </li>
   );
@@ -100,11 +100,11 @@ export function InstallCard() {
 
   return (
     <Card className="flex items-center gap-3 p-3.5">
-      <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-info-bg text-primary-text">
+      <span className="inline-flex size-12 shrink-0 -rotate-6 items-center justify-center rounded-2xl bg-volt text-volt-ink shadow-[0_8px_18px_-10px_var(--volt)]">
         {phone ? <Smartphone size={22} /> : <Laptop size={22} />}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="font-semibold">Install the app</div>
+        <div className="font-bold tracking-tight">Install the app</div>
         <div className="text-sm text-muted">{phone ? 'One tap from your home screen, works without signal.' : 'Open it in its own window, like any app.'}</div>
       </div>
       <Button size="sm" onClick={install}>

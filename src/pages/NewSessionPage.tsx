@@ -215,7 +215,7 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       </Card>
 
       {n >= 4 && (
-        <div className="flex items-start gap-2 rounded-xl bg-info-bg px-3 py-2.5 text-sm">
+        <div className="flex items-start gap-2 rounded-2xl bg-info-bg px-3.5 py-2.5 text-sm">
           <Info size={17} className="mt-px shrink-0" />
           <span>
             With {n} players everyone has played the same number of games after every {cycle} matches (
@@ -224,7 +224,7 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 px-4">
+      <div className="fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 px-4">
         <div className="mx-auto max-w-3xl">
           <Button
             size="lg"

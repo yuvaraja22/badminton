@@ -146,13 +146,13 @@ export default function SessionPage() {
 
   return (
     <div>
-      <Link to="/sessions" className="mb-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <Link to="/sessions" className="mb-2 inline-flex items-center gap-1 rounded-full py-1 pr-3 text-sm font-semibold text-muted hover:text-ink">
         <ChevronLeft size={16} /> Sessions
       </Link>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl leading-tight font-bold tracking-tight">{session.title}</h1>
-          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+          <h1 className="text-[1.9rem] leading-[1.02] font-extrabold tracking-[-0.035em]">{session.title}</h1>
+          <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
             {longDate(session.date)}
             {live ? (
               <Badge tone="live">

@@ -8,7 +8,7 @@ import type { RelationLine } from '../lib/engine/stats';
 import { isoDaysAgo, pct, shortDate, signed } from '../lib/format';
 import { usingEmulators } from '../lib/firebase';
 import { levelName } from '../lib/levels';
-import { PhotoButton } from '../components/players/PhotoButton';
+import { PlayerHero } from '../components/players/PlayerHero';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { ProfileDetails } from '../components/players/ProfileDetails';
 import { NextSessionCard } from '../components/session/NextSessionCard';
@@ -16,7 +16,6 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 import { Stat } from '../components/ui/Stat';
-import { RatingBadge } from '../components/stats/RatingBadge';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
 import { PlayerTournaments } from '../components/tournament/PlayerTournaments';
 
@@ -60,28 +59,29 @@ export default function MePage() {
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-3 p-4">
-        <div className="flex items-center gap-4">
-          <PhotoButton player={player} />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-muted">Hi,</p>
-            <h1 className="truncate text-2xl leading-tight font-bold">{player.name}</h1>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              <Badge tone="info">{levelName(player.level)}</Badge>
-              <RatingBadge playerId={player.id} />
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-              <Pencil size={14} /> Edit
+      <PlayerHero
+        player={player}
+        line={line}
+        kicker="Hi,"
+        badges={<Badge tone="info">{levelName(player.level)}</Badge>}
+        actions={
+          <>
+            <Button variant="volt" size="sm" onClick={() => setEditing(true)}>
+              <Pencil size={14} /> Edit profile
             </Button>
-            <Link to={pathOf(player.id)} className="inline-flex h-8 items-center justify-center gap-1 rounded-xl px-3 text-sm font-semibold text-primary-text hover:bg-surface-2">
-              Profile <ChevronRight size={14} />
+            <Link to={pathOf(player.id)}>
+              <Button variant="secondary" size="sm">
+                Public profile <ChevronRight size={14} />
+              </Button>
             </Link>
-          </div>
-        </div>
-        <ProfileDetails player={player} />
-      </Card>
+          </>
+        }
+      />
+      {(player.bio || player.hand || player.position || player.racket) && (
+        <Card className="p-4">
+          <ProfileDetails player={player} />
+        </Card>
+      )}
 
       <NextSessionCard />
 
@@ -101,7 +101,10 @@ export default function MePage() {
             {profile.form.map((r, i) => (
               <span
                 key={i}
-                className={clsx('inline-flex size-8 items-center justify-center rounded-lg text-sm font-bold', r === 'W' ? 'bg-good-bg text-good' : 'bg-bad-bg text-bad')}
+                className={clsx(
+                  'font-score inline-flex size-9 items-center justify-center rounded-xl text-lg font-black',
+                  r === 'W' ? 'bg-good text-good-bg' : 'border-2 border-bad/45 text-bad',
+                )}
                 aria-label={r === 'W' ? 'Win' : 'Loss'}
               >
                 {r}

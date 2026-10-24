@@ -20,7 +20,7 @@ function ChartTooltip({ active, payload }: Partial<TooltipContentProps<number, s
   if (!active || !p) return null;
   const start = p.sessionId === null;
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-sm shadow-lg">
+    <div className="rounded-xl border border-line bg-surface px-3 py-2 text-sm shadow-xl">
       <div className="flex items-center gap-2">
         <span className="h-0.5 w-3 rounded" style={{ background: 'var(--series-1)' }} />
         <span className="tabular font-bold text-ink">{oneDecimal(p.level)}</span>

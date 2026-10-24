@@ -12,6 +12,7 @@ import type { TeamKey } from '../lib/types';
 import { Badge, LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Empty, Spinner } from '../components/ui/Card';
+import { HalfCourtLines } from '../components/session/CourtView';
 
 const sideOf = (team: TeamKey): Side => (team === 'a' ? 'A' : 'B');
 /** Someone else's last point within this long means they are still scoring. */
@@ -105,34 +106,42 @@ export default function TournamentScorerPage() {
   else if (state.deuce) status = 'Deuce';
   else status = `First to ${t.pointsToWin}, win by 2 (max ${t.maxPoints})`;
 
-  const half = (team: TeamKey) => {
+  const half = (team: TeamKey, first: boolean) => {
     const score = team === 'a' ? state.a : state.b;
     const point = state.gamePoint.includes(sideOf(team));
     const content = (
       <>
-        <span className="max-w-full truncate px-3 text-sm font-bold tracking-wide uppercase opacity-90">{teamName(t, team)}</span>
-        <span className="mt-1 px-3 text-center text-sm leading-snug opacity-90">{m[team].map(nameOf).join(' & ')}</span>
-        <span className="tabular mt-3 text-[clamp(3.5rem,min(30vw,20vh),10rem)] leading-none font-black">{score}</span>
+        <HalfCourtLines flip={!first} className="inset-4 opacity-20 landscape:opacity-0 md:opacity-0" />
+        <span className="relative max-w-full truncate px-3 text-[13px] font-bold tracking-[0.18em] uppercase opacity-90">{teamName(t, team)}</span>
+        <span className="relative mt-1 px-3 text-center text-[15px] leading-snug font-semibold opacity-95">{m[team].map(nameOf).join(' & ')}</span>
+        <span className="font-score tabular relative mt-2 text-[clamp(4.5rem,min(38vw,24vh),13rem)] leading-[0.9] font-black drop-shadow-[0_6px_18px_rgb(0_0_0/0.25)]">{score}</span>
         {/* Always laid out (hidden when not needed) so both halves' scores stay level. */}
-        <span className={cn('mt-3 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wide uppercase', !point && winnerTeam !== team && 'invisible')}>
+        <span
+          className={cn(
+            'relative mt-3 rounded-full px-3 py-1 text-xs font-bold tracking-[0.14em] uppercase',
+            winnerTeam === team ? 'bg-volt text-volt-ink' : 'bg-white/20',
+            !point && winnerTeam !== team && 'invisible',
+          )}
+        >
           {winnerTeam === team ? 'Winner' : 'Game point'}
         </span>
       </>
     );
-    const cls = 'flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center rounded-3xl text-white select-none';
+    const cls = 'relative flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[1.75rem] text-white select-none';
+    const bg = { background: `radial-gradient(120% 80% at 50% 0%, rgb(255 255 255 / 0.16), transparent 60%), ${teamFill(t, team)}` };
     return canScore && !state.over ? (
       <button
         key={team}
         type="button"
         onClick={(e) => tap(team, e.timeStamp)}
         className={cn(cls, 'touch-manipulation transition active:scale-[0.98] active:brightness-110')}
-        style={{ background: teamFill(t, team) }}
+        style={bg}
         aria-label={`Point to ${teamName(t, team)}, now ${score}`}
       >
         {content}
       </button>
     ) : (
-      <div key={team} className={cls} style={{ background: teamFill(t, team) }}>
+      <div key={team} className={cls} style={bg}>
         {content}
       </div>
     );
@@ -151,8 +160,8 @@ export default function TournamentScorerPage() {
           <ChevronLeft size={22} />
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-bold">
-            {matchCode(m.order)} · {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
+          <div className="truncate font-bold tracking-tight">
+            <span className="font-score text-xl leading-none font-black tracking-wide">{matchCode(m.order)}</span> · {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
           </div>
           <div className="truncate text-xs text-muted">
             {t.name}
@@ -171,7 +180,7 @@ export default function TournamentScorerPage() {
       </header>
 
       {isAdmin && m.status === 'live' && otherScorer && !tookOver && (
-        <div className="mx-3 mb-2 flex items-center gap-3 rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn">
+        <div className="mx-3 mb-2 flex items-center gap-3 rounded-2xl bg-warn-bg px-3.5 py-2 text-sm text-warn">
           <span className="min-w-0 flex-1">Being scored on {otherScorer.name}'s phone.</span>
           <Button
             size="sm"
@@ -188,11 +197,11 @@ export default function TournamentScorerPage() {
 
       {/* A phone held upright stacks the teams top and bottom; tablets and landscape put them side by side. */}
       <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 md:flex-row landscape:flex-row">
-        {half(swapped ? 'b' : 'a')}
-        {half(swapped ? 'a' : 'b')}
+        {half(swapped ? 'b' : 'a', true)}
+        {half(swapped ? 'a' : 'b', false)}
       </div>
 
-      <p className="px-4 pt-3 text-center text-sm font-semibold" aria-live="polite">
+      <p className="px-4 pt-3 text-center text-[15px] font-bold tracking-tight" aria-live="polite">
         {status}
         {state.changeEnds && m.status === 'live' && <span className="text-accent"> · Change ends</span>}
       </p>

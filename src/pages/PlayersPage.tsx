@@ -1,19 +1,19 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, Search, UserPlus, Users } from 'lucide-react';
+import { Search, UserPlus, Users } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { allTimeStats } from '../lib/engine/alltime';
-import { pct } from '../lib/format';
+import { oneDecimal, pct } from '../lib/format';
 import { levelName } from '../lib/levels';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Card, Empty, PageTitle, Spinner } from '../components/ui/Card';
+import { Empty, PageTitle, Spinner } from '../components/ui/Card';
 import { Input, Toggle } from '../components/ui/Field';
 
 export default function PlayersPage() {
-  const { players, history, nameOf, pathOf, ready } = useData();
+  const { players, history, nameOf, pathOf, ready, ratings } = useData();
   const { isAdmin } = useAuth();
   const [q, setQ] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -51,28 +51,46 @@ export default function PlayersPage() {
           {isAdmin ? 'Add your regulars here, or create them while starting a session.' : 'Players appear once an admin adds them.'}
         </Empty>
       ) : (
-        <Card className="divide-y divide-line overflow-hidden">
-          {list.map((p) => {
-            const l = lines.get(p.id);
-            return (
-              <Link key={p.id} to={pathOf(p.id)} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2">
-                <Avatar name={p.name} photo={p.photo} size={40} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-semibold">{p.name}</span>
-                    {!p.active && <Badge>Archived</Badge>}
-                  </div>
-                  <div className="tabular text-sm text-muted">
-                    {levelName(p.level)}
-                    {l ? ` · ${l.won}-${l.lost} · ${pct(l.winRate)}` : ' · no matches yet'}
-                  </div>
-                </div>
-                <ChevronRight size={18} className="shrink-0 text-muted" />
-              </Link>
-            );
-          })}
+        <>
+          <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+            {list.map((p) => {
+              const l = lines.get(p.id);
+              const r = ratings.get(p.id);
+              return (
+                <li key={p.id}>
+                  <Link
+                    to={pathOf(p.id)}
+                    className="group relative flex h-full flex-col items-center overflow-hidden rounded-[1.4rem] border border-line bg-surface px-3 pt-4 pb-3.5 text-center shadow-[var(--shadow-card)] transition hover:-translate-y-0.5"
+                  >
+                    <span aria-hidden className="court-mat absolute inset-x-0 top-0 h-13" />
+                    {r && (
+                      <span className="font-score absolute top-1.5 right-3 text-lg leading-none font-black text-court-ink" title="Skill rating">
+                        {oneDecimal(r.level)}
+                      </span>
+                    )}
+                    <Avatar name={p.name} photo={p.photo} size={60} className="relative ring-4" />
+                    <span className="mt-2 w-full truncate font-bold tracking-tight">{p.name}</span>
+                    <span className="text-xs text-muted">{levelName(p.level)}</span>
+                    {l ? (
+                      <>
+                        <span className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" aria-hidden>
+                          <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(3, l.winRate * 100)}%` }} />
+                        </span>
+                        <span className="tabular mt-1 text-xs text-muted">
+                          {l.won}-{l.lost} · {pct(l.winRate, 0)} wins
+                        </span>
+                      </>
+                    ) : (
+                      <span className="mt-2.5 text-xs text-muted">No matches yet</span>
+                    )}
+                    {!p.active && <Badge className="mt-1.5">Archived</Badge>}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
           {!list.length && <p className="px-4 py-6 text-center text-sm text-muted">No players match “{q}”.</p>}
-        </Card>
+        </>
       )}
       <PlayerDialog open={adding} onClose={() => setAdding(false)} player={null} />
     </div>

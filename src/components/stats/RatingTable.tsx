@@ -31,7 +31,7 @@ export function RatingTable({ rows }: { rows: PlayerRating[] }) {
         // Established players come first, so their position is their rank.
         return (
           <li key={r.playerId} className={clsx('flex items-center gap-3 px-4 py-2.5', r.provisional && 'text-muted')}>
-            <span className="w-5 shrink-0 text-center text-xs font-bold text-muted">{r.provisional ? '–' : i + 1}</span>
+            <span className="font-score w-5 shrink-0 text-center text-base font-black text-muted">{r.provisional ? '–' : i + 1}</span>
             <Link to={pathOf(r.playerId)} className="flex min-w-0 flex-1 items-center gap-2 font-semibold hover:underline">
               <Avatar name={nameOf(r.playerId)} photo={playersById.get(r.playerId)?.photo} size={24} />
               <span className="truncate">{nameOf(r.playerId)}</span>
@@ -40,7 +40,7 @@ export function RatingTable({ rows }: { rows: PlayerRating[] }) {
               <Trend change={r.lastChange} />
               {r.provisional && <Badge>Provisional</Badge>}
               <span className="hidden text-xs text-muted sm:inline">{levelName(r.level)}</span>
-              <span className="w-9 text-right text-base font-bold text-ink">{oneDecimal(r.level)}</span>
+              <span className="font-score w-10 text-right text-2xl leading-none font-black text-ink">{oneDecimal(r.level)}</span>
             </span>
           </li>
         );

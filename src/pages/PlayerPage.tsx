@@ -15,6 +15,7 @@ import { PhotoButton } from '../components/players/PhotoButton';
 import { ProfileDetails } from '../components/players/ProfileDetails';
 import { RatingBadge } from '../components/stats/RatingBadge';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
+import { PlayerTournaments } from '../components/tournament/PlayerTournaments';
 import { WinRateChart } from '../components/stats/WinRateChart';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -255,6 +256,7 @@ export default function PlayerPage() {
           </Card>
         </>
       )}
+      <PlayerTournaments playerId={player.id} />
       <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} mode={isAdmin ? 'admin' : 'self'} />
     </div>
   );

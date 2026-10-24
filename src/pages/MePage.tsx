@@ -18,6 +18,7 @@ import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 import { Stat } from '../components/ui/Stat';
 import { RatingBadge } from '../components/stats/RatingBadge';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
+import { PlayerTournaments } from '../components/tournament/PlayerTournaments';
 
 /** Personal dashboard for a signed-in player linked to a profile. */
 export default function MePage() {
@@ -159,6 +160,8 @@ export default function MePage() {
           </ul>
         </Card>
       )}
+
+      <PlayerTournaments playerId={player.id} title="Your tournaments" />
 
       <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} mode={isAdmin ? 'admin' : 'self'} />
     </div>

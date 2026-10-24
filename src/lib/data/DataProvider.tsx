@@ -3,9 +3,9 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { computeRatings } from '../engine/rating';
 import { db } from '../firebase';
 import { playerPath } from '../slug';
-import type { HistorySession, PlannedSession, Player, Session } from '../types';
+import type { HistorySession, PlannedSession, Player, Session, Tournament } from '../types';
 import { DataContext, type DataValue } from './context';
-import { toConfig, toHistoryMap, toPlanned, toPlayer, toSession } from './convert';
+import { toConfig, toHistoryMap, toPlanned, toPlayer, toSession, toTournament } from './convert';
 
 /**
  * Live listeners shared by every page. A visit costs roughly one read per player plus a few more:
@@ -17,6 +17,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState(toConfig(undefined));
   const [liveSessions, setLiveSessions] = useState<Session[]>([]);
   const [planned, setPlanned] = useState<PlannedSession[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
 
   useEffect(() => {
     const onError = (e: Error) => console.error('Firestore listener failed:', e);
@@ -43,6 +44,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           ),
         onError,
       ),
+      // Team tournaments are few and small; the live one updates point by point while it's scored.
+      onSnapshot(
+        collection(db, 'tournaments'),
+        (snap) =>
+          setTournaments(
+            snap.docs.map((d) => toTournament(d.id, d.data())).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? 0) - (a.createdAt ?? 0)),
+          ),
+        onError,
+      ),
     ];
     return () => unsubs.forEach((u) => u());
   }, []);
@@ -64,9 +74,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       config,
       liveSessions,
       planned,
+      tournaments,
       ready: players !== null && history !== null,
     };
-  }, [players, history, ratings, config, liveSessions, planned]);
+  }, [players, history, ratings, config, liveSessions, planned, tournaments]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

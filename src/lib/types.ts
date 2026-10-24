@@ -148,3 +148,66 @@ export interface GameRecord {
   scoreB: number | null;
   status: MatchStatus;
 }
+
+// ---------------------------------------------------------------- team tournaments
+
+/** The two sides of a team tournament. */
+export type TeamKey = 'a' | 'b';
+export type TeamColor = 'blue' | 'orange' | 'green' | 'purple' | 'red' | 'teal';
+
+export interface TournamentTeam {
+  /** Optional; shown as "Team A" / "Team B" when empty. */
+  name: string | null;
+  color: TeamColor;
+  /** A common player (plays for either side, chosen per match) is in both teams' lists. */
+  players: PlayerId[];
+}
+
+export type MatchKind = 'doubles' | 'singles';
+
+/** An admin keeping score: account id (to tell phones apart) and first name (to show). */
+export interface ScorerInfo {
+  id: string;
+  name: string;
+}
+export type TournamentMatchStatus = 'scheduled' | 'live' | 'completed';
+
+export interface TournamentMatch {
+  id: string;
+  /** Position in the schedule, 1-based (shown as M01, M02…). */
+  order: number;
+  kind: MatchKind;
+  /** Team A's players in this match (one for singles, two for doubles), and Team B's. */
+  a: PlayerId[];
+  b: PlayerId[];
+  /** Tentative start, HH:MM (24h). */
+  time: string | null;
+  status: TournamentMatchStatus;
+  scoreA: number;
+  scoreB: number;
+  /** One letter per point ("A" or "B") when scored live; drives Undo. Empty when the score was typed in. */
+  log: string;
+  /** Who scored it last and when: a soft lock so two phones don't score the same match. */
+  scorer: (ScorerInfo & { at: number }) | null;
+  startedAt: number | null;
+  completedAt: number | null;
+}
+
+export type TournamentStatus = 'upcoming' | 'live' | 'completed';
+
+export interface Tournament {
+  id: string;
+  name: string;
+  /** YYYY-MM-DD */
+  date: string;
+  status: TournamentStatus;
+  /** Every match is one game to pointsToWin, won by 2 points, capped at maxPoints. */
+  pointsToWin: number;
+  maxPoints: number;
+  teams: Record<TeamKey, TournamentTeam>;
+  /** Auto-fill for match times: when the first match starts and the minutes per match. */
+  schedule: { start: string | null; minutes: number };
+  matches: Record<string, TournamentMatch>;
+  createdAt?: number;
+  updatedAt?: number;
+}

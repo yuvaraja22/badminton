@@ -69,6 +69,12 @@ service cloud.firestore {
       allow update: if isAdmin() || (hasLink() && validOwnRsvpUpdate());
     }
 
+    // Team tournaments: everyone can follow along live; only admins set them up and keep score.
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /meta/{docId} {
       allow read: if true;
       allow write: if isAdmin();

@@ -7,6 +7,7 @@ import { shortDate } from '../lib/format';
 import { Badge, LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, Empty, PageTitle, Spinner } from '../components/ui/Card';
+import { SessionsSwitch } from '../components/layout/SessionsSwitch';
 import { Select } from '../components/ui/Field';
 
 export default function SessionsPage() {
@@ -22,6 +23,7 @@ export default function SessionsPage() {
 
   return (
     <div>
+      <SessionsSwitch current="sessions" />
       <PageTitle
         title="Sessions"
         subtitle={`${summaries.length} completed`}

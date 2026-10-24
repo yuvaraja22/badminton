@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Suspense, useState } from 'react';
-import { Link, NavLink, Outlet, ScrollRestoration, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, ScrollRestoration, useLocation, useNavigate } from 'react-router';
 import { CalendarDays, Home, LogIn, LogOut, Monitor, Moon, ShieldCheck, Sun, Trophy, UserRound, Users } from 'lucide-react';
 import { useAuth, useData } from '../../lib/data/context';
 import { usingEmulators } from '../../lib/firebase';
@@ -110,6 +110,8 @@ const NAV = [
 
 export function AppShell() {
   const { isAdmin, playerId } = useAuth();
+  // Tournaments live under Sessions in the nav (the Sessions page has a Sessions | Tournaments switch).
+  const inTournaments = useLocation().pathname.startsWith('/tournaments');
   const items = [
     ...NAV,
     ...(playerId ? [{ to: '/me', label: 'Me', icon: UserRound }] : []),
@@ -145,7 +147,10 @@ export function AppShell() {
               to={to}
               end={end}
               className={({ isActive }) =>
-                clsx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition', isActive ? 'text-primary-text' : 'text-muted hover:text-ink')
+                clsx(
+                  'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition',
+                  isActive || (inTournaments && to === '/sessions') ? 'text-primary-text' : 'text-muted hover:text-ink',
+                )
               }
             >
               <Icon size={22} strokeWidth={2} />

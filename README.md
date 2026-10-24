@@ -21,6 +21,13 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
   Player pages (and the Me tab) chart the rating after every session, and the court shows each team's **win chance**
   (e.g. "Slight edge: Team 1 · 61% – 39%") for the match on court, up next and in the queue. The words follow the
   percentages: up to 57% is an even match, 70% or more means one team is stronger.
+- **Team tournaments.** Two teams (optional names, team colours), players on Team A, Team B or both (a common player
+  plays for whichever side each match says), and a hand-made schedule of doubles and singles with tentative times
+  (auto-filled from a start time, then editable). Share the schedule as a PDF before it starts and the results after.
+  The **live scorer** is full screen: tap a team's half for a point, **Undo**, swap sides; it calls game point, deuce
+  and change of ends, and everyone watching sees the score as it happens. One game to 21 per match (win by 2, max 30);
+  most matches won takes the tournament, total points break a tie. Results stay out of the session stats and ratings;
+  player profiles list their tournaments.
 - **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
 - **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
   player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.
@@ -137,7 +144,7 @@ Tuning and guarantees are covered by `src/lib/engine/scheduler.test.ts`.
 src/lib/engine/      Pure logic: stats, report, takeaways, scheduler (+ tests, fixtures from the PDFs)
 src/lib/data/        Firebase listeners (DataProvider, AuthProvider, useSession) and all writes (mutations.ts)
 src/components/      UI: session (court, matches, report tabs), report (web + PDF), stats, ui primitives
-src/pages/           Home, Sessions, New session, Session, Leaderboard, Players, Player, Me, Admin
+src/pages/           Home, Sessions, New session, Session, Tournaments, Tournament, live scorer, Leaderboard, Players, Player, Me, Admin
 firestore.rules      Public read; admins write everything, linked players only their own profile and RSVP
 ```
 

@@ -19,6 +19,7 @@ beforeAll(async () => {
     await setDoc(doc(db, 'players/p2'), { name: 'Anu', level: 4, active: true });
     await setDoc(doc(db, 'links/vikram@example.com'), { playerId: 'p1' });
     await setDoc(doc(db, 'events/e1'), { date: '2026-10-26', status: 'planned', rsvps: {} });
+    await setDoc(doc(db, 'tournaments/t1'), { name: 'Cup', status: 'live', matches: { m1: { status: 'live', scoreA: 3, scoreB: 2, log: 'AABBA' } } });
   });
 });
 
@@ -112,5 +113,19 @@ describe('firestore.rules', () => {
     await assertFails(setDoc(doc(viewer(), 'admins/viewer@example.com'), { addedAt: 2 }));
     await assertSucceeds(setDoc(doc(admin(), 'admins/friend@example.com'), { addedAt: 2 }));
     await assertFails(setDoc(doc(admin(), 'admins/Friend@Example.com'), { addedAt: 2 }));
+  });
+
+  it('lets anyone follow a tournament but only admins set it up and keep score', async () => {
+    await assertSucceeds(getDoc(doc(anon(), 'tournaments/t1')));
+    await assertSucceeds(getDocs(collection(anon(), 'tournaments')));
+    const point = { 'matches.m1.log': 'AABBAA', 'matches.m1.scoreA': 4 };
+    await assertFails(updateDoc(doc(anon(), 'tournaments/t1'), point));
+    await assertFails(updateDoc(doc(viewer(), 'tournaments/t1'), point));
+    await assertFails(updateDoc(doc(vikram(), 'tournaments/t1'), point)); // a linked player can't keep score
+    await assertFails(updateDoc(doc(impostor(), 'tournaments/t1'), point));
+    await assertFails(setDoc(doc(viewer(), 'tournaments/t2'), { name: 'Mine' }));
+    await assertSucceeds(updateDoc(doc(admin(), 'tournaments/t1'), point));
+    await assertSucceeds(setDoc(doc(admin(), 'tournaments/t2'), { name: 'Next one', status: 'upcoming', matches: {} }));
+    await assertSucceeds(deleteDoc(doc(admin(), 'tournaments/t2')));
   });
 });

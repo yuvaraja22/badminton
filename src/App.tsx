@@ -16,6 +16,9 @@ const PlayersPage = lazy(() => import('./pages/PlayersPage'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const MePage = lazy(() => import('./pages/MePage'));
+const TournamentsPage = lazy(() => import('./pages/TournamentsPage'));
+const TournamentPage = lazy(() => import('./pages/TournamentPage'));
+const TournamentScorerPage = lazy(() => import('./pages/TournamentScorerPage'));
 
 function RouteError() {
   const error = useRouteError() as Error | undefined;
@@ -51,6 +54,9 @@ const router = createBrowserRouter([
       { path: 'sessions', element: <SessionsPage /> },
       { path: 'sessions/new', element: <NewSessionPage /> },
       { path: 'sessions/:id', element: <SessionPage /> },
+      { path: 'tournaments', element: <TournamentsPage /> },
+      { path: 'tournaments/:id', element: <TournamentPage /> },
+      { path: 'tournaments/:id/matches/:matchId', element: <TournamentScorerPage /> },
       { path: 'leaderboard', element: <LeaderboardPage /> },
       { path: 'players', element: <PlayersPage /> },
       { path: 'players/:id', element: <PlayerPage /> },

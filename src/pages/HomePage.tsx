@@ -6,10 +6,11 @@ import { useQueuePlan } from '../lib/data/usePlan';
 import { useWinChance } from '../lib/data/useWinChance';
 import { allTimeStats, summarizeHistory } from '../lib/engine/alltime';
 import { sortedMatches } from '../lib/engine/games';
-import { isoDaysAgo, matchCode, odds, shortDate } from '../lib/format';
+import { isoDaysAgo, matchCode, odds, shortDate, todayISO } from '../lib/format';
 import type { Session } from '../lib/types';
 import { InstallCard } from '../components/InstallCard';
 import { NextSessionCard } from '../components/session/NextSessionCard';
+import { TournamentCard } from '../components/tournament/TournamentCard';
 import { StandingsTable } from '../components/stats/StandingsTable';
 import { LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -61,7 +62,7 @@ function LiveSessionCard({ session }: { session: Session }) {
 }
 
 export default function HomePage() {
-  const { liveSessions, history, nameOf, ready, players } = useData();
+  const { liveSessions, history, nameOf, ready, players, tournaments } = useData();
   const { isAdmin } = useAuth();
   const summaries = useMemo(() => summarizeHistory(history, nameOf), [history, nameOf]);
   // Home shows the last 30 days; all-time is one tap away on the leaderboard.
@@ -70,6 +71,10 @@ export default function HomePage() {
     [history, nameOf],
   );
   const latest = summaries[0];
+  // Tournaments being played, then ones coming up (soonest first).
+  const comingTournaments = (tournaments ?? [])
+    .filter((t) => t.status === 'live' || (t.status === 'upcoming' && t.date >= todayISO()))
+    .sort((a, b) => Number(b.status === 'live') - Number(a.status === 'live') || a.date.localeCompare(b.date));
 
   if (!ready) return <Spinner />;
 
@@ -77,6 +82,10 @@ export default function HomePage() {
     <div className="space-y-5">
       {liveSessions.map((s) => (
         <LiveSessionCard key={s.id} session={s} />
+      ))}
+
+      {comingTournaments.map((t) => (
+        <TournamentCard key={t.id} t={t} />
       ))}
 
       {isAdmin && !liveSessions.length && (

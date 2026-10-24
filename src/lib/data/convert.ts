@@ -1,6 +1,20 @@
 import type { DocumentData } from 'firebase/firestore';
-import type { AppConfig, Attendee, HistorySession, Match, PlannedSession, Player, Session } from '../types';
+import type {
+  AppConfig,
+  Attendee,
+  HistorySession,
+  Match,
+  PlannedSession,
+  Player,
+  Session,
+  TeamColor,
+  TeamKey,
+  Tournament,
+  TournamentMatch,
+  TournamentTeam,
+} from '../types';
 import { DEFAULT_CONFIG } from '../types';
+import { DEFAULT_TEAM_COLORS, TEAM_COLOR_KEYS } from '../teamColors';
 import { sortedMatches } from '../engine/games';
 
 /** Firestore documents are untyped; these normalize them (and fill defaults) for the app. */
@@ -17,6 +31,55 @@ export function toPlayer(id: string, d: DocumentData): Player {
     position: d.position === 'front' || d.position === 'back' || d.position === 'both' ? d.position : null,
     racket: typeof d.racket === 'string' ? d.racket : null,
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
+  };
+}
+
+const ids = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+
+function toTeam(d: DocumentData | undefined, key: TeamKey): TournamentTeam {
+  return {
+    name: typeof d?.name === 'string' && d.name.trim() ? d.name : null,
+    color: TEAM_COLOR_KEYS.includes(d?.color as TeamColor) ? (d!.color as TeamColor) : DEFAULT_TEAM_COLORS[key],
+    players: ids(d?.players),
+  };
+}
+
+function toTournamentMatch(id: string, d: DocumentData, order: number): TournamentMatch {
+  return {
+    id,
+    order: num(d.order, order),
+    kind: d.kind === 'singles' ? 'singles' : 'doubles',
+    a: ids(d.a),
+    b: ids(d.b),
+    time: typeof d.time === 'string' && d.time ? d.time : null,
+    status: d.status === 'live' || d.status === 'completed' ? d.status : 'scheduled',
+    scoreA: num(d.scoreA, 0),
+    scoreB: num(d.scoreB, 0),
+    log: typeof d.log === 'string' ? d.log : '',
+    scorer: typeof d.scorer?.name === 'string' ? { id: typeof d.scorer.id === 'string' ? d.scorer.id : '', name: d.scorer.name, at: num(d.scorer.at, 0) } : null,
+    startedAt: typeof d.startedAt === 'number' ? d.startedAt : null,
+    completedAt: typeof d.completedAt === 'number' ? d.completedAt : null,
+  };
+}
+
+export function toTournament(id: string, d: DocumentData): Tournament {
+  const matches: Record<string, TournamentMatch> = {};
+  Object.entries((d.matches ?? {}) as Record<string, DocumentData>).forEach(([mid, m], i) => {
+    matches[mid] = toTournamentMatch(mid, m ?? {}, i + 1);
+  });
+  return {
+    id,
+    name: String(d.name ?? 'Tournament'),
+    date: String(d.date ?? ''),
+    status: d.status === 'live' || d.status === 'completed' ? d.status : 'upcoming',
+    pointsToWin: num(d.pointsToWin, 21),
+    maxPoints: num(d.maxPoints, 30),
+    teams: { a: toTeam(d.teams?.a, 'a'), b: toTeam(d.teams?.b, 'b') },
+    schedule: { start: typeof d.schedule?.start === 'string' && d.schedule.start ? d.schedule.start : null, minutes: num(d.schedule?.minutes, 15) },
+    matches,
+    createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
+    updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : undefined,
   };
 }
 

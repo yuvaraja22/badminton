@@ -17,8 +17,27 @@ import {
 import { db } from '../firebase';
 import { newId } from '../ids';
 import { toast } from '../toast';
-import type { AppConfig, Attendee, AttendeeStatus, Lineup, Match, OwnProfileFields, Player, PlayerId, RsvpStatus, Session } from '../types';
+import type {
+  AppConfig,
+  Attendee,
+  AttendeeStatus,
+  Lineup,
+  Match,
+  MatchKind,
+  OwnProfileFields,
+  Player,
+  PlayerId,
+  RsvpStatus,
+  ScorerInfo,
+  Session,
+  TeamKey,
+  Tournament,
+  TournamentMatch,
+  TournamentTeam,
+} from '../types';
 import { sortedMatches } from '../engine/games';
+import { addMinutes, fillTimes, minutesBetween, scoresOf, tournamentMatches } from '../engine/tournament';
+import { DEFAULT_TEAM_COLORS } from '../teamColors';
 import { sessionData, toHistory, toSession } from './convert';
 
 /**
@@ -380,3 +399,180 @@ export async function rebuildHistory(): Promise<number> {
   await setDoc(historyRef, { sessions });
   return snap.size;
 }
+
+// ---------------------------------------------------------------- team tournaments
+
+const tournamentsCol = collection(db, 'tournaments');
+
+function saveTournament(id: string, fields: Record<string, unknown>, what: string) {
+  run(updateDoc(doc(tournamentsCol, id), { ...fields, updatedAt: Date.now() }), what);
+}
+
+/** `{ a: 1 }` → `{ 'matches.x.a': 1 }`, so only those fields change. */
+function under(path: string, patch: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(patch).map(([k, v]) => [`${path}.${k}`, v]));
+}
+
+/** A new tournament with two empty teams (blue vs orange). Returns its id. */
+export function createTournament(input: { name: string; date: string }): string {
+  const ref = doc(tournamentsCol);
+  const now = Date.now();
+  const data: Omit<Tournament, 'id'> = {
+    name: input.name.trim(),
+    date: input.date,
+    status: 'upcoming',
+    pointsToWin: 21,
+    maxPoints: 30,
+    teams: {
+      a: { name: null, color: DEFAULT_TEAM_COLORS.a, players: [] },
+      b: { name: null, color: DEFAULT_TEAM_COLORS.b, players: [] },
+    },
+    schedule: { start: null, minutes: 15 },
+    matches: {},
+    createdAt: now,
+    updatedAt: now,
+  };
+  run(setDoc(ref, data), 'Creating the tournament');
+  return ref.id;
+}
+
+export function updateTournament(id: string, patch: Partial<Pick<Tournament, 'name' | 'date' | 'status'>>) {
+  saveTournament(id, patch, 'Saving the tournament');
+}
+
+export function deleteTournament(id: string) {
+  run(deleteDoc(doc(tournamentsCol, id)), 'Deleting the tournament');
+}
+
+export function setTeamDetails(id: string, key: TeamKey, patch: Partial<Pick<TournamentTeam, 'name' | 'color'>>) {
+  saveTournament(id, under(`teams.${key}`, patch), 'Saving the team');
+}
+
+/** Both teams' player lists in one write (the common player is in both). */
+export function setTeamPlayers(id: string, a: PlayerId[], b: PlayerId[]) {
+  saveTournament(id, { 'teams.a.players': a, 'teams.b.players': b }, 'Saving the teams');
+}
+
+export function addTournamentMatch(t: Tournament, input: { kind: MatchKind; a: PlayerId[]; b: PlayerId[]; time: string | null }): string {
+  const id = newId();
+  const match: TournamentMatch = {
+    id,
+    order: Math.max(0, ...Object.values(t.matches).map((m) => m.order)) + 1,
+    ...input,
+    status: 'scheduled',
+    scoreA: 0,
+    scoreB: 0,
+    log: '',
+    scorer: null,
+    startedAt: null,
+    completedAt: null,
+  };
+  saveTournament(t.id, { [`matches.${id}`]: match }, 'Adding the match');
+  return id;
+}
+
+export function editTournamentMatch(t: Tournament, matchId: string, patch: Partial<Pick<TournamentMatch, 'kind' | 'a' | 'b' | 'time'>>) {
+  saveTournament(t.id, under(`matches.${matchId}`, patch), 'Saving the match');
+}
+
+/** Remove a match and close the gap in the order. */
+export function deleteTournamentMatch(t: Tournament, matchId: string) {
+  const target = t.matches[matchId];
+  if (!target) return;
+  const fields: Record<string, unknown> = { [`matches.${matchId}`]: deleteField() };
+  for (const m of Object.values(t.matches)) if (m.order > target.order) fields[`matches.${m.id}.order`] = m.order - 1;
+  saveTournament(t.id, fields, 'Deleting the match');
+}
+
+/** Swap a match with the one before (-1) or after (+1). Times belong to the slots, so they stay put. */
+export function moveTournamentMatch(t: Tournament, matchId: string, dir: -1 | 1) {
+  const list = tournamentMatches(t);
+  const i = list.findIndex((m) => m.id === matchId);
+  const other = list[i + dir];
+  if (i < 0 || !other) return;
+  const m = list[i];
+  saveTournament(
+    t.id,
+    { [`matches.${m.id}.order`]: other.order, [`matches.${other.id}.order`]: m.order, [`matches.${m.id}.time`]: other.time, [`matches.${other.id}.time`]: m.time },
+    'Moving the match',
+  );
+}
+
+/** Set one match's time, optionally moving every later match by the same amount. */
+export function setTournamentMatchTime(t: Tournament, matchId: string, time: string | null, shiftLater: boolean) {
+  const target = t.matches[matchId];
+  if (!target) return;
+  const fields: Record<string, unknown> = { [`matches.${matchId}.time`]: time };
+  if (shiftLater && time && target.time) {
+    const delta = minutesBetween(target.time, time);
+    for (const m of tournamentMatches(t)) if (m.order > target.order && m.time) fields[`matches.${m.id}.time`] = addMinutes(m.time, delta);
+  }
+  saveTournament(t.id, fields, 'Saving the time');
+}
+
+/** Every match's time from a start time, `minutes` apart, in schedule order. */
+export function fillTournamentTimes(t: Tournament, start: string, minutes: number) {
+  const list = tournamentMatches(t);
+  const times = fillTimes(start, minutes, list.length);
+  const fields: Record<string, unknown> = { schedule: { start, minutes } };
+  list.forEach((m, i) => (fields[`matches.${m.id}.time`] = times[i]));
+  saveTournament(t.id, fields, 'Filling in the times');
+}
+
+export function startTournamentMatch(t: Tournament, matchId: string, scorer: ScorerInfo) {
+  const now = Date.now();
+  saveTournament(
+    t.id,
+    {
+      ...under(`matches.${matchId}`, { status: 'live', startedAt: now, completedAt: null, scorer: { ...scorer, at: now } }),
+      ...(t.status === 'upcoming' ? { status: 'live' } : {}),
+    },
+    'Starting the match',
+  );
+}
+
+/** Save the point-by-point log after a point or an undo; the scores follow from it. */
+export function scoreTournamentMatch(t: Tournament, matchId: string, log: string, scorer: ScorerInfo) {
+  const { a, b } = scoresOf(log);
+  saveTournament(t.id, under(`matches.${matchId}`, { log, scoreA: a, scoreB: b, scorer: { ...scorer, at: Date.now() } }), 'Saving the score');
+}
+
+/** Score on this phone from now on (the other phone sees who took over). */
+export function claimTournamentScorer(t: Tournament, matchId: string, scorer: ScorerInfo) {
+  saveTournament(t.id, { [`matches.${matchId}.scorer`]: { ...scorer, at: Date.now() } }, 'Taking over the scoring');
+}
+
+export function finishTournamentMatch(t: Tournament, matchId: string) {
+  saveTournament(t.id, under(`matches.${matchId}`, { status: 'completed', completedAt: Date.now(), scorer: null }), 'Finishing the match');
+}
+
+/** Carry on scoring a finished match (e.g. a point was missed). A typed-in score gets a log to build on. */
+export function resumeTournamentMatch(t: Tournament, matchId: string, scorer: ScorerInfo) {
+  const m = t.matches[matchId];
+  if (!m) return;
+  const log = m.log || 'A'.repeat(m.scoreA) + 'B'.repeat(m.scoreB);
+  saveTournament(t.id, under(`matches.${matchId}`, { status: 'live', completedAt: null, log, scorer: { ...scorer, at: Date.now() } }), 'Reopening the match');
+}
+
+/** Type in a final score: a match scored on paper, or a correction. */
+export function setTournamentMatchScore(t: Tournament, matchId: string, scoreA: number, scoreB: number) {
+  const now = Date.now();
+  saveTournament(
+    t.id,
+    {
+      ...under(`matches.${matchId}`, { status: 'completed', scoreA, scoreB, log: '', scorer: null, startedAt: t.matches[matchId]?.startedAt ?? now, completedAt: now }),
+      ...(t.status === 'upcoming' ? { status: 'live' } : {}),
+    },
+    'Saving the score',
+  );
+}
+
+/** Back to not played: clears the score. */
+export function resetTournamentMatch(t: Tournament, matchId: string) {
+  saveTournament(
+    t.id,
+    under(`matches.${matchId}`, { status: 'scheduled', scoreA: 0, scoreB: 0, log: '', scorer: null, startedAt: null, completedAt: null }),
+    'Resetting the match',
+  );
+}
+

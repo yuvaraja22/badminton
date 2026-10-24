@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
 import type { RatingTable } from '../engine/rating';
-import type { AppConfig, HistorySession, PlannedSession, Player, PlayerId, Session } from '../types';
+import type { AppConfig, HistorySession, PlannedSession, Player, PlayerId, Session, Tournament } from '../types';
 
 export interface DataValue {
   players: Player[];
@@ -17,6 +17,8 @@ export interface DataValue {
   liveSessions: Session[];
   /** Upcoming sessions people can RSVP to, soonest first. */
   planned: PlannedSession[];
+  /** Team tournaments, newest first (null until loaded). */
+  tournaments: Tournament[] | null;
   /** Players and history have loaded at least once (from cache or server). */
   ready: boolean;
 }

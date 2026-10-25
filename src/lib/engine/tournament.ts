@@ -1,10 +1,13 @@
 import { teamName } from '../teamColors';
-import type { HistorySession, MatchKind, PlayerId, TeamKey, Tournament, TournamentMatch } from '../types';
+import type { GameRecord, HistorySession, MatchKind, PlayerId, TeamKey, Tournament, TournamentMatch } from '../types';
+import { buildReport, type SessionReport } from './report';
 
 /**
  * Team tournaments: two teams, matches set up by hand (doubles and singles), each one game to 21,
- * won by 2 and capped at 30, scored live point by point. Results stay separate from session stats.
+ * won by 2 and capped at 30, scored live point by point. Once finished, its matches count in the stats like a session's.
  */
+
+export const DEFAULT_TOURNAMENT_NAME = 'Team Tournament';
 
 /** A point for Team A or Team B, as written in a match's log. */
 export type Side = 'A' | 'B';
@@ -303,3 +306,32 @@ export function tournamentHistory(t: Tournament): HistorySession | null {
   };
 }
 
+/** The tournament's matches as game records (finished and on court), for the session-style report. */
+export function tournamentGames(t: Tournament): GameRecord[] {
+  return tournamentMatches(t)
+    .filter((m) => m.status !== 'scheduled')
+    .map((m) => ({
+      sessionId: t.id,
+      date: t.date,
+      number: m.order,
+      teamA: m.a,
+      teamB: m.b,
+      scoreA: m.scoreA,
+      scoreB: m.scoreB,
+      status: m.status === 'live' ? 'live' : m.scoreA === m.scoreB ? 'unfinished' : 'completed',
+      ...(m.pointsToWin && m.pointsToWin !== t.pointsToWin ? { pointsToWin: m.pointsToWin } : {}),
+    }));
+}
+
+/** The same report a session gets (MVP, standings, partnerships, takeaways, match log), for a tournament. */
+export function tournamentReport(t: Tournament, nameOf: (id: PlayerId) => string): SessionReport {
+  return buildReport({
+    kind: 'tournament',
+    title: t.name,
+    date: t.date,
+    pointsToWin: t.pointsToWin,
+    games: tournamentGames(t),
+    nameOf,
+    sides: [teamName(t, 'a'), teamName(t, 'b')],
+  });
+}

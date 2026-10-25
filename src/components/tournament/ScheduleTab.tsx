@@ -379,7 +379,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
           </div>
         )}
         {list.length === 0 ? (
-          <p className="px-4 pt-2 pb-4 text-sm text-muted">{isAdmin ? 'No matches yet. Tap + Match to add the first one.' : 'The schedule appears here once it is set.'}</p>
+          <p className="px-4 pt-2 pb-4 text-sm text-muted">{isAdmin ? 'No matches yet. Tap Add matches to add the first one.' : 'The schedule appears here once it is set.'}</p>
         ) : (
           <ol className="divide-y divide-line pt-2">
             {list.map((m, i) => {
@@ -419,6 +419,14 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
               );
             })}
           </ol>
+        )}
+        {/* A second Add at the end, so a long schedule doesn't need scrolling back up. */}
+        {isAdmin && list.length >= 3 && (
+          <div className="border-t border-line p-3">
+            <Button size="sm" variant="secondary" block disabled={noTeams} onClick={() => setDialog({ kind: 'add' })}>
+              <Plus size={15} /> Add {matchCode(list.length + 1)}
+            </Button>
+          </div>
         )}
       </Card>
 

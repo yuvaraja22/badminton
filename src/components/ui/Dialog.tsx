@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 /** Native <dialog>: a bottom sheet on phones, a centered modal on wider screens. */
@@ -16,6 +16,7 @@ export function Dialog({
   footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const d = ref.current;
@@ -27,6 +28,7 @@ export function Dialog({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={onClose}
       onClick={(e) => {
         if (e.target === ref.current) onClose();
@@ -37,7 +39,9 @@ export function Dialog({
         <div className="flex max-h-[92dvh] flex-col">
           <span aria-hidden className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line sm:hidden" />
           <header className="flex items-center justify-between gap-3 border-b border-line px-5 pt-2.5 pb-3 sm:pt-4">
-            <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+            <h2 id={titleId} className="text-lg font-bold tracking-tight">
+              {title}
+            </h2>
             <button
               type="button"
               onClick={onClose}

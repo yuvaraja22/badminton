@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter, Link, RouterProvider, useRouteError } from 'react-router';
+import { createBrowserRouter, Link, Navigate, RouterProvider, useRouteError } from 'react-router';
 import { AuthProvider } from './lib/data/AuthProvider';
 import { DataProvider } from './lib/data/DataProvider';
 import { firebaseConfigured } from './lib/firebase';
@@ -16,7 +16,6 @@ const PlayersPage = lazy(() => import('./pages/PlayersPage'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const MePage = lazy(() => import('./pages/MePage'));
-const TournamentsPage = lazy(() => import('./pages/TournamentsPage'));
 const TournamentPage = lazy(() => import('./pages/TournamentPage'));
 const TournamentScorerPage = lazy(() => import('./pages/TournamentScorerPage'));
 
@@ -54,7 +53,8 @@ const router = createBrowserRouter([
       { path: 'sessions', element: <SessionsPage /> },
       { path: 'sessions/new', element: <NewSessionPage /> },
       { path: 'sessions/:id', element: <SessionPage /> },
-      { path: 'tournaments', element: <TournamentsPage /> },
+      // Sessions and tournaments share one list (Play).
+      { path: 'tournaments', element: <Navigate to="/sessions" replace /> },
       { path: 'tournaments/:id', element: <TournamentPage /> },
       { path: 'tournaments/:id/matches/:matchId', element: <TournamentScorerPage /> },
       { path: 'leaderboard', element: <LeaderboardPage /> },

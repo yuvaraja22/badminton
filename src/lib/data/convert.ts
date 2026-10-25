@@ -57,6 +57,7 @@ function toTournamentMatch(id: string, d: DocumentData, order: number): Tourname
     scoreA: num(d.scoreA, 0),
     scoreB: num(d.scoreB, 0),
     log: typeof d.log === 'string' ? d.log : '',
+    typedPoints: num(d.typedPoints, 0),
     scorer: typeof d.scorer?.name === 'string' ? { id: typeof d.scorer.id === 'string' ? d.scorer.id : '', name: d.scorer.name, at: num(d.scorer.at, 0) } : null,
     pointsToWin: typeof d.pointsToWin === 'number' && d.pointsToWin > 0 ? d.pointsToWin : null,
     maxPoints: typeof d.maxPoints === 'number' && d.maxPoints > 0 ? d.maxPoints : null,
@@ -80,6 +81,7 @@ export function toTournament(id: string, d: DocumentData): Tournament {
     teams: { a: toTeam(d.teams?.a, 'a'), b: toTeam(d.teams?.b, 'b') },
     schedule: { start: typeof d.schedule?.start === 'string' && d.schedule.start ? d.schedule.start : null, minutes: num(d.schedule?.minutes, 15) },
     matches,
+    invited: ids(d.invited),
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
     updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : undefined,
   };
@@ -92,6 +94,8 @@ export function toPlanned(id: string, d: DocumentData): PlannedSession {
   }
   return {
     id,
+    kind: d.kind === 'tournament' ? 'tournament' : 'session',
+    name: typeof d.name === 'string' && d.name.trim() ? d.name : null,
     date: String(d.date ?? ''),
     time: typeof d.time === 'string' && d.time ? d.time : null,
     note: typeof d.note === 'string' && d.note ? d.note : null,

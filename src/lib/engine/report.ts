@@ -14,6 +14,9 @@ export interface ReportInput {
   nameOf: NameOf;
   /** Players for whom this is their first session with the group. */
   newPlayers?: Set<PlayerId>;
+  /** A team tournament: its own wording, and the teams' names for the two sides. */
+  kind?: 'session' | 'tournament';
+  sides?: [string, string];
 }
 
 export interface StandingRow extends PlayerLine {
@@ -34,11 +37,14 @@ export interface LogRow {
   scoreA: number | null;
   scoreB: number | null;
   winner: 'A' | 'B' | null;
+  /** "Team 1" / "Team 2", or the tournament team's name. */
+  winnerLabel: string | null;
   context: string;
   status: GameRecord['status'];
 }
 
 export interface SessionReport {
+  kind: 'session' | 'tournament';
   title: string;
   dateLabel: string;
   subtitle: string;
@@ -61,6 +67,8 @@ const SUBTITLE = 'Official Match Analytics, Individual Rankings & Partnership Sy
 
 export function buildReport(input: ReportInput): SessionReport {
   const { nameOf, pointsToWin } = input;
+  const kind = input.kind ?? 'session';
+  const sides = input.sides ?? ['Team 1', 'Team 2'];
   const newPlayers = input.newPlayers ?? new Set<PlayerId>();
   const games = [...input.games].sort((a, b) => a.number - b.number);
   const counted = games.filter(isCounted);
@@ -136,7 +144,7 @@ export function buildReport(input: ReportInput): SessionReport {
     } else if (w) {
       const hi = Math.max(g.scoreA!, g.scoreB!);
       const lo = Math.min(g.scoreA!, g.scoreB!);
-      const label = g.number === onlyDefeat ? `${nameOf(mvpLine!.playerId)}'s only defeat` : marginLabel(hi, lo, pointsToWin);
+      const label = g.number === onlyDefeat ? `${nameOf(mvpLine!.playerId)}'s only defeat` : marginLabel(hi, lo, g.pointsToWin ?? pointsToWin);
       context = `${label} (+${margin(g)})`;
     } else {
       context = 'No result';
@@ -149,6 +157,7 @@ export function buildReport(input: ReportInput): SessionReport {
       scoreA: g.scoreA,
       scoreB: g.scoreB,
       winner: w,
+      winnerLabel: w ? sides[w === 'A' ? 0 : 1] : null,
       context,
       status: g.status,
     };
@@ -158,9 +167,10 @@ export function buildReport(input: ReportInput): SessionReport {
   const dateLabel = longDate(input.date);
 
   return {
+    kind,
     title: input.title,
     dateLabel,
-    subtitle: `${dateLabel} • ${SUBTITLE}`,
+    subtitle: `${dateLabel} • ${kind === 'tournament' ? `${sides[0]} vs ${sides[1]}` : SUBTITLE}`,
     footer: `${input.title} • Official Match Analytics Report`,
     matchCount: counted.length,
     totalPoints: counted.reduce((s, g) => s + totalPoints(g), 0),

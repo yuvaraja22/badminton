@@ -24,7 +24,7 @@ export default function NewSessionPage() {
   if (!isAdmin) return <AdminOnly what="start a session" />;
   // Started from a planned session: pre-fill its date and the players who said they're in.
   const eventId = params.get('event');
-  const event = (eventId && planned.find((p) => p.id === eventId)) || null;
+  const event = (eventId && planned.find((p) => p.id === eventId && p.kind === 'session')) || null;
   return <NewSessionForm key={event?.id ?? 'new'} event={event} />;
 }
 

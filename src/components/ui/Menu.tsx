@@ -11,7 +11,18 @@ export interface MenuItem {
   checked?: boolean;
 }
 
-export function Menu({ trigger, items, label = 'More actions' }: { trigger: ReactNode; items: MenuItem[]; label?: string }) {
+export function Menu({
+  trigger,
+  items,
+  label = 'More actions',
+  triggerClassName,
+}: {
+  trigger: ReactNode;
+  items: MenuItem[];
+  label?: string;
+  /** Replaces the round icon-button look, e.g. for a labelled button. */
+  triggerClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -37,7 +48,7 @@ export function Menu({ trigger, items, label = 'More actions' }: { trigger: Reac
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex size-10 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-ink"
+        className={triggerClassName ?? 'inline-flex size-10 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-ink'}
       >
         {trigger}
       </button>

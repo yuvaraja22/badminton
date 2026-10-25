@@ -103,14 +103,14 @@ function ThemeMenu() {
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
-  { to: '/sessions', label: 'Sessions', icon: CalendarDays },
+  { to: '/sessions', label: 'Play', icon: CalendarDays },
   { to: '/leaderboard', label: 'Leaders', icon: Trophy },
   { to: '/players', label: 'Players', icon: Users },
 ];
 
 export function AppShell() {
   const { isAdmin, playerId } = useAuth();
-  // Tournaments live under Sessions in the nav (the Sessions page has a Sessions | Tournaments switch).
+  // Tournaments are listed under Play along with sessions.
   const inTournaments = useLocation().pathname.startsWith('/tournaments');
   const items = [
     ...NAV,

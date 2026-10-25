@@ -120,7 +120,15 @@ function TeamsForm({ t, first, onSaved, onCancel }: { t: Tournament; first: bool
   };
 
   const listed = new Set([...t.teams.a.players, ...t.teams.b.players, ...draft.a.players, ...draft.b.players]);
-  const rows = players.filter((p) => p.active || listed.has(p.id));
+  // From a planned tournament: who said they're in comes first.
+  const invited = new Set(t.invited);
+  const rows = players.filter((p) => p.active || listed.has(p.id) || invited.has(p.id));
+  const groups = invited.size
+    ? [
+        { title: `Said they're in (${rows.filter((p) => invited.has(p.id)).length})`, rows: rows.filter((p) => invited.has(p.id)) },
+        { title: 'Everyone else', rows: rows.filter((p) => !invited.has(p.id)) },
+      ]
+    : [{ title: null, rows }];
   const both = draft.a.players.filter((id) => draft.b.players.includes(id)).length;
 
   const add = () => {
@@ -166,15 +174,20 @@ function TeamsForm({ t, first, onSaved, onCancel }: { t: Tournament; first: bool
           title="Players"
           subtitle={`${teamName(preview, 'a')}: ${draft.a.players.length} · ${teamName(preview, 'b')}: ${draft.b.players.length}${both ? ` (${both} on both)` : ''}. A player on Both can play for either team; each match says which.`}
         />
-        <ul className="divide-y divide-line px-2 pt-2">
-          {rows.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 px-2 py-2">
-              <Avatar name={p.name} photo={p.photo} size={32} />
-              <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-              <SpotPicker t={preview} name={p.name} value={spotOf(p.id)} onChange={(s) => assign(p.id, s)} />
-            </li>
-          ))}
-        </ul>
+        {groups.map((g) => (
+          <div key={g.title ?? 'all'} className="px-2 pt-2">
+            {g.title && <h3 className="kicker px-2 pt-2 pb-1">{g.title}</h3>}
+            <ul className="divide-y divide-line">
+              {g.rows.map((p) => (
+                <li key={p.id} className="flex items-center gap-3 px-2 py-2">
+                  <Avatar name={p.name} photo={p.photo} size={32} />
+                  <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
+                  <SpotPicker t={preview} name={p.name} value={spotOf(p.id)} onChange={(s) => assign(p.id, s)} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
         <div className="flex gap-2 border-t border-line p-4">
           <Input value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="New player's name" aria-label="New player's name" />
           <Button variant="secondary" onClick={add} disabled={!newName.trim()}>

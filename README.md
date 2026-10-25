@@ -24,17 +24,21 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
 - **Team tournaments.** Two teams (optional names, team colours), players on Team A, Team B or both (a common player
   plays for whichever side each match says) — set up with **Save teams**, then **Edit teams** / **Update teams** — and a
   hand-made schedule of doubles and singles with tentative times (auto-filled from a start time, then editable).
-  **Share link** opens the tournament in the app; the PDF is the schedule before it starts and the full results
-  (matches and players) after. The **live scorer** is full screen: tap a team's half for a point, **Undo**, swap sides;
+  **Share** (link, PDF or download) opens the tournament in the app; the PDF is the schedule before it starts and the
+  full results after. The **live scorer** is full screen: tap a team's half for a point, **Undo**, swap sides;
   it calls game point, deuce and change of ends, and everyone watching sees the score as it happens. Games are to 21
   (win by 2, max 30); the scorer can switch a match to any target, e.g. 15 (max 21) or 10 (max 14). Most matches won
-  takes the tournament, total points break a tie. Once finished, its matches count in the stats exactly like
-  sessions — profiles, leaderboard, partnerships, ratings — singles included.
+  takes the tournament, total points break a tie. **Results** has the same report as a session (MVP, standings,
+  partnerships, takeaways, match log) plus **point-by-point** stats from the scorer: longest run, biggest comeback,
+  game points saved, who reached 11 first, and a score-flow chart per match (in the app and the PDF). Once finished,
+  its matches count in the stats exactly like sessions — profiles, leaderboard, partnerships, ratings — singles included.
+- **Play.** Sessions and tournaments in one list (live first, then coming up, then newest). **New** asks Session or
+  Tournament.
 - **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
 - **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
   player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.
-- **Next session.** Admins plan the next date; players tap **I'm in** or **Can't make it**, and starting the session
-  pre-ticks everyone who said they're in.
+- **Next up.** Admins plan the next session or tournament (or start one now); players tap **I'm in** or **Can't make
+  it**. Starting a session pre-ticks everyone who said they're in; a tournament lists them first when picking teams.
 - **Phone-first.** Installable as an app, and keeps working without signal at the court (changes sync later).
   Light and dark themes (Claude-style warm dark), following the phone or picked from the header.
 - **Home and leaderboard** show the last 30 days, with all-time one tap away. Admins tap a player's photo to change it.
@@ -146,7 +150,7 @@ Tuning and guarantees are covered by `src/lib/engine/scheduler.test.ts`.
 src/lib/engine/      Pure logic: stats, report, takeaways, scheduler (+ tests, fixtures from the PDFs)
 src/lib/data/        Firebase listeners (DataProvider, AuthProvider, useSession) and all writes (mutations.ts)
 src/components/      UI: session (court, matches, report tabs), report (web + PDF), stats, ui primitives
-src/pages/           Home, Sessions, New session, Session, Tournaments, Tournament, live scorer, Leaderboard, Players, Player, Me, Admin
+src/pages/           Home, Play (sessions + tournaments), New session, Session, Tournament, live scorer, Leaderboard, Players, Player, Me, Admin
 firestore.rules      Public read; admins write everything, linked players only their own profile and RSVP
 ```
 

@@ -27,15 +27,19 @@ export const PROFILE_LIMITS = { name: 30, bio: 160, racket: 40 } as const;
 
 export type RsvpStatus = 'in' | 'out';
 
-/** A session the admins have scheduled; players RSVP before it starts. */
+/** A session or tournament the admins have scheduled; players RSVP before it starts. */
 export interface PlannedSession {
   id: string;
+  kind: 'session' | 'tournament';
+  /** The tournament's name (sessions get their title when they start). */
+  name: string | null;
   /** YYYY-MM-DD */
   date: string;
   /** HH:MM (24h) or null */
   time: string | null;
   note: string | null;
   status: 'planned' | 'started' | 'cancelled';
+  /** What it became once started: the session's id, or the tournament's. */
   sessionId: string | null;
   rsvps: Record<PlayerId, { status: RsvpStatus; at: number }>;
   createdAt?: number;
@@ -195,6 +199,8 @@ export interface TournamentMatch {
   scoreB: number;
   /** One letter per point ("A" or "B") when scored live; drives Undo. Empty when the score was typed in. */
   log: string;
+  /** Points at the start of the log that were typed in, not scored live (a typed-in score reopened in the scorer). */
+  typedPoints: number;
   /** Who scored it last and when: a soft lock so two phones don't score the same match. */
   scorer: (ScorerInfo & { at: number }) | null;
   /** This game's target when it was changed (e.g. 15 or 10); null means the tournament's 21. */
@@ -219,6 +225,8 @@ export interface Tournament {
   /** Auto-fill for match times: when the first match starts and the minutes per match. */
   schedule: { start: string | null; minutes: number };
   matches: Record<string, TournamentMatch>;
+  /** Players who said they're in when the tournament was planned (listed first when picking teams). */
+  invited: PlayerId[];
   createdAt?: number;
   updatedAt?: number;
 }

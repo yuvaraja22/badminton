@@ -96,13 +96,22 @@ const COLS = { rank: 32, player: 124, played: 40, won: 34, lost: 34, rate: 86, p
 const LOG = { match: 34, t1: 112, score: 50, t2: 112, winner: 46, ctx: 160 };
 
 export function ReportDocument({ report, takeaways }: { report: SessionReport; takeaways: string[] }) {
+  return (
+    <Document title={`${report.title} - ${report.dateLabel}`} author="Badminton Stats">
+      <ReportPages report={report} takeaways={takeaways} />
+    </Document>
+  );
+}
+
+/** The report's pages, also added to the end of a tournament's PDF. */
+export function ReportPages({ report, takeaways }: { report: SessionReport; takeaways: string[] }) {
   const { mvp, bestPair, tightest } = report;
   const totalLines = [`${report.totalPoints} total points scored`, `${report.playerCount} players`];
   if (report.unfinishedCount) totalLines.push(`(+${report.unfinishedCount} match${report.unfinishedCount === 1 ? '' : 'es'} left unfinished)`);
   const center = { textAlign: 'center' as const };
 
   return (
-    <Document title={`${report.title} - ${report.dateLabel}`} author="Badminton Stats">
+    <>
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View style={s.headerAccent} />
@@ -110,7 +119,9 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
             <Text style={s.title}>{report.title}</Text>
             <Text style={s.subtitle}>{report.subtitle}</Text>
           </View>
-          <Text style={s.pill}>Session summary • {report.matchCount} matches</Text>
+          <Text style={s.pill}>
+            {report.kind === 'tournament' ? 'Tournament' : 'Session'} summary • {report.matchCount} matches
+          </Text>
         </View>
 
         <View style={s.cards}>
@@ -193,7 +204,7 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
             ))}
           </View>
           <View style={[s.box, { flex: 1.2 }]}>
-            <Text style={s.boxTitle}>Key session takeaways</Text>
+            <Text style={s.boxTitle}>{`Key ${report.kind} takeaways`}</Text>
             {takeaways.map((t, i) => {
               const cut = t.indexOf(': ');
               const lead = cut > 0 && cut < 48 ? t.slice(0, cut + 1) : '';
@@ -236,7 +247,7 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
                 </Text>
                 <Text style={[{ width: LOG.t2 }, r.winner === 'B' ? s.bold : {}]}>{r.team2}</Text>
                 <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#1b6f3f' : '#7b8781' }]}>
-                  {r.winner ? `Team ${r.winner === 'A' ? 1 : 2}` : '—'}
+                  {r.winnerLabel ?? '—'}
                 </Text>
                 <Text style={{ width: LOG.ctx, fontSize: 8.5 }}>{r.context}</Text>
               </View>
@@ -249,6 +260,6 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
         </Text>
         <Footer text={report.footer} />
       </Page>
-    </Document>
+    </>
   );
 }

@@ -108,7 +108,7 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
             <p className="mt-1.5 text-xs text-white/75 sm:text-sm">{report.subtitle}</p>
           </div>
           <span className="relative rounded-full bg-[#d4f53c] px-4 py-1.5 text-[11px] font-bold tracking-[0.1em] whitespace-nowrap text-[#0f1f1a] uppercase sm:text-xs">
-            {inProgress ? 'In progress' : 'Session summary'} • {report.matchCount} matches
+            {inProgress ? 'In progress' : report.kind === 'tournament' ? 'Tournament summary' : 'Session summary'} • {report.matchCount} matches
           </span>
         </div>
       </header>
@@ -248,7 +248,7 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
           </ul>
         </section>
         <section className="rounded-xl border border-[#e0d9c8] bg-white p-4 sm:p-5">
-          <h4 className="mb-3 text-[13px] font-extrabold uppercase">Key session takeaways</h4>
+          <h4 className="mb-3 text-[13px] font-extrabold uppercase">Key {report.kind} takeaways</h4>
           <ul className="list-disc space-y-2 pl-5 text-[13.5px] leading-relaxed marker:text-[#5b6862]">
             {takeaways.map((t, i) => (
               <li key={i}>
@@ -283,7 +283,7 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
                 </div>
               </div>
               <div className={clsx('mt-1 pl-12 text-xs', r.winner ? 'text-[#1b6f3f]' : 'text-[#5b6862]')}>
-                {r.winner && <span className="font-bold">Team {r.winner === 'A' ? 1 : 2} · </span>}
+                {r.winnerLabel && <span className="font-bold">{r.winnerLabel} · </span>}
                 <span className="text-[#5b6862]">{r.context}</span>
               </div>
             </li>
@@ -315,7 +315,7 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
                   </td>
                   <td className={clsx('px-3 py-3', r.winner === 'B' && 'font-bold')}>{r.team2}</td>
                   <td className="px-3 py-3 font-bold text-[#1b6f3f]">
-                    {r.winner ? `Team ${r.winner === 'A' ? 1 : 2}` : <span className="text-[#7b8781]">—</span>}
+                    {r.winnerLabel ?? <span className="text-[#7b8781]">—</span>}
                   </td>
                   <td className="px-3 py-3 text-[13px]">{r.context}</td>
                 </tr>

@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, FileText, Plus, Trophy, UserPlus } from 'lucide-react';
+import { ChevronRight, FileText, Trophy, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { useQueuePlan } from '../lib/data/usePlan';
 import { useWinChance } from '../lib/data/useWinChance';
-import { allTimeStats, summarizeHistory } from '../lib/engine/alltime';
+import { allTimeStats, entryPath, summarizeHistory } from '../lib/engine/alltime';
+import { resultLine } from '../lib/engine/tournament';
 import { sortedMatches } from '../lib/engine/games';
 import { isoDaysAgo, matchCode, odds, shortDate, todayISO } from '../lib/format';
-import { Shuttle } from '../components/Logo';
-import { ChanceBar, CourtLines, CourtMatch } from '../components/session/CourtView';
+import { ChanceBar, CourtMatch } from '../components/session/CourtView';
 import { Avatar } from '../components/ui/Avatar';
 import { DateStub } from '../components/ui/DateStub';
 import type { Session } from '../lib/types';
@@ -68,37 +68,18 @@ function LiveSessionCard({ session }: { session: Session }) {
   );
 }
 
-/** The court is empty: the admin's way in to a new session. */
-function StartCard() {
-  return (
-    <section className="court-mat relative overflow-hidden rounded-[1.6rem] p-5 shadow-[var(--shadow-card)]">
-      <CourtLines className="inset-y-4 right-[-38%] w-[85%] text-court-ink opacity-50" />
-      <Shuttle className="absolute top-5 right-6 h-16 rotate-[35deg] text-court-ink drop-shadow-[0_8px_14px_rgb(0_0_0/0.35)]" />
-      <div className="relative max-w-[16rem]">
-        <p className="kicker text-court-ink/75">Court's empty</p>
-        <h2 className="mt-2 text-[1.9rem] leading-[1] font-extrabold tracking-[-0.035em]">Ready to play?</h2>
-        <p className="mt-2 text-sm opacity-80">Pick who's here, set levels, and the app plans fair matches.</p>
-        <Link to="/sessions/new" className="mt-4 inline-block">
-          <Button variant="volt" size="lg">
-            <Plus size={18} /> Start a session
-          </Button>
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 export default function HomePage() {
-  const { liveSessions, history, sessionHistory, nameOf, ready, players, playersById, tournaments } = useData();
+  const { liveSessions, history, nameOf, ready, players, playersById, tournaments } = useData();
   const { isAdmin } = useAuth();
-  // The latest report is the latest session; the leaders include finished tournaments too.
-  const summaries = useMemo(() => summarizeHistory(sessionHistory, nameOf), [sessionHistory, nameOf]);
+  // Sessions and finished tournaments alike: the latest report is whichever was played last.
+  const summaries = useMemo(() => summarizeHistory(history, nameOf), [history, nameOf]);
   // Home shows the last 30 days; all-time is one tap away on the leaderboard.
   const top = useMemo(
     () => allTimeStats(history, nameOf, { from: isoDaysAgo(30) }).standings.filter((l) => l.qualified).slice(0, 5),
     [history, nameOf],
   );
   const latest = summaries[0];
+  const latestTournament = latest?.kind === 'tournament' ? tournaments?.find((t) => t.id === latest.id) : undefined;
   // Tournaments being played, then ones coming up (soonest first).
   const comingTournaments = (tournaments ?? [])
     .filter((t) => t.status === 'live' || (t.status === 'upcoming' && t.date >= todayISO()))
@@ -116,20 +97,19 @@ export default function HomePage() {
         <TournamentCard key={t.id} t={t} />
       ))}
 
-      {isAdmin && !liveSessions.length && <StartCard />}
-
       <NextSessionCard />
 
       <InstallCard />
 
       {latest && (
-        <Link to={`/sessions/${latest.id}`} className="group block">
+        <Link to={entryPath(latest.id, latest.kind)} className="group block">
           <Card className="relative overflow-hidden transition group-hover:-translate-y-0.5">
             <CardHeader title="Latest report" action={<FileText size={18} className="text-muted" />} />
             <div className="flex items-center gap-4 px-4 pt-2 pb-4">
               <DateStub date={latest.date} />
               <div className="min-w-0 flex-1">
                 <h3 className="text-lg leading-tight font-bold tracking-tight">{latest.title}</h3>
+                {latestTournament && <p className="mt-0.5 text-sm font-semibold">{resultLine(latestTournament)}</p>}
                 <p className="mt-0.5 text-sm text-muted">
                   {latest.matchCount} matches · {latest.playerIds.length} players
                 </p>
@@ -145,7 +125,7 @@ export default function HomePage() {
                   </span>
                 </span>
                 <span className="relative min-w-0">
-                  <span className="block text-[11px] font-bold tracking-[0.16em] text-muted uppercase">Player of the session</span>
+                  <span className="block text-[11px] font-bold tracking-[0.16em] text-muted uppercase">Player of the {latest.kind === 'tournament' ? 'tournament' : 'session'}</span>
                   <span className="block truncate text-xl leading-tight font-extrabold tracking-tight">{nameOf(latest.mvpId)}</span>
                 </span>
                 <ChevronRight size={20} className="relative ml-auto shrink-0 text-muted transition group-hover:translate-x-0.5" />

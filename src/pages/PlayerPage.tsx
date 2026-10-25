@@ -153,9 +153,9 @@ export default function PlayerPage() {
           </div>
 
           <Card>
-            <CardHeader title="Last 10 games" subtitle="Most recent first" />
+            <CardHeader title="Last 10 games" subtitle="Oldest first, latest at the end" />
             <div className="flex flex-wrap gap-1.5 p-4">
-              {profile.form.map((r, i) => (
+              {[...profile.form].reverse().map((r, i) => (
                 <span
                   key={i}
                   className={clsx(

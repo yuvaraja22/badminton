@@ -1,10 +1,15 @@
-import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { matchWinner, playerRecords, playerTeam, resultLine, rulesFor, teamScore, tournamentMatches } from '../../lib/engine/tournament';
+import { Document, Font, Page, Path, StyleSheet, Svg, Text, View, Line } from '@react-pdf/renderer';
+import { COMEBACK_MIN, longestRunOf, rallyHighlights, rallySummary, type MatchFlow } from '../../lib/engine/rally';
+import { matchWinner, playerTeam, resultLine, rulesFor, teamScore, tournamentMatches, tournamentReport } from '../../lib/engine/tournament';
 import { formatTime, longDate, matchCode } from '../../lib/format';
 import { teamFill, teamName } from '../../lib/teamColors';
 import type { PlayerId, TeamKey, Tournament, TournamentMatch } from '../../lib/types';
+import { ReportPages } from '../report/ReportPdf';
 
-/** A4 schedule (and, once matches are played, results) for a team tournament. Built-in Helvetica. */
+/**
+ * A4 schedule for a team tournament. Once matches are played it adds the point-by-point stats and the
+ * same report a session gets (MVP, standings, partnerships, takeaways, match log). Built-in Helvetica.
+ */
 
 // Wrap at spaces only; never hyphenate names.
 Font.registerHyphenationCallback((word) => [word]);
@@ -36,6 +41,9 @@ const s = StyleSheet.create({
   tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5.5, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#ece7d9' },
   side: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
+  highlights: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  highlight: { width: '48.8%', backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6, paddingVertical: 7, paddingHorizontal: 10 },
+  kicker: { fontFamily: B, fontSize: 6.5, color: GREY, textTransform: 'uppercase', letterSpacing: 0.6 },
   footer: { position: 'absolute', bottom: 18, left: 32, right: 32, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
 });
 
@@ -60,6 +68,119 @@ function Result({ m }: { m: TournamentMatch }) {
   );
 }
 
+function Footer() {
+  return (
+    <View style={s.footer} fixed>
+      <Text>Badminton Stats · times are tentative</Text>
+      <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+    </View>
+  );
+}
+
+const WORM = { w: 250, h: 34 };
+
+/** The lead after every point: Team A's colour above the line, Team B's below. */
+function Worm({ t, flow }: { t: Tournament; flow: MatchFlow }) {
+  const { leads } = flow;
+  const n = leads.length - 1;
+  const mid = WORM.h / 2;
+  const top = Math.max(3, ...leads.map(Math.abs));
+  const x = (i: number) => ((i / n) * WORM.w).toFixed(1);
+  const y = (lead: number) => (mid - (lead / top) * (mid - 1)).toFixed(1);
+  const area = (clamp: (l: number) => number) => `M0,${mid} ${leads.map((l, i) => `L${x(i)},${y(clamp(l))}`).join(' ')} L${WORM.w},${mid} Z`;
+  return (
+    <Svg width={WORM.w} height={WORM.h} viewBox={`0 0 ${WORM.w} ${WORM.h}`}>
+      <Path d={area((l) => Math.max(0, l))} fill={teamFill(t, 'a')} />
+      <Path d={area((l) => Math.min(0, l))} fill={teamFill(t, 'b')} />
+      <Line x1={0} x2={WORM.w} y1={mid} y2={mid} stroke={LINE} strokeWidth={0.75} />
+    </Svg>
+  );
+}
+
+function RallyPage({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
+  const r = rallySummary(t);
+  const highlights = rallyHighlights(t, r, nameOf);
+  const { a, b } = r.teams;
+  const rows: [string, string | number, string | number][] = [
+    ['Points won', a.points, b.points],
+    ['Longest run', a.longestRun, b.longestRun],
+    ['Biggest lead', a.biggestLead, b.biggestLead],
+    ['Game points saved', a.gamePointsSaved, b.gamePointsSaved],
+    [`Wins from ${COMEBACK_MIN}+ down`, a.comebackWins, b.comebackWins],
+    ['First to halfway, then won', `${a.firstToHalfWon}/${a.firstToHalf}`, `${b.firstToHalfWon}/${b.firstToHalf}`],
+  ];
+  const center = { textAlign: 'center' as const };
+  return (
+    <Page size="A4" style={s.page}>
+      <View style={s.header}>
+        <Text style={s.title}>Point by point</Text>
+        <Text style={s.subtitle}>
+          {t.name} · from the live scorer, rally by rally · {r.flows.length} match{r.flows.length === 1 ? '' : 'es'}
+        </Text>
+      </View>
+
+      <Text style={s.section}>Highlights</Text>
+      <View style={s.highlights}>
+        {highlights.map((h) => (
+          <View key={h.label} style={s.highlight} wrap={false}>
+            <Text style={s.kicker}>{h.label}</Text>
+            <Text style={{ fontFamily: B, fontSize: 12, marginTop: 2 }}>{h.value}</Text>
+            <Text style={{ fontSize: 8, color: GREY, marginTop: 2, lineHeight: 1.3 }}>{h.detail}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={s.section}>The teams</Text>
+      <View style={s.table}>
+        <View style={s.th}>
+          <Text style={[s.thText, { flex: 1 }]}> </Text>
+          {(['a', 'b'] as const).map((k) => (
+            <View key={k} style={[s.side, { width: 110, justifyContent: 'center' }]}>
+              <View style={[s.dot, { backgroundColor: teamFill(t, k) }]} />
+              <Text style={s.thText}>{teamName(t, k)}</Text>
+            </View>
+          ))}
+        </View>
+        {rows.map(([label, x, y]) => (
+          <View key={label} style={s.tr} wrap={false}>
+            <Text style={{ flex: 1 }}>{label}</Text>
+            <Text style={[center, { width: 110, fontFamily: B }]}>{x}</Text>
+            <Text style={[center, { width: 110, fontFamily: B }]}>{y}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={s.section}>Score flow</Text>
+      <Text style={{ fontSize: 7.5, color: GREY, marginBottom: 6 }}>
+        The lead after every point. Above the line: {teamName(t, 'a')} ahead. Below: {teamName(t, 'b')} ahead. Runs and leads are shown as{' '}
+        {teamName(t, 'a')} / {teamName(t, 'b')}.
+      </Text>
+      <View style={s.table}>
+        {r.flows.map((f, i) => (
+          <View key={f.match.id} style={[s.tr, i === 0 ? { borderTopWidth: 0 } : {}]} wrap={false}>
+            <Text style={{ width: COL.code, fontFamily: B }}>{matchCode(f.match.order)}</Text>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Side t={t} team="a" ids={f.match.a} nameOf={nameOf} winner={f.winner === 'a'} />
+              <Side t={t} team="b" ids={f.match.b} nameOf={nameOf} winner={f.winner === 'b'} />
+              <Text style={{ fontSize: 7, color: GREY, marginTop: 2 }}>
+                {f.match.scoreA}–{f.match.scoreB} · run {longestRunOf(f, 'a')} / {longestRunOf(f, 'b')} · lead {f.maxLead.a.lead} / {f.maxLead.b.lead} ·{' '}
+                {f.leadChanges} lead change{f.leadChanges === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <Worm t={t} flow={f} />
+          </View>
+        ))}
+      </View>
+      {r.typedIn.length > 0 && (
+        <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
+          {r.typedIn.map((m) => matchCode(m.order)).join(', ')} {r.typedIn.length === 1 ? 'was' : 'were'} typed in, so not included here.
+        </Text>
+      )}
+      <Footer />
+    </Page>
+  );
+}
+
 export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
   const matches = tournamentMatches(t);
   const score = teamScore(t);
@@ -68,6 +189,8 @@ export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: 
   const playerLine = (key: TeamKey) =>
     t.teams[key].players.map((id) => `${nameOf(id)}${playerTeam(t, id) === 'both' ? ' (both teams)' : ''}`).join(', ') || 'No players yet';
   const headline = score.played === 0 ? null : resultLine(t);
+  const hasRallies = rallySummary(t).flows.length > 0;
+  const report = score.played > 0 ? tournamentReport(t, nameOf) : null;
 
   return (
     <Document title={t.name} author="Badminton Stats">
@@ -132,47 +255,11 @@ export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: 
             </View>
           )}
         </View>
-
-        {score.played > 0 && (
-          <>
-            <Text style={s.section}>Players</Text>
-            <View style={s.table}>
-              <View style={s.th}>
-                <Text style={[s.thText, { flex: 1 }]}>Player</Text>
-                <Text style={[s.thText, { width: 60, textAlign: 'center' }]}>Played</Text>
-                <Text style={[s.thText, { width: 60, textAlign: 'center' }]}>W–L</Text>
-                <Text style={[s.thText, { width: 70, textAlign: 'center' }]}>Points</Text>
-                <Text style={[s.thText, { width: 50, textAlign: 'right' }]}>+/-</Text>
-              </View>
-              {playerRecords(t)
-                .filter((l) => l.played > 0)
-                .map((l) => (
-                  <View key={l.playerId} style={s.tr} wrap={false}>
-                    <View style={[s.side, { flex: 1 }]}>
-                      {l.team !== 'b' && <View style={[s.dot, { backgroundColor: teamFill(t, 'a') }]} />}
-                      {l.team !== 'a' && <View style={[s.dot, { backgroundColor: teamFill(t, 'b') }]} />}
-                      <Text style={{ fontFamily: B }}>{nameOf(l.playerId)}</Text>
-                      {l.team === 'both' && <Text style={{ color: GREY }}> (both teams)</Text>}
-                    </View>
-                    <Text style={{ width: 60, textAlign: 'center' }}>{l.played}</Text>
-                    <Text style={{ width: 60, textAlign: 'center', fontFamily: B }}>
-                      {l.won}–{l.lost}
-                    </Text>
-                    <Text style={{ width: 70, textAlign: 'center' }}>
-                      {l.pointsFor}–{l.pointsAgainst}
-                    </Text>
-                    <Text style={{ width: 50, textAlign: 'right' }}>{l.pointsFor - l.pointsAgainst > 0 ? `+${l.pointsFor - l.pointsAgainst}` : l.pointsFor - l.pointsAgainst}</Text>
-                  </View>
-                ))}
-            </View>
-          </>
-        )}
-
-        <View style={s.footer} fixed>
-          <Text>Badminton Stats · times are tentative</Text>
-          <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
-        </View>
+        <Footer />
       </Page>
+
+      {hasRallies && <RallyPage t={t} nameOf={nameOf} />}
+      {report && <ReportPages report={report} takeaways={report.autoTakeaways} />}
     </Document>
   );
 }

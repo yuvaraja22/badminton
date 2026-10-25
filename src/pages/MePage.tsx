@@ -95,9 +95,9 @@ export default function MePage() {
 
       {profile.form.length > 0 && (
         <Card>
-          <CardHeader title="Your last 10 games" subtitle="Most recent first" />
+          <CardHeader title="Your last 10 games" subtitle="Oldest first, latest at the end" />
           <div className="flex flex-wrap gap-1.5 p-4">
-            {profile.form.map((r, i) => (
+            {[...profile.form].reverse().map((r, i) => (
               <span
                 key={i}
                 className={clsx(

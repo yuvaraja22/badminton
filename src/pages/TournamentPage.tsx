@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { ChevronLeft, ChevronRight, CircleStop, Download, Link2, MoreVertical, Pencil, RotateCcw, Share2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleStop, Download, FileText, Link2, MoreVertical, Pencil, RotateCcw, Share2, Trash2 } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { deleteTournament, updateTournament } from '../lib/data/mutations';
 import { liveMatch, resultLine, teamScore } from '../lib/engine/tournament';
@@ -63,8 +63,8 @@ export default function TournamentPage() {
     return (
       <Empty title="Tournament not found">
         It may have been deleted.{' '}
-        <Link to="/tournaments" className="font-semibold underline">
-          See all tournaments
+        <Link to="/sessions" className="font-semibold underline">
+          Back to Play
         </Link>
       </Empty>
     );
@@ -94,8 +94,8 @@ export default function TournamentPage() {
 
   return (
     <div>
-      <Link to="/tournaments" className="mb-2 inline-flex items-center gap-1 rounded-full py-1 pr-3 text-sm font-semibold text-muted hover:text-ink">
-        <ChevronLeft size={16} /> Tournaments
+      <Link to="/sessions" className="mb-2 inline-flex items-center gap-1 rounded-full py-1 pr-3 text-sm font-semibold text-muted hover:text-ink">
+        <ChevronLeft size={16} /> Play
       </Link>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -104,22 +104,44 @@ export default function TournamentPage() {
             {longDate(t.date)} <TournamentStatusBadge t={t} />
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex shrink-0 items-center gap-1">
           <Menu
-            trigger={<MoreVertical size={20} />}
+            label="Share"
+            triggerClassName="inline-flex h-10 items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm font-semibold hover:bg-surface-2 disabled:opacity-50"
+            trigger={
+              <>
+                <Share2 size={16} /> {busy ? 'Preparing…' : 'Share'}
+              </>
+            }
             items={[
-              { label: 'Edit name and date', icon: <Pencil size={16} />, onClick: () => setDialog('details') },
-              t.status === 'completed'
-                ? {
-                    label: 'Reopen tournament',
-                    icon: <RotateCcw size={16} />,
-                    onClick: () => updateTournament(t.id, { status: score.played ? 'live' : 'upcoming' }),
-                  }
-                : { label: 'Finish tournament', icon: <CircleStop size={16} />, onClick: () => setDialog('finish') },
-              { label: 'Delete tournament', icon: <Trash2 size={16} />, danger: true, onClick: () => setDialog('delete') },
+              {
+                // The link opens this page in the app: the installed app on Android, the browser on iPhone.
+                label: 'Share link',
+                icon: <Link2 size={16} />,
+                onClick: () =>
+                  shareLink({ title: t.name, text: `${t.name}: schedule, live scores and results`, url: `${window.location.origin}/tournaments/${t.id}` }),
+              },
+              { label: score.played ? 'Share results PDF' : 'Share schedule PDF', icon: <FileText size={16} />, onClick: () => !busy && exportPdf('share') },
+              { label: score.played ? 'Download results PDF' : 'Download schedule PDF', icon: <Download size={16} />, onClick: () => !busy && exportPdf('download') },
             ]}
           />
-        )}
+          {isAdmin && (
+            <Menu
+              trigger={<MoreVertical size={20} />}
+              items={[
+                { label: 'Edit name and date', icon: <Pencil size={16} />, onClick: () => setDialog('details') },
+                t.status === 'completed'
+                  ? {
+                      label: 'Reopen tournament',
+                      icon: <RotateCcw size={16} />,
+                      onClick: () => updateTournament(t.id, { status: score.played ? 'live' : 'upcoming' }),
+                    }
+                  : { label: 'Finish tournament', icon: <CircleStop size={16} />, onClick: () => setDialog('finish') },
+                { label: 'Delete tournament', icon: <Trash2 size={16} />, danger: true, onClick: () => setDialog('delete') },
+              ]}
+            />
+          )}
+        </div>
       </div>
 
       <TeamScoreBar t={t} className="mb-3" />
@@ -141,26 +163,6 @@ export default function TournamentPage() {
           </Card>
         </Link>
       )}
-
-      <div className="mb-4 space-y-2">
-        {/* The link opens this page in the app: the installed app on Android, the browser on iPhone. */}
-        <Button
-          block
-          onClick={() =>
-            shareLink({ title: t.name, text: `${t.name}: schedule, live scores and results`, url: `${window.location.origin}/tournaments/${t.id}` })
-          }
-        >
-          <Link2 size={16} /> Share link
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => exportPdf('share')} disabled={busy !== null}>
-            <Share2 size={16} /> {busy === 'share' ? 'Preparing…' : 'Share PDF'}
-          </Button>
-          <Button variant="secondary" className="flex-1" onClick={() => exportPdf('download')} disabled={busy !== null} aria-label={score.played ? 'Download results PDF' : 'Download schedule PDF'}>
-            <Download size={16} /> {busy === 'download' ? 'Preparing…' : 'Download'}
-          </Button>
-        </div>
-      </div>
 
       <Segmented value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })} options={tabs} className="mb-4" />
 
@@ -211,7 +213,7 @@ export default function TournamentPage() {
               variant="danger"
               onClick={() => {
                 deleteTournament(t.id);
-                navigate('/tournaments');
+                navigate('/sessions');
               }}
             >
               Delete

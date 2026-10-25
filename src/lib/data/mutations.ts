@@ -25,6 +25,7 @@ import type {
   Match,
   MatchKind,
   OwnProfileFields,
+  PlannedSession,
   Player,
   PlayerId,
   RsvpStatus,
@@ -131,17 +132,20 @@ export async function setPlayerLink(playerId: PlayerId, email: string | null, pr
 
 const eventsCol = collection(db, 'events');
 
-export function planSession(input: { date: string; time: string | null; note: string | null }): string {
+type PlanInput = Pick<PlannedSession, 'kind' | 'name' | 'date' | 'time' | 'note'>;
+
+/** Plan the next session or tournament, so players can say whether they're coming. */
+export function planSession(input: PlanInput): string {
   const ref = doc(eventsCol);
   run(
     setDoc(ref, { ...input, status: 'planned', sessionId: null, rsvps: {}, createdAt: Date.now() }),
-    'Planning the session',
+    input.kind === 'tournament' ? 'Planning the tournament' : 'Planning the session',
   );
   return ref.id;
 }
 
-export function updatePlannedSession(id: string, patch: { date: string; time: string | null; note: string | null }) {
-  run(updateDoc(doc(eventsCol, id), patch), 'Saving the session');
+export function updatePlannedSession(id: string, patch: PlanInput) {
+  run(updateDoc(doc(eventsCol, id), patch), 'Saving the plan');
 }
 
 export function cancelPlannedSession(id: string) {
@@ -414,7 +418,7 @@ function under(path: string, patch: Record<string, unknown>): Record<string, unk
 }
 
 /** A new tournament with two empty teams (blue vs orange). Returns its id. */
-export function createTournament(input: { name: string; date: string }): string {
+export function createTournament(input: { name: string; date: string; invited?: PlayerId[] }): string {
   const ref = doc(tournamentsCol);
   const now = Date.now();
   const data: Omit<Tournament, 'id'> = {
@@ -429,6 +433,7 @@ export function createTournament(input: { name: string; date: string }): string 
     },
     schedule: { start: null, minutes: 15 },
     matches: {},
+    invited: input.invited ?? [],
     createdAt: now,
     updatedAt: now,
   };
@@ -459,6 +464,7 @@ export function addTournamentMatch(t: Tournament, input: { kind: MatchKind; a: P
     scoreA: 0,
     scoreB: 0,
     log: '',
+    typedPoints: 0,
     scorer: null,
     pointsToWin: null,
     maxPoints: null,
@@ -549,7 +555,9 @@ export function resumeTournamentMatch(t: Tournament, matchId: string, scorer: Sc
   const m = t.matches[matchId];
   if (!m) return;
   const log = m.log || 'A'.repeat(m.scoreA) + 'B'.repeat(m.scoreB);
-  saveTournament(t.id, under(`matches.${matchId}`, { status: 'live', completedAt: null, log, scorer: { ...scorer, at: Date.now() } }), 'Reopening the match');
+  // A made-up log isn't real point-by-point play: the rally stats leave this match out.
+  const typedPoints = m.log ? m.typedPoints : log.length;
+  saveTournament(t.id, under(`matches.${matchId}`, { status: 'live', completedAt: null, log, typedPoints, scorer: { ...scorer, at: Date.now() } }), 'Reopening the match');
 }
 
 /** A match's target and cap fields: cleared (back to the tournament's 21) or e.g. 15 → 21, 10 → 14. */
@@ -573,6 +581,7 @@ export function setTournamentMatchScore(t: Tournament, matchId: string, scoreA: 
         scoreA,
         scoreB,
         log: '',
+        typedPoints: 0,
         scorer: null,
         startedAt: t.matches[matchId]?.startedAt ?? now,
         completedAt: now,
@@ -588,7 +597,7 @@ export function setTournamentMatchScore(t: Tournament, matchId: string, scoreA: 
 export function resetTournamentMatch(t: Tournament, matchId: string) {
   saveTournament(
     t.id,
-    under(`matches.${matchId}`, { status: 'scheduled', scoreA: 0, scoreB: 0, log: '', scorer: null, startedAt: null, completedAt: null }),
+    under(`matches.${matchId}`, { status: 'scheduled', scoreA: 0, scoreB: 0, log: '', typedPoints: 0, scorer: null, startedAt: null, completedAt: null }),
     'Resetting the match',
   );
 }

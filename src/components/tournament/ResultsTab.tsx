@@ -1,15 +1,13 @@
 import { useMemo } from 'react';
-import { Trophy } from 'lucide-react';
 import { useData } from '../../lib/data/context';
 import { COMEBACK_MIN, rallyHighlights, rallySummary, type RallySummary } from '../../lib/engine/rally';
-import { matchPath, resultLine, teamScore, tournamentReport } from '../../lib/engine/tournament';
+import { matchPath, teamScore, tournamentReport } from '../../lib/engine/tournament';
 import { matchCode } from '../../lib/format';
 import { teamName } from '../../lib/teamColors';
 import type { Tournament } from '../../lib/types';
 import { MatchLinks } from '../report/MatchLinks';
 import { ReportView } from '../report/ReportView';
-import { Card, CardHeader } from '../ui/Card';
-import { Stat } from '../ui/Stat';
+import { Card, CardHeader, Empty } from '../ui/Card';
 import { ScoreFlow } from './ScoreFlow';
 import { TeamDot } from './TeamBits';
 
@@ -17,7 +15,6 @@ import { TeamDot } from './TeamBits';
 function TeamRallyTable({ t, r }: { t: Tournament; r: RallySummary }) {
   const { a, b } = r.teams;
   const rows: [string, string | number, string | number][] = [
-    ['Points won', a.points, b.points],
     ['Longest run', a.longestRun, b.longestRun],
     ['Biggest lead', a.biggestLead, b.biggestLead],
     ['Game points saved', a.gamePointsSaved, b.gamePointsSaved],
@@ -57,7 +54,6 @@ function TeamRallyTable({ t, r }: { t: Tournament; r: RallySummary }) {
 export function ResultsTab({ t }: { t: Tournament }) {
   const { nameOf } = useData();
   const s = teamScore(t);
-  const total = s.played + s.remaining;
   const rally = useMemo(() => rallySummary(t), [t]);
   const highlights = useMemo(() => rallyHighlights(t, rally, nameOf), [t, rally, nameOf]);
   const report = useMemo(() => tournamentReport(t, nameOf), [t, nameOf]);
@@ -70,18 +66,8 @@ export function ResultsTab({ t }: { t: Tournament }) {
 
   return (
     <div className="space-y-4">
-      <Card className="flex items-center gap-3 p-4">
-        {t.status === 'completed' && s.leader && <Trophy size={22} className="shrink-0 text-warn" aria-hidden />}
-        <div className="min-w-0">
-          <p className="text-lg font-bold">{resultLine(t)}</p>
-          <p className="text-sm text-muted">Most matches won takes the tournament; total points break a tie.</p>
-        </div>
-      </Card>
-      <div className="grid grid-cols-3 gap-2">
-        <Stat label="Matches won" value={`${s.won.a}–${s.won.b}`} sub={`${teamName(t, 'a')} – ${teamName(t, 'b')}`} />
-        <Stat label="Points" value={`${s.points.a}–${s.points.b}`} sub="finished matches" />
-        <Stat label="Played" value={`${s.played}/${total}`} sub={s.remaining ? `${s.remaining} to play` : 'all done'} />
-      </div>
+      {/* The result itself is in the score bar above the tabs. */}
+      {s.played === 0 && <Empty title="No results yet">They appear here once the first match is finished.</Empty>}
 
       {rally.flows.length > 0 && (
         <Card className="overflow-hidden">

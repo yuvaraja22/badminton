@@ -23,18 +23,24 @@ const LINE = '#e0d9c8';
 const B = 'Helvetica-Bold';
 
 const s = StyleSheet.create({
-  page: { backgroundColor: '#fffdf8', paddingTop: 30, paddingBottom: 44, paddingHorizontal: 32, fontFamily: 'Helvetica', fontSize: 9, color: INK },
-  header: { backgroundColor: COURT, borderRadius: 8, borderLeftWidth: 5, borderLeftColor: VOLT, paddingVertical: 14, paddingHorizontal: 18 },
+  // Page, header and section styles match the report pages (ReportPdf) so the PDF reads as one document.
+  page: { backgroundColor: '#fffdf8', paddingTop: 34, paddingBottom: 46, paddingHorizontal: 34, fontFamily: 'Helvetica', fontSize: 9, color: INK },
+  header: { backgroundColor: COURT, borderRadius: 8, paddingVertical: 16, paddingLeft: 22, paddingRight: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', position: 'relative' },
+  headerAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, backgroundColor: VOLT, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
   title: { fontFamily: B, fontSize: 18, color: '#ffffff', textTransform: 'uppercase' },
-  subtitle: { fontSize: 8.5, color: '#cfe3da', marginTop: 4 },
+  subtitle: { fontSize: 8, color: '#cfe3da', marginTop: 4 },
+  pill: { backgroundColor: VOLT, borderRadius: 10, paddingVertical: 4, paddingHorizontal: 9, fontFamily: B, fontSize: 7.5, color: INK, textTransform: 'uppercase', marginLeft: 8 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 18, marginBottom: 7, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: LINE },
+  sectionMark: { width: 10, height: 5, borderRadius: 1, backgroundColor: VOLT, marginRight: 7 },
+  sectionText: { fontFamily: B, fontSize: 10, textTransform: 'uppercase' },
+  board: { flexDirection: 'row', gap: 4, marginTop: 12, borderRadius: 8, overflow: 'hidden' },
+  boardSide: { flex: 1, paddingVertical: 12, paddingHorizontal: 14 },
+  card: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderTopWidth: 3, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10 },
   teams: { flexDirection: 'row', gap: 10, marginTop: 12 },
   team: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6, overflow: 'hidden' },
   teamBar: { paddingVertical: 7, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   teamName: { fontFamily: B, fontSize: 11, color: '#ffffff' },
-  teamWon: { fontFamily: B, fontSize: 16, color: '#ffffff' },
   teamPlayers: { paddingVertical: 7, paddingHorizontal: 10, lineHeight: 1.5 },
-  box: { marginTop: 10, paddingVertical: 9, paddingHorizontal: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6 },
-  section: { fontFamily: B, fontSize: 10, textTransform: 'uppercase', marginTop: 16, marginBottom: 6, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: LINE },
   table: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6 },
   th: { flexDirection: 'row', backgroundColor: '#f4f0e6', paddingVertical: 5, paddingHorizontal: 8 },
   thText: { fontFamily: B, fontSize: 6.5, color: GREY, textTransform: 'uppercase' },
@@ -42,11 +48,10 @@ const s = StyleSheet.create({
   side: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
   row: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  tile: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6, paddingVertical: 7, paddingHorizontal: 10 },
   kicker: { fontFamily: B, fontSize: 6.5, color: GREY, textTransform: 'uppercase', letterSpacing: 0.6 },
   tileValue: { fontFamily: B, fontSize: 13, marginTop: 2 },
   tileDetail: { fontSize: 7.5, color: GREY, marginTop: 2, lineHeight: 1.3 },
-  footer: { position: 'absolute', bottom: 18, left: 32, right: 32, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
+  footer: { position: 'absolute', bottom: 20, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
 });
 
 const COL = { code: 32, time: 46, kind: 52 };
@@ -60,31 +65,30 @@ function Footer({ text }: { text: string }) {
   );
 }
 
-/** The title band and both teams with their players (and matches won, once play starts). */
-function Top({ t, nameOf, subtitle }: { t: Tournament; nameOf: (id: PlayerId) => string; subtitle: string }) {
-  const score = teamScore(t);
-  const playerLine = (key: TeamKey) =>
-    t.teams[key].players.map((id) => `${nameOf(id)}${playerTeam(t, id) === 'both' ? ' (both teams)' : ''}`).join(', ') || 'No players yet';
+function Header({ title, subtitle, pill }: { title: string; subtitle: string; pill: string }) {
   return (
-    <>
-      <View style={s.header}>
-        <Text style={s.title}>{t.name}</Text>
+    <View style={s.header}>
+      <View style={s.headerAccent} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.title}>{title}</Text>
         <Text style={s.subtitle}>{subtitle}</Text>
       </View>
-      <View style={s.teams}>
-        {(['a', 'b'] as const).map((key) => (
-          <View key={key} style={s.team}>
-            <View style={[s.teamBar, { backgroundColor: teamFill(t, key) }]}>
-              <Text style={s.teamName}>{teamName(t, key)}</Text>
-              {score.played > 0 && <Text style={s.teamWon}>{score.won[key]}</Text>}
-            </View>
-            <Text style={s.teamPlayers}>{playerLine(key)}</Text>
-          </View>
-        ))}
-      </View>
-    </>
+      <Text style={s.pill}>{pill}</Text>
+    </View>
   );
 }
+
+function Section({ children }: { children: string }) {
+  return (
+    <View style={s.sectionRow} wrap={false}>
+      <View style={s.sectionMark} />
+      <Text style={s.sectionText}>{children}</Text>
+    </View>
+  );
+}
+
+const playerLine = (t: Tournament, key: TeamKey, nameOf: (id: PlayerId) => string) =>
+  t.teams[key].players.map((id) => `${nameOf(id)}${playerTeam(t, id) === 'both' ? ' (both teams)' : ''}`).join(', ') || 'No players yet';
 
 // ---------------------------------------------------------------- before play: the schedule
 
@@ -102,12 +106,22 @@ function SchedulePage({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => 
   const doubles = matches.filter((m) => m.kind === 'doubles').length;
   return (
     <Page size="A4" style={s.page}>
-      <Top
-        t={t}
-        nameOf={nameOf}
-        subtitle={`${longDate(t.date)} · ${teamName(t, 'a')} vs ${teamName(t, 'b')} · ${doubles} doubles, ${matches.length - doubles} singles · one game to ${t.pointsToWin} (win by 2, max ${t.maxPoints})`}
+      <Header
+        title={t.name}
+        subtitle={`${longDate(t.date)} · ${teamName(t, 'a')} vs ${teamName(t, 'b')} · one game to ${t.pointsToWin} (win by 2, max ${t.maxPoints})`}
+        pill={`Schedule • ${doubles} doubles, ${matches.length - doubles} singles`}
       />
-      <Text style={s.section}>Schedule</Text>
+      <View style={s.teams}>
+        {(['a', 'b'] as const).map((key) => (
+          <View key={key} style={s.team}>
+            <View style={[s.teamBar, { backgroundColor: teamFill(t, key) }]}>
+              <Text style={s.teamName}>{teamName(t, key)}</Text>
+            </View>
+            <Text style={s.teamPlayers}>{playerLine(t, key, nameOf)}</Text>
+          </View>
+        ))}
+      </View>
+      <Section>Schedule</Section>
       <View style={s.table}>
         <View style={s.th}>
           <Text style={[s.thText, { width: COL.code }]}>#</Text>
@@ -176,30 +190,54 @@ function FlowRow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
   );
 }
 
-interface TileData {
-  label: string;
-  value: string;
-  detail?: string;
+/** Both teams in their colours with matches won and players; the winners tagged. One line underneath sums it up. */
+function Scoreboard({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
+  const score = teamScore(t);
+  const total = score.played + score.remaining;
+  const done = t.status === 'completed';
+  return (
+    <>
+      <View style={s.board}>
+        {(['a', 'b'] as const).map((k) => (
+          <View key={k} style={[s.boardSide, { backgroundColor: teamFill(t, k) }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontFamily: B, fontSize: 12, color: '#ffffff' }}>{teamName(t, k)}</Text>
+              {done && score.leader === k && <Text style={[s.pill, { fontSize: 6.5, paddingVertical: 3 }]}>Winners</Text>}
+            </View>
+            <Text style={{ fontFamily: B, fontSize: 34, color: '#ffffff', marginTop: 4 }}>{score.won[k]}</Text>
+            <Text style={{ fontSize: 8, color: '#ffffff', marginTop: 4, lineHeight: 1.4 }}>{playerLine(t, k, nameOf)}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={{ textAlign: 'center', marginTop: 8, color: GREY }}>
+        <Text style={{ fontFamily: B, color: INK }}>{resultLine(t)}</Text>
+        {`  ·  Points ${score.points.a}–${score.points.b}  ·  ${score.played} of ${total} played  ·  most matches won takes it, points break a tie`}
+      </Text>
+    </>
+  );
 }
 
-/** Tiles `per` to a row, the last row padded so every tile keeps the same width. */
-function TileRows({ tiles, per }: { tiles: TileData[]; per: number }) {
-  const rows: TileData[][] = [];
-  for (let i = 0; i < tiles.length; i += per) rows.push(tiles.slice(i, i + per));
+// The report's card colours, so the highlights look like the summary cards that follow.
+const CARD_COLORS = [COURT, '#c2410c', '#0f766e', '#8a5a0c'];
+
+function Highlights({ items }: { items: { label: string; value: string; detail: string }[] }) {
+  const rows: (typeof items)[] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
   return (
     <>
       {rows.map((row, i) => (
-        <View key={i} style={s.row}>
-          {row.map((x) => (
-            <View key={x.label} style={s.tile} wrap={false}>
-              <Text style={s.kicker}>{x.label}</Text>
-              <Text style={s.tileValue}>{x.value}</Text>
-              {x.detail && <Text style={s.tileDetail}>{x.detail}</Text>}
-            </View>
-          ))}
-          {Array.from({ length: per - row.length }, (_, k) => (
-            <View key={`gap${k}`} style={{ flex: 1 }} />
-          ))}
+        <View key={i} style={[s.row, i === 0 ? { marginTop: 0 } : {}]}>
+          {row.map((h, j) => {
+            const color = CARD_COLORS[(i * 2 + j) % CARD_COLORS.length];
+            return (
+              <View key={h.label} style={[s.card, { borderTopColor: color }]} wrap={false}>
+                <Text style={[s.kicker, { color }]}>{h.label}</Text>
+                <Text style={s.tileValue}>{h.value}</Text>
+                <Text style={s.tileDetail}>{h.detail}</Text>
+              </View>
+            );
+          })}
+          {row.length === 1 && <View style={{ flex: 1 }} />}
         </View>
       ))}
     </>
@@ -209,7 +247,6 @@ function TileRows({ tiles, per }: { tiles: TileData[]; per: number }) {
 function TeamRallyTable({ t, r }: { t: Tournament; r: RallySummary }) {
   const { a, b } = r.teams;
   const rows: [string, string | number, string | number][] = [
-    ['Points won', a.points, b.points],
     ['Longest run', a.longestRun, b.longestRun],
     ['Biggest lead', a.biggestLead, b.biggestLead],
     ['Game points saved', a.gamePointsSaved, b.gamePointsSaved],
@@ -218,7 +255,7 @@ function TeamRallyTable({ t, r }: { t: Tournament; r: RallySummary }) {
   ];
   const center = { textAlign: 'center' as const };
   return (
-    <View style={[s.table, { marginTop: 8 }]}>
+    <View style={s.table}>
       <View style={s.th}>
         <Text style={[s.thText, { flex: 1 }]}> </Text>
         {(['a', 'b'] as const).map((k) => (
@@ -240,39 +277,26 @@ function TeamRallyTable({ t, r }: { t: Tournament; r: RallySummary }) {
 }
 
 function ResultsPages({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
-  const score = teamScore(t);
   const rally = rallySummary(t);
   const report = tournamentReport(t, nameOf);
   const flows = new Map(rally.flows.map((f) => [f.match.order, f]));
-  const total = score.played + score.remaining;
   return (
     <>
       <Page size="A4" style={s.page}>
-        <Top t={t} nameOf={nameOf} subtitle={`${longDate(t.date)} · ${teamName(t, 'a')} vs ${teamName(t, 'b')}`} />
-        <View style={s.box}>
-          <Text style={{ fontFamily: B, fontSize: 12 }}>{resultLine(t)}</Text>
-          <Text style={{ color: GREY, marginTop: 2 }}>Most matches won takes the tournament; total points break a tie.</Text>
-        </View>
-        <TileRows
-          per={3}
-          tiles={[
-            { label: 'Matches won', value: `${score.won.a}–${score.won.b}`, detail: `${teamName(t, 'a')} – ${teamName(t, 'b')}` },
-            { label: 'Points', value: `${score.points.a}–${score.points.b}`, detail: 'finished matches' },
-            { label: 'Played', value: `${score.played}/${total}`, detail: score.remaining ? `${score.remaining} to play` : 'all done' },
-          ]}
-        />
+        <Header title={t.name} subtitle={`${longDate(t.date)} • ${teamName(t, 'a')} vs ${teamName(t, 'b')}`} pill={t.status === 'completed' ? 'Final result' : 'Result so far'} />
+        <Scoreboard t={t} nameOf={nameOf} />
         {rally.flows.length > 0 && (
           <>
-            <Text style={s.section}>Point by point</Text>
-            <Text style={{ fontSize: 7.5, color: GREY }}>From the live scorer, rally by rally. Each match's score flow is in the match log.</Text>
-            <TileRows per={2} tiles={rallyHighlights(t, rally, nameOf)} />
+            <Section>Point by point</Section>
+            <Highlights items={rallyHighlights(t, rally, nameOf)} />
+            <Section>Team by team</Section>
             <TeamRallyTable t={t} r={rally} />
-            {rally.typedIn.length > 0 && (
-              <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
-                {rally.typedIn.map((m) => matchCode(m.order)).join(', ')} {rally.typedIn.length === 1 ? 'was' : 'were'} typed in, so not in the
-                point-by-point numbers.
-              </Text>
-            )}
+            <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
+              From the live scorer, rally by rally. Each match's score flow is in the match log.
+              {rally.typedIn.length > 0
+                ? ` ${rally.typedIn.map((m) => matchCode(m.order)).join(', ')} ${rally.typedIn.length === 1 ? 'was' : 'were'} typed in, so not included.`
+                : ''}
+            </Text>
           </>
         )}
         <Footer text={report.footer} />

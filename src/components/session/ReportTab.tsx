@@ -1,16 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Download, Link2, PenLine, Share2 } from 'lucide-react';
+import { PenLine } from 'lucide-react';
 import { useData } from '../../lib/data/context';
 import { updateTakeaways } from '../../lib/data/mutations';
 import { useSessionReport } from '../../lib/data/useSessionReport';
 import { sessionRallyGames, sortedMatches } from '../../lib/engine/games';
 import { rallySummary } from '../../lib/engine/rally';
 import { SESSION_SIDES } from '../../lib/teamColors';
-import { toast } from '../../lib/toast';
 import type { Session } from '../../lib/types';
-import { exportReportPdf, reportFileName } from '../report/exportPdf';
-import { RallyCard } from '../report/RallyCard';
-import { ReportView } from '../report/ReportView';
+import { ReportRally, ReportView } from '../report/ReportView';
 import { ScoreFlow } from '../tournament/ScoreFlow';
 import { Button } from '../ui/Button';
 import { Notice } from '../ui/Card';
@@ -55,6 +52,10 @@ function TakeawaysForm({ session, auto, onDone }: { session: Session; auto: stri
   );
 }
 
+/**
+ * The session's report, in the same order as a tournament's results: its MVP, every match (with its
+ * score flow when scored live), point by point, then the individual stats. Sharing is in the header.
+ */
 export function ReportTab({ session, isAdmin }: { session: Session; isAdmin: boolean }) {
   const { nameOf } = useData();
   const report = useSessionReport(session);
@@ -70,60 +71,27 @@ export function ReportTab({ session, isAdmin }: { session: Session; isAdmin: boo
     return f ? <ScoreFlow sides={SESSION_SIDES} flow={f} paper /> : null;
   };
   const takeaways = session.takeaways ?? report.autoTakeaways;
-  const [busy, setBusy] = useState<'share' | 'download' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const live = session.status === 'live';
 
-  const exportPdf = async (mode: 'share' | 'download') => {
-    setBusy(mode);
-    try {
-      const result = await exportReportPdf(report, takeaways, reportFileName(report, session.date), mode, rally.flows.length ? { summary: rally, sides: SESSION_SIDES, nameOf } : null);
-      if (result === 'downloaded') toast('PDF downloaded', 'success');
-    } catch (e) {
-      toast(`Couldn't create the PDF: ${(e as Error).message}`, 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const copyLink = async () => {
-    const url = `${window.location.origin}/sessions/${session.id}?tab=report`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast('Link copied', 'success');
-    } catch {
-      toast(url);
-    }
-  };
-
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => exportPdf('share')} disabled={busy !== null}>
-          <Share2 size={16} /> {busy === 'share' ? 'Preparing…' : 'Share PDF'}
-        </Button>
-        <Button variant="secondary" onClick={() => exportPdf('download')} disabled={busy !== null}>
-          <Download size={16} /> {busy === 'download' ? 'Preparing…' : 'Download'}
-        </Button>
-        <Button variant="secondary" onClick={copyLink}>
-          <Link2 size={16} /> Copy link
-        </Button>
-        {isAdmin && (
-          <Button variant="ghost" onClick={() => setEditOpen(true)}>
-            <PenLine size={16} /> Edit takeaways
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
+            <PenLine size={15} /> Edit takeaways
           </Button>
-        )}
-      </div>
+        </div>
+      )}
       {live && <Notice>Session in progress: this is the report so far. It updates as results come in.</Notice>}
-      <RallyCard
-        rally={rally}
-        sides={SESSION_SIDES}
-        nameOf={nameOf}
-        hrefOf={hrefOf}
-        subtitle="From matches scored live, point by point. Each one's score flow is in the match log below."
-        typedIn="count"
+      <ReportView
+        report={report}
+        takeaways={takeaways}
+        inProgress={live}
+        matchHref={hrefOf}
+        logExtra={flowOf}
+        rally={<ReportRally rally={rally} sides={SESSION_SIDES} nameOf={nameOf} matchHref={hrefOf} typedIn="count" />}
       />
-      <ReportView report={report} takeaways={takeaways} inProgress={live} matchHref={hrefOf} logExtra={flowOf} />
       <TakeawaysDialog open={editOpen} onClose={() => setEditOpen(false)} session={session} auto={report.autoTakeaways} />
     </div>
   );

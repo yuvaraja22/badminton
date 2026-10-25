@@ -13,6 +13,7 @@ import type { Session } from '../lib/types';
 import { CourtTab } from '../components/session/CourtTab';
 import { MatchesTab } from '../components/session/MatchesTab';
 import { ReportTab } from '../components/session/ReportTab';
+import { SessionShareMenu } from '../components/session/SessionShare';
 import { Badge, LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Empty, Notice, Spinner } from '../components/ui/Card';
@@ -163,7 +164,9 @@ export default function SessionPage() {
             )}
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex shrink-0 items-center gap-1">
+          <SessionShareMenu session={session} />
+          {isAdmin && (
           <Menu
             trigger={<MoreVertical size={20} />}
             items={[
@@ -181,7 +184,8 @@ export default function SessionPage() {
               { label: 'Delete session', icon: <Trash2 size={16} />, danger: true, onClick: () => setDialog('delete') },
             ]}
           />
-        )}
+          )}
+        </div>
       </div>
 
       <Segmented value={tab} onChange={setTab} options={tabs} className="mb-4" />

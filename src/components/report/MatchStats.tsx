@@ -3,7 +3,11 @@ import type { SidePair } from '../../lib/teamColors';
 import type { TeamKey } from '../../lib/types';
 import { ScoreFlow } from '../tournament/ScoreFlow';
 import { Card, CardHeader, Notice } from '../ui/Card';
-import { SideDot } from './RallyCard';
+
+/** A small dot in a side's colour (identity is never colour alone: the name sits next to it). */
+function SideDot({ fill }: { fill: string }) {
+  return <span aria-hidden className="inline-block size-2.5 shrink-0 rounded-full" style={{ background: fill }} />;
+}
 
 /** A finished match's point-by-point story: the score flow, each side's numbers and a few facts. */
 export function MatchStats({ flow, sides }: { flow: MatchFlow | null; sides: SidePair }) {

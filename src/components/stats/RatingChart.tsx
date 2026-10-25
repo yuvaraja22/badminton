@@ -1,13 +1,12 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts';
-import { useData } from '../../lib/data/context';
 import { PROVISIONAL_GAMES, type RatingPoint } from '../../lib/engine/rating';
 import { oneDecimal, shortDate } from '../../lib/format';
 import { MAX_LEVEL, MIN_LEVEL, levelName } from '../../lib/levels';
-import type { PlayerId } from '../../lib/types';
-import { Card, CardHeader } from '../ui/Card';
 
 interface ChartPoint extends RatingPoint {
   label: string;
+  /** Position on the axis (labels repeat when two entries share a day). */
+  i: number;
 }
 
 function signedChange(change: number): string {
@@ -51,7 +50,7 @@ function domainOf(points: RatingPoint[]): [number, number] {
 
 /** Skill rating after each session (single series: the card title names it). */
 export function RatingChart({ points }: { points: RatingPoint[] }) {
-  const data: ChartPoint[] = points.map((p) => ({ ...p, label: p.sessionId === null ? 'Start' : shortDate(p.date) }));
+  const data: ChartPoint[] = points.map((p, i) => ({ ...p, i, label: p.sessionId === null ? 'Start' : shortDate(p.date) }));
   const [lo, hi] = domainOf(points);
   const ticks = Array.from({ length: Math.round((hi - lo) * 2) + 1 }, (_, i) => lo + i / 2);
   return (
@@ -59,7 +58,7 @@ export function RatingChart({ points }: { points: RatingPoint[] }) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 16, bottom: 0, left: -8 }}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={18} tickMargin={8} />
+          <XAxis dataKey="i" type="category" tickFormatter={(i: number) => data[i]?.label ?? ''} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={18} tickMargin={8} />
           <YAxis domain={[lo, hi]} ticks={ticks} tickFormatter={(v: number) => oneDecimal(v)} tickLine={false} axisLine={false} width={44} />
           <Tooltip content={<ChartTooltip />} cursor={{ strokeWidth: 1 }} isAnimationActive={false} />
           <Line
@@ -76,22 +75,5 @@ export function RatingChart({ points }: { points: RatingPoint[] }) {
         </LineChart>
       </ResponsiveContainer>
     </div>
-  );
-}
-
-/** The player's rating over time; nothing until they have finished a session. */
-export function RatingHistoryCard({ playerId, title = 'Skill rating' }: { playerId: PlayerId; title?: string }) {
-  const r = useData().ratings.get(playerId);
-  if (!r || r.history.length < 2) return null;
-  const subtitle = r.provisional
-    ? `${oneDecimal(r.level)} · provisional (${r.games} of ${PROVISIONAL_GAMES} games). Starts from their level and moves with every result.`
-    : `${oneDecimal(r.level)} now${r.peak !== null ? ` · peak ${oneDecimal(r.peak)}` : ''}. Each point is the rating after a session.`;
-  return (
-    <Card>
-      <CardHeader title={title} subtitle={subtitle} />
-      <div className="px-2 pt-3 pb-2">
-        <RatingChart points={r.history} />
-      </div>
-    </Card>
   );
 }

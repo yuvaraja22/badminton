@@ -344,6 +344,8 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
   const live = liveMatch(t);
   const doubles = list.filter((m) => m.kind === 'doubles').length;
   const noTeams = !t.teams.a.players.length || !t.teams.b.players.length;
+  // A finished tournament's schedule is final: no more matches or times to set (reopen it to add some).
+  const editable = isAdmin && t.status !== 'completed';
   const hrefOf = (m: TournamentMatch) => `/tournaments/${t.id}/matches/${m.id}`;
   const close = () => setDialog(null);
 
@@ -354,7 +356,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
   };
 
   const actions = (m: TournamentMatch, i: number): MenuItem[] => [
-    ...(m.status === 'scheduled' && !live ? [{ label: 'Start and score', icon: <Play size={16} />, onClick: () => start(m) }] : []),
+    ...(m.status === 'scheduled' && !live && editable ? [{ label: 'Start and score', icon: <Play size={16} />, onClick: () => start(m) }] : []),
     ...(m.status !== 'scheduled' ? [{ label: m.status === 'live' ? 'Open the scorer' : 'Open', icon: <Tv size={16} />, onClick: () => navigate(hrefOf(m)) }] : []),
     { label: m.status === 'completed' ? 'Edit the score' : 'Enter the final score', icon: <Hash size={16} />, onClick: () => setDialog({ kind: 'score', m }) },
     { label: 'Change players', icon: <Pencil size={16} />, onClick: () => setDialog({ kind: 'edit', m }) },
@@ -369,13 +371,13 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
 
   return (
     <div className="space-y-4">
-      {isAdmin && noTeams && <Notice tone="warn">Add players to both teams first, on the Teams tab.</Notice>}
+      {editable && noTeams && <Notice tone="warn">Add players to both teams first, on the Teams tab.</Notice>}
       <Card>
         <CardHeader
           title={`${list.length} match${list.length === 1 ? '' : 'es'}`}
           subtitle={`${doubles} doubles · ${list.length - doubles} singles${t.schedule.start ? ` · from ${formatTime(t.schedule.start)}, ${t.schedule.minutes} min each` : ''}`}
         />
-        {isAdmin && (
+        {editable && (
           <div className="flex flex-wrap gap-2 px-4 pt-3">
             <Button size="sm" className="flex-1" disabled={noTeams} onClick={() => setDialog({ kind: 'create' })}>
               <WandSparkles size={15} /> Create matches
@@ -390,7 +392,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
         )}
         {list.length === 0 ? (
           <p className="px-4 pt-2 pb-4 text-sm text-muted">
-            {isAdmin ? 'No matches yet. Create matches makes the whole schedule from the teams; Add one adds a single match.' : 'The schedule appears here once it is set.'}
+            {editable ? 'No matches yet. Create matches makes the whole schedule from the teams; Add one adds a single match.' : 'The schedule appears here once it is set.'}
           </p>
         ) : (
           <ol className="divide-y divide-line pt-2">
@@ -418,7 +420,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
                         </Badge>
                       </Link>
                     )}
-                    {m.status === 'scheduled' && isAdmin && !live && (
+                    {m.status === 'scheduled' && editable && !live && (
                       <Button size="sm" variant="secondary" onClick={() => start(m)}>
                         <Play size={14} /> Start
                       </Button>
@@ -436,7 +438,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
           </ol>
         )}
         {/* A second Add at the end, so a long schedule doesn't need scrolling back up. */}
-        {isAdmin && list.length >= 3 && (
+        {editable && list.length >= 3 && (
           <div className="border-t border-line p-3">
             <Button size="sm" variant="secondary" block disabled={noTeams} onClick={() => setDialog({ kind: 'add' })}>
               <Plus size={15} /> Add {matchCode(list.length + 1)}

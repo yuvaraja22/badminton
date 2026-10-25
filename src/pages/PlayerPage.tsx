@@ -15,8 +15,7 @@ import { PlayerDialog } from '../components/players/PlayerDialog';
 import { PlayerHero } from '../components/players/PlayerHero';
 import { AchievementsCard, FormStrip, PartnerCards, SessionsList } from '../components/players/ProfileSections';
 import { ProfileDetails } from '../components/players/ProfileDetails';
-import { RatingHistoryCard } from '../components/stats/RatingChart';
-import { WinRateChart } from '../components/stats/WinRateChart';
+import { ProgressCard } from '../components/stats/ProgressCard';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
@@ -77,12 +76,6 @@ export default function PlayerPage() {
 
   const { line, sessions } = profile;
   const isMe = myPlayerId === player.id;
-  const chartData = [...sessions].reverse().map((s) => ({
-    label: shortDate(s.date),
-    title: s.title,
-    winRate: Math.round(s.winRate * 1000) / 10,
-    record: `${s.won}-${s.lost}`,
-  }));
 
   return (
     <div className="space-y-4">
@@ -152,16 +145,7 @@ export default function PlayerPage() {
 
           <FormStrip form={profile.form} />
 
-          <RatingHistoryCard playerId={player.id} />
-
-          {chartData.length >= 2 && (
-            <Card>
-              <CardHeader title="Win rate by session" subtitle="Each point is one session; the sessions list below has the same numbers." />
-              <div className="px-2 pt-3 pb-2">
-                <WinRateChart data={chartData} />
-              </div>
-            </Card>
-          )}
+          <ProgressCard playerId={player.id} sessions={sessions} />
 
           <PartnerCards partners={profile.partners} opponents={profile.opponents} />
 

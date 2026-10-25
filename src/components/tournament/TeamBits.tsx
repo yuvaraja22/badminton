@@ -11,9 +11,38 @@ export function TeamDot({ t, team, className }: { t: Tournament; team: TeamKey; 
 }
 
 /**
- * "Vikram & Anu" with a bar in the team's colour. For a finished match, `result` marks the winners with a
- * "Won" tag in their colour and dims the losers.
+ * "Vikram & Anu" with a bar in the side's colour. For a finished match, `result` marks the winners with a
+ * "Won" tag in their colour and dims the losers. `label` names the side for screen readers.
  */
+export function SideRow({
+  fill,
+  label,
+  ids,
+  result,
+  className,
+}: {
+  fill: string;
+  label: string;
+  ids: PlayerId[];
+  result?: 'won' | 'lost' | null;
+  className?: string;
+}) {
+  const { nameOf } = useData();
+  return (
+    <span className={cn('flex min-w-0 items-center gap-2', result === 'lost' && 'text-muted', className)}>
+      <span aria-hidden className="h-4 w-1 shrink-0 rounded-full" style={{ background: fill }} />
+      <span className={cn('truncate', result === 'won' && 'font-bold')}>{ids.map(nameOf).join(' & ') || '–'}</span>
+      <span className="sr-only">({label})</span>
+      {result === 'won' && (
+        <span className="shrink-0 rounded-full px-2 py-0.5 text-[10.5px] leading-none font-bold tracking-wide text-white uppercase" style={{ background: fill }}>
+          Won
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** A tournament team's side of a match: its players with a bar in the team colour (see SideRow). */
 export function SideNames({
   t,
   team,
@@ -27,19 +56,7 @@ export function SideNames({
   result?: 'won' | 'lost' | null;
   className?: string;
 }) {
-  const { nameOf } = useData();
-  return (
-    <span className={cn('flex min-w-0 items-center gap-2', result === 'lost' && 'text-muted', className)}>
-      <span aria-hidden className="h-4 w-1 shrink-0 rounded-full" style={{ background: teamFill(t, team) }} />
-      <span className={cn('truncate', result === 'won' && 'font-bold')}>{ids.map(nameOf).join(' & ') || '–'}</span>
-      <span className="sr-only">({teamName(t, team)})</span>
-      {result === 'won' && (
-        <span className="shrink-0 rounded-full px-2 py-0.5 text-[10.5px] leading-none font-bold tracking-wide text-white uppercase" style={{ background: teamFill(t, team) }}>
-          Won
-        </span>
-      )}
-    </span>
-  );
+  return <SideRow fill={teamFill(t, team)} label={teamName(t, team)} ids={ids} result={result} className={className} />;
 }
 
 /** Matches won by each team, in the team colours, with points and what's left underneath. */

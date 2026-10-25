@@ -17,7 +17,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 import { Select } from '../components/ui/Field';
 import { Stat } from '../components/ui/Stat';
-import { RatingHistoryCard } from '../components/stats/RatingChart';
+import { ProgressCard } from '../components/stats/ProgressCard';
 
 /** Signed in but not linked yet: pick your own profile and ask an admin to confirm. */
 function FindMe() {
@@ -116,7 +116,7 @@ export default function MePage() {
         <Stat label="MVP awards" value={String(profile.mvps)} sub={`${profile.sessions.length} sessions`} />
       </div>
 
-      <RatingHistoryCard playerId={player.id} title="Your skill rating" />
+      <ProgressCard playerId={player.id} sessions={profile.sessions} you />
       <FormStrip form={profile.form} title="Your last 10 games" />
       <AchievementsCard playerId={player.id} />
       <PartnerCards partners={profile.partners} opponents={profile.opponents} you />

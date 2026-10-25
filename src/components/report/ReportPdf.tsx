@@ -6,7 +6,10 @@ import { oneDecimal, pct, pctRound, signed } from '../../lib/format';
 import type { SidePair } from '../../lib/teamColors';
 import { FlowRow, Highlights, TeamRallyTable } from './RallyPdf';
 
-/** A4 PDF version of the report, mirroring the original two-page layout. Uses built-in Helvetica. */
+/**
+ * A4 PDF of the report, in the same order as the app: who won, every match (with its score flow when
+ * scored live), point by point, then the individual stats. One flowing document. Built-in Helvetica.
+ */
 
 // Wrap at spaces only; never hyphenate names or words ("TOURNA-MENT").
 Font.registerHyphenationCallback((word) => [word]);
@@ -63,9 +66,10 @@ function Diff({ value, width = 34 }: { value: number; width?: number }) {
   return <Text style={[s.diff, { backgroundColor: bg, color: fg, width }]}>{signed(value)}</Text>;
 }
 
-function Section({ children }: { children: string }) {
+/** A section title; never left alone at the bottom of a page. */
+export function Section({ children }: { children: string }) {
   return (
-    <View style={s.section} wrap={false}>
+    <View style={s.section} wrap={false} minPresenceAhead={60}>
       <View style={s.sectionMark} />
       <Text style={s.sectionText}>{children}</Text>
     </View>
@@ -99,15 +103,14 @@ function Footer({ text }: { text: string }) {
 const COLS = { rank: 32, player: 124, played: 40, won: 34, lost: 34, rate: 86, pf: 40, pa: 48, diff: 46, ppg: 27 };
 const LOG = { match: 34, t1: 112, score: 50, t2: 112, winner: 46, ctx: 160 };
 
-/** Player standings table (also on a tournament PDF's results page). */
+/** Player standings table. */
 export function ReportStandings({ report }: { report: SessionReport }) {
   const { mvp } = report;
   const center = { textAlign: 'center' as const };
   return (
     <>
-      <Section>Player standings &amp; performance leaderboard</Section>
-      <View style={s.table}>
-        <View style={s.th} fixed>
+      <View style={[s.table, { marginTop: 10 }]}>
+        <View style={s.th}>
           <Text style={[s.thText, { width: COLS.rank }]}>Rank</Text>
           <Text style={[s.thText, { width: COLS.player }]}>Player</Text>
           <Text style={[s.thText, center, { width: COLS.played }]}>Played</Text>
@@ -166,7 +169,7 @@ export function ReportPairsAndTakeaways({ report, takeaways }: { report: Session
         <Text style={s.boxTitle}>Partnership performance</Text>
         {report.partnerships.map((p, i) => (
           <View
-            key={p.label}
+            key={p.pair.join('|')}
             wrap={false}
             style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderTopWidth: i ? 1 : 0, borderTopColor: '#ece7d9' }}
           >
@@ -206,8 +209,24 @@ export interface ReportRally {
   nameOf: (id: string) => string;
 }
 
+/** The point-by-point section: headline facts and each side's numbers. */
+export function RallySection({ rally, note }: { rally: ReportRally; note: string }) {
+  if (!rally.summary.flows.length) return null;
+  return (
+    <>
+      <Section>Point by point</Section>
+      <Highlights items={rallyHighlights(rally.summary, (k) => rally.sides[k].name, rally.nameOf)} />
+      <View style={{ marginTop: 8 }} wrap={false}>
+        <TeamRallyTable sides={rally.sides} r={rally.summary} />
+      </View>
+      <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>{note}</Text>
+    </>
+  );
+}
+
 export function ReportDocument({ report, takeaways, rally }: { report: SessionReport; takeaways: string[]; rally?: ReportRally | null }) {
   const flows = new Map((rally?.summary.flows ?? []).map((f) => [f.match.order, f]));
+  const typed = rally?.summary.typedIn.length ?? 0;
   return (
     <Document title={`${report.title} - ${report.dateLabel}`} author="Badminton Stats">
       <ReportPages
@@ -221,15 +240,12 @@ export function ReportDocument({ report, takeaways, rally }: { report: SessionRe
               }
             : undefined
         }
-        after={
-          rally && rally.summary.flows.length > 0 ? (
-            <View wrap={false}>
-              <Section>Point by point (matches scored live)</Section>
-              <Highlights items={rallyHighlights(rally.summary, (k) => rally.sides[k].name, rally.nameOf)} />
-              <View style={{ marginTop: 8 }}>
-                <TeamRallyTable sides={rally.sides} r={rally.summary} />
-              </View>
-            </View>
+        rally={
+          rally ? (
+            <RallySection
+              rally={rally}
+              note={`From the live scorer, rally by rally.${typed ? ` ${rally.summary.flows.length} of ${rally.summary.flows.length + typed} finished matches were scored live; only those are included.` : ''}`}
+            />
           ) : null
         }
       />
@@ -237,96 +253,105 @@ export function ReportDocument({ report, takeaways, rally }: { report: SessionRe
   );
 }
 
-/** The report's pages, also the second half of a tournament's PDF (which adds each match's score flow to the log). */
+/** The report's own header: title, subtitle, who won (a tournament's result, or the MVP) and the totals. */
+function ReportHeader({ report, result }: { report: SessionReport; result?: string | null }) {
+  const { mvp } = report;
+  const headline = result ?? (mvp ? `${mvp.undefeated ? 'Undefeated MVP' : 'MVP'}: ${mvp.name} (${mvp.won}-${mvp.lost})` : null);
+  const facts = [`${report.matchCount} match${report.matchCount === 1 ? '' : 'es'}`, `${report.playerCount} players`, `${report.totalPoints} points`];
+  if (report.unfinishedCount) facts.push(`+${report.unfinishedCount} unfinished`);
+  return (
+    <View style={s.header}>
+      <View style={s.headerAccent} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.title}>{report.title}</Text>
+        <Text style={s.subtitle}>{report.subtitle}</Text>
+        {headline && <Text style={{ fontFamily: B, fontSize: 12, color: VOLT, marginTop: 8 }}>{headline}</Text>}
+        <Text style={[s.subtitle, { marginTop: 3 }]}>{facts.join('  ·  ')}</Text>
+      </View>
+      <Text style={s.pill}>
+        {report.kind === 'tournament' ? 'Tournament' : 'Session'} summary • {report.matchCount} matches
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * The report as pages: who won (`top`, or the report's own header), the match log (with `logExtra`
+ * under each match), point by point (`rally`), then the individual stats. Also the whole of a
+ * tournament's results PDF, which brings its own top (title and scoreboard) and point by point.
+ */
 export function ReportPages({
   report,
   takeaways,
   logExtra,
-  after,
+  rally,
+  top,
 }: {
   report: SessionReport;
   takeaways: string[];
   logExtra?: (n: number) => ReactNode;
-  /** More after the match log (a session's point-by-point summary). */
-  after?: ReactNode;
+  rally?: ReactNode;
+  top?: ReactNode;
 }) {
   const { mvp, bestPair, tightest } = report;
-  const totalLines = [`${report.totalPoints} total points scored`, `${report.playerCount} players`];
-  if (report.unfinishedCount) totalLines.push(`(+${report.unfinishedCount} match${report.unfinishedCount === 1 ? '' : 'es'} left unfinished)`);
   const center = { textAlign: 'center' as const };
 
   return (
-    <>
-      <Page size="A4" style={s.page}>
-        <View style={s.header}>
-          <View style={s.headerAccent} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.title}>{report.title}</Text>
-            <Text style={s.subtitle}>{report.subtitle}</Text>
-          </View>
-          <Text style={s.pill}>
-            {report.kind === 'tournament' ? 'Tournament' : 'Session'} summary • {report.matchCount} matches
-          </Text>
+    <Page size="A4" style={s.page}>
+      {top ?? <ReportHeader report={report} />}
+
+      <Section>{`Complete match-by-match log (${report.log.length} games)`}</Section>
+      <View style={s.table}>
+        <View style={s.th}>
+          <Text style={[s.thText, { width: LOG.match }]}>Match</Text>
+          <Text style={[s.thText, { width: LOG.t1 }]}>Team 1</Text>
+          <Text style={[s.thText, center, { width: LOG.score }]}>Score</Text>
+          <Text style={[s.thText, { width: LOG.t2 }]}>Team 2</Text>
+          <Text style={[s.thText, { width: LOG.winner }]}>Winner</Text>
+          <Text style={[s.thText, { width: LOG.ctx }]}>Result &amp; context</Text>
         </View>
-
-        <View style={s.cards}>
-          <Card color={COURT} label="Total matches" value={String(report.matchCount)} lines={totalLines} />
-          <Card
-            color="#8a5a0c"
-            label={mvp?.undefeated ? 'Undefeated MVP' : 'MVP'}
-            value={mvp ? `${mvp.name} (${mvp.won}-${mvp.lost})` : '-'}
-            lines={mvp ? [mvp.line] : []}
-          />
-          <Card color="#0f766e" label="Best partnership" value={bestPair?.label ?? '-'} lines={bestPair ? [bestPair.line] : []} />
-          <Card color="#c2410c" label="Tightest contest" value={tightest?.score ?? '-'} lines={tightest ? [tightest.line] : []} />
-        </View>
-
-        <ReportStandings report={report} />
-        <ReportPairsAndTakeaways report={report} takeaways={takeaways} />
-        <Footer text={report.footer} />
-      </Page>
-
-      <Page size="A4" style={s.page}>
-        <Section>{`Complete match-by-match log (${report.log.length} games)`}</Section>
-        <View style={s.table}>
-          <View style={s.th} fixed>
-            <Text style={[s.thText, { width: LOG.match }]}>Match</Text>
-            <Text style={[s.thText, { width: LOG.t1 }]}>Team 1</Text>
-            <Text style={[s.thText, center, { width: LOG.score }]}>Score</Text>
-            <Text style={[s.thText, { width: LOG.t2 }]}>Team 2</Text>
-            <Text style={[s.thText, { width: LOG.winner }]}>Winner</Text>
-            <Text style={[s.thText, { width: LOG.ctx }]}>Result &amp; context</Text>
-          </View>
-          {report.log.map((r) => {
-            const done = r.status === 'completed';
-            const extra = logExtra?.(r.number);
-            return (
-              <View key={r.number} style={[s.tr, { paddingVertical: 7, flexDirection: 'column', alignItems: 'stretch' }, done ? {} : { backgroundColor: '#f6f3ea' }]} wrap={false}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[s.bold, { width: LOG.match }]}>{r.code}</Text>
-                  <Text style={[{ width: LOG.t1 }, r.winner === 'A' ? s.bold : {}]}>{r.team1}</Text>
-                  <Text style={[s.bold, center, { width: LOG.score, color: done ? INK : '#7b8781' }]}>
-                    {r.scoreA ?? '-'} : {r.scoreB ?? '-'}
-                    {r.status === 'unfinished' ? '*' : ''}
-                  </Text>
-                  <Text style={[{ width: LOG.t2 }, r.winner === 'B' ? s.bold : {}]}>{r.team2}</Text>
-                  <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#1b6f3f' : '#7b8781' }]}>
-                    {r.winnerLabel ?? '—'}
-                  </Text>
-                  <Text style={{ width: LOG.ctx, fontSize: 8.5 }}>{r.context}</Text>
-                </View>
-                {extra && <View style={{ marginTop: 5, marginLeft: LOG.match }}>{extra}</View>}
+        {report.log.map((r) => {
+          const done = r.status === 'completed';
+          const extra = logExtra?.(r.number);
+          return (
+            <View key={r.number} style={[s.tr, { paddingVertical: 7, flexDirection: 'column', alignItems: 'stretch' }, done ? {} : { backgroundColor: '#f6f3ea' }]} wrap={false}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[s.bold, { width: LOG.match }]}>{r.code}</Text>
+                <Text style={[{ width: LOG.t1 }, r.winner === 'A' ? s.bold : {}]}>{r.team1}</Text>
+                <Text style={[s.bold, center, { width: LOG.score, color: done ? INK : '#7b8781' }]}>
+                  {r.scoreA ?? '-'} : {r.scoreB ?? '-'}
+                  {r.status === 'unfinished' ? '*' : ''}
+                </Text>
+                <Text style={[{ width: LOG.t2 }, r.winner === 'B' ? s.bold : {}]}>{r.team2}</Text>
+                <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#1b6f3f' : '#7b8781' }]}>{r.winnerLabel ?? '—'}</Text>
+                <Text style={{ width: LOG.ctx, fontSize: 8.5 }}>{r.context}</Text>
               </View>
-            );
-          })}
-        </View>
-        <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
-          {report.unfinishedCount > 0 ? '* Match not completed; excluded from player standings, partnership records and totals. ' : ''}
-          Margins are shown as winning score minus losing score.
-        </Text>
-        {after}
-        <Footer text={report.footer} />
-      </Page>
-    </>
+              {extra && <View style={{ marginTop: 5, marginLeft: LOG.match }}>{extra}</View>}
+            </View>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
+        {report.unfinishedCount > 0 ? '* Match not completed; excluded from player standings, partnership records and totals. ' : ''}
+        Margins are shown as winning score minus losing score.
+      </Text>
+
+      {rally}
+
+      <Section>Individual stats</Section>
+      <View style={[s.cards, { marginTop: 0 }]} wrap={false}>
+        <Card
+          color="#8a5a0c"
+          label={mvp?.undefeated ? 'Undefeated MVP' : 'MVP'}
+          value={mvp ? `${mvp.name} (${mvp.won}-${mvp.lost})` : '-'}
+          lines={mvp ? [mvp.line] : []}
+        />
+        <Card color="#0f766e" label="Best partnership" value={bestPair?.label ?? '-'} lines={bestPair ? [bestPair.line] : []} />
+        <Card color="#c2410c" label="Tightest contest" value={tightest?.score ?? '-'} lines={tightest ? [tightest.line] : []} />
+      </View>
+      <ReportStandings report={report} />
+      <ReportPairsAndTakeaways report={report} takeaways={takeaways} />
+      <Footer text={report.footer} />
+    </Page>
   );
 }

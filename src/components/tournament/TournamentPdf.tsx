@@ -1,11 +1,10 @@
 import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { rallyHighlights } from '../../lib/engine/rally';
 import { playerTeam, resultLine, rulesFor, teamScore, tournamentMatches, tournamentRally, tournamentReport } from '../../lib/engine/tournament';
 import { formatTime, longDate, matchCode } from '../../lib/format';
 import { teamFill, teamName, tournamentSides } from '../../lib/teamColors';
 import type { PlayerId, TeamKey, Tournament } from '../../lib/types';
-import { FlowRow, Highlights, TeamRallyTable } from '../report/RallyPdf';
-import { ReportPages } from '../report/ReportPdf';
+import { FlowRow } from '../report/RallyPdf';
+import { RallySection, ReportPages } from '../report/ReportPdf';
 
 /**
  * A4 PDF for a team tournament. Before play: the schedule. Once matches are played: the Results tab as
@@ -178,41 +177,31 @@ function Scoreboard({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => st
   );
 }
 
+/** The Results tab as a PDF: who won (title and scoreboard), every match with its flow, point by point, individual stats. */
 function ResultsPages({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
   const rally = tournamentRally(t);
   const sides = tournamentSides(t);
   const report = tournamentReport(t, nameOf);
   const flows = new Map(rally.flows.map((f) => [f.match.order, f]));
+  const typed = rally.typedIn.length
+    ? ` ${rally.typedIn.map((m) => matchCode(m.order)).join(', ')} ${rally.typedIn.length === 1 ? 'was' : 'were'} typed in, so not included.`
+    : '';
   return (
-    <>
-      <Page size="A4" style={s.page}>
-        <Header title={t.name} subtitle={`${longDate(t.date)} • ${teamName(t, 'a')} vs ${teamName(t, 'b')}`} pill={t.status === 'completed' ? 'Final result' : 'Result so far'} />
-        <Scoreboard t={t} nameOf={nameOf} />
-        {rally.flows.length > 0 && (
-          <>
-            <Section>Point by point</Section>
-            <Highlights items={rallyHighlights(rally, (k) => sides[k].name, nameOf)} />
-            <Section>Team by team</Section>
-            <TeamRallyTable sides={sides} r={rally} />
-            <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
-              From the live scorer, rally by rally. Each match's score flow is in the match log.
-              {rally.typedIn.length > 0
-                ? ` ${rally.typedIn.map((m) => matchCode(m.order)).join(', ')} ${rally.typedIn.length === 1 ? 'was' : 'were'} typed in, so not included.`
-                : ''}
-            </Text>
-          </>
-        )}
-        <Footer text={report.footer} />
-      </Page>
-      <ReportPages
-        report={report}
-        takeaways={report.autoTakeaways}
-        logExtra={(n) => {
-          const f = flows.get(n);
-          return f ? <FlowRow sides={sides} flow={f} /> : null;
-        }}
-      />
-    </>
+    <ReportPages
+      report={report}
+      takeaways={report.autoTakeaways}
+      top={
+        <>
+          <Header title={t.name} subtitle={`${longDate(t.date)} • ${teamName(t, 'a')} vs ${teamName(t, 'b')}`} pill={t.status === 'completed' ? 'Final result' : 'Result so far'} />
+          <Scoreboard t={t} nameOf={nameOf} />
+        </>
+      }
+      logExtra={(n) => {
+        const f = flows.get(n);
+        return f ? <FlowRow sides={sides} flow={f} /> : null;
+      }}
+      rally={<RallySection rally={{ summary: rally, sides, nameOf }} note={`From the live scorer, rally by rally.${typed}`} />}
+    />
   );
 }
 

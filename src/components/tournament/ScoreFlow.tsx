@@ -12,9 +12,7 @@ const MID = H / 2;
  * A finished match as a "worm": the lead after every point, above the line while the first side is
  * ahead and below while the other is. Drag or hover to read the score at any point.
  */
-export function ScoreFlow({ sides, flow, large, paper }: { sides: SidePair; flow: MatchFlow; large?: boolean; paper?: boolean }) {
-  // On the report's light "paper" the colours stay light-theme in dark mode too.
-  const ink = paper ? '#0f1f1a' : 'var(--ink)';
+export function ScoreFlow({ sides, flow, large }: { sides: SidePair; flow: MatchFlow; large?: boolean }) {
   const id = useId();
   const [at, setAt] = useState<number | null>(null);
   const { leads, match: m } = flow;
@@ -57,14 +55,14 @@ export function ScoreFlow({ sides, flow, large, paper }: { sides: SidePair; flow
         </defs>
         <path d={area} fill={sides.a.fill} fillOpacity={0.85} clipPath={`url(#${id}a)`} />
         <path d={area} fill={sides.b.fill} fillOpacity={0.85} clipPath={`url(#${id}b)`} />
-        <path d={line} fill="none" stroke={ink} strokeOpacity={0.35} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <line x1="0" x2={W} y1={MID} y2={MID} stroke={paper ? '#e0d9c8' : 'var(--line)'} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        {at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke={ink} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
+        <path d={line} fill="none" stroke="var(--ink)" strokeOpacity={0.35} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <line x1="0" x2={W} y1={MID} y2={MID} stroke="var(--line)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        {at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke="var(--ink)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}
       </svg>
-      <p className={cn('mt-1 text-xs tabular', paper ? 'text-[#5b6862]' : 'text-muted')}>
+      <p className="mt-1 text-xs tabular text-muted">
         {at !== null ? (
           <>
-            After {at} point{at === 1 ? '' : 's'}: <strong className={paper ? 'text-[#0f1f1a]' : 'text-ink'}>{scoreAt(at)}</strong>
+            After {at} point{at === 1 ? '' : 's'}: <strong className="text-ink">{scoreAt(at)}</strong>
           </>
         ) : large ? (
           'Touch or hover the chart to read the score at any point.'

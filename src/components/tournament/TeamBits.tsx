@@ -59,7 +59,7 @@ export function SideNames({
   return <SideRow fill={teamFill(t, team)} label={teamName(t, team)} ids={ids} result={result} className={className} />;
 }
 
-/** Matches won by each team, in the team colours, with points and what's left underneath. */
+/** Matches won by each team, in the team colours, with points and what's left underneath. Once it's finished the winners get a "Won" tag. */
 export function TeamScoreBar({ t, className }: { t: Tournament; className?: string }) {
   const score = teamScore(t);
   const finished = t.status === 'completed';
@@ -68,7 +68,12 @@ export function TeamScoreBar({ t, className }: { t: Tournament; className?: stri
       className={cn('flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-white', key === 'b' && 'flex-row-reverse text-right')}
       style={{ background: `repeating-linear-gradient(${key === 'a' ? 115 : 65}deg, rgb(255 255 255 / 0.07) 0 9px, transparent 9px 18px), ${teamFill(t, key)}` }}
     >
-      <span className="min-w-0 flex-1 truncate font-bold tracking-tight">{teamName(t, key)}</span>
+      <span className={cn('flex min-w-0 flex-1 flex-col gap-1', key === 'b' ? 'items-end' : 'items-start')}>
+        <span className="max-w-full truncate font-bold tracking-tight">{teamName(t, key)}</span>
+        {finished && score.leader === key && (
+          <span className="rounded-full bg-volt px-2 py-0.5 text-[10.5px] leading-none font-bold tracking-wide text-volt-ink uppercase">Won</span>
+        )}
+      </span>
       <span className="font-score tabular text-[2.75rem] leading-none font-black" aria-label={`${score.won[key]} matches won`}>
         {score.won[key]}
       </span>

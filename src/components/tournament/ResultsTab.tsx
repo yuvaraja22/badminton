@@ -18,7 +18,7 @@ export function ResultsTab({ t }: { t: Tournament }) {
   // Each match in the log gets its score flow (live-scored matches only).
   const flowOf = (n: number) => {
     const f = rally.flows.find((x) => x.match.order === n);
-    return f ? <ScoreFlow sides={sides} flow={f} paper /> : null;
+    return f ? <ScoreFlow sides={sides} flow={f} /> : null;
   };
 
   if (s.played === 0) return <Empty title="No results yet">They appear here once the first match is finished.</Empty>;

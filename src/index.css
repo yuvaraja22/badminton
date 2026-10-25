@@ -84,6 +84,9 @@
   --shadow-card: 0 1px 0 rgb(15 31 26 / 0.04), 0 8px 24px -12px rgb(15 31 26 / 0.18);
   /* Chart series colour (court green) on the light surface. */
   --series-1: #0d7a5a;
+  /* Report accents next to court green and amber: the PDF's colours by day, brighter at night. */
+  --teal: #0f766e;
+  --orange: #c2410c;
 }
 
 /*
@@ -130,6 +133,8 @@
     --grain-opacity: 0.5;
     --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 30px -14px rgb(0 0 0 / 0.7);
     --series-1: #c9ef3a;
+    --teal: #5ccfc0;
+    --orange: #fb923c;
   }
 }
 
@@ -172,6 +177,8 @@
   --grain-opacity: 0.5;
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 10px 30px -14px rgb(0 0 0 / 0.7);
   --series-1: #c9ef3a;
+  --teal: #5ccfc0;
+  --orange: #fb923c;
 }
 
 /* Charts: recessive hairline grid, muted ticks; marks carry the series color. */

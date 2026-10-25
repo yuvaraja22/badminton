@@ -68,7 +68,7 @@ export function ReportTab({ session, isAdmin }: { session: Session; isAdmin: boo
   };
   const flowOf = (n: number) => {
     const f = rally.flows.find((x) => x.match.order === n);
-    return f ? <ScoreFlow sides={SESSION_SIDES} flow={f} paper /> : null;
+    return f ? <ScoreFlow sides={SESSION_SIDES} flow={f} /> : null;
   };
   const takeaways = session.takeaways ?? report.autoTakeaways;
   const [editOpen, setEditOpen] = useState(false);

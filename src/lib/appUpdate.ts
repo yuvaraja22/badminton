@@ -2,8 +2,8 @@
  * Keep every phone on the latest version without an "Update" button:
  * - pages always load from the network when online (see the service worker config in vite.config.ts),
  *   so opening the app shows the newest deploy straight away;
- * - an app left open in the background checks for a newer deploy when it comes back to the
- *   foreground and reloads (unless someone is typing);
+ * - an app left open checks for a newer deploy when it comes back to the foreground or its window
+ *   regains focus, and every 10 minutes, and reloads (unless someone is typing);
  * - if a deploy removed a file an old page still needs, reload instead of failing.
  */
 export function startAppUpdates() {
@@ -19,7 +19,7 @@ export function startAppUpdates() {
 
   window.addEventListener('vite:preloadError', () => window.location.reload());
 
-  document.addEventListener('visibilitychange', async () => {
+  const check = async () => {
     if (document.visibilityState !== 'visible') return;
     try {
       const res = await fetch('/version.json', { cache: 'no-store' });
@@ -31,5 +31,9 @@ export function startAppUpdates() {
     } catch {
       // Offline: try again next time.
     }
-  });
+  };
+  // Phones: back to the app. Laptops: back to the window (the tab often never goes hidden), or a tab left open.
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('focus', check);
+  window.setInterval(check, 10 * 60_000);
 }

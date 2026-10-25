@@ -42,8 +42,8 @@ export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
       <div className="flex items-center gap-2">
         <span className="font-score text-lg leading-none font-black tracking-wide">{matchCode(m.order)}</span>
         <span className="min-w-0 flex-1 space-y-0.5 text-sm">
-          <SideNames t={t} team="a" ids={m.a} strong={winner === 'a'} />
-          <SideNames t={t} team="b" ids={m.b} strong={winner === 'b'} />
+          <SideNames t={t} team="a" ids={m.a} result={winner && (winner === 'a' ? 'won' : 'lost')} />
+          <SideNames t={t} team="b" ids={m.b} result={winner && (winner === 'b' ? 'won' : 'lost')} />
         </span>
         <span className="font-score tabular text-xl leading-none font-black">
           {m.scoreA}–{m.scoreB}

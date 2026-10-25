@@ -10,14 +10,34 @@ export function TeamDot({ t, team, className }: { t: Tournament; team: TeamKey; 
   return <span aria-hidden className={cn('inline-block size-2.5 shrink-0 rounded-full', className)} style={{ background: teamFill(t, team) }} />;
 }
 
-/** "Vikram & Anu" with a bar in the team's colour. */
-export function SideNames({ t, team, ids, strong, className }: { t: Tournament; team: TeamKey; ids: PlayerId[]; strong?: boolean; className?: string }) {
+/**
+ * "Vikram & Anu" with a bar in the team's colour. For a finished match, `result` marks the winners with a
+ * "Won" tag in their colour and dims the losers.
+ */
+export function SideNames({
+  t,
+  team,
+  ids,
+  result,
+  className,
+}: {
+  t: Tournament;
+  team: TeamKey;
+  ids: PlayerId[];
+  result?: 'won' | 'lost' | null;
+  className?: string;
+}) {
   const { nameOf } = useData();
   return (
-    <span className={cn('flex min-w-0 items-center gap-2', className)}>
+    <span className={cn('flex min-w-0 items-center gap-2', result === 'lost' && 'text-muted', className)}>
       <span aria-hidden className="h-4 w-1 shrink-0 rounded-full" style={{ background: teamFill(t, team) }} />
-      <span className={cn('truncate', strong && 'font-bold')}>{ids.map(nameOf).join(' & ') || '–'}</span>
+      <span className={cn('truncate', result === 'won' && 'font-bold')}>{ids.map(nameOf).join(' & ') || '–'}</span>
       <span className="sr-only">({teamName(t, team)})</span>
+      {result === 'won' && (
+        <span className="shrink-0 rounded-full px-2 py-0.5 text-[10.5px] leading-none font-bold tracking-wide text-white uppercase" style={{ background: teamFill(t, team) }}>
+          Won
+        </span>
+      )}
     </span>
   );
 }

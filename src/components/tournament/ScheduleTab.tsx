@@ -412,8 +412,8 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
                     {isAdmin && <Menu trigger={<MoreVertical size={18} />} items={actions(m, i)} label={`${matchCode(m.order)} actions`} />}
                   </div>
                   <Link to={hrefOf(m)} className="mt-1 block space-y-1 text-sm">
-                    <SideNames t={t} team="a" ids={m.a} strong={winner === 'a'} />
-                    <SideNames t={t} team="b" ids={m.b} strong={winner === 'b'} />
+                    <SideNames t={t} team="a" ids={m.a} result={winner && (winner === 'a' ? 'won' : 'lost')} />
+                    <SideNames t={t} team="b" ids={m.b} result={winner && (winner === 'b' ? 'won' : 'lost')} />
                   </Link>
                 </li>
               );

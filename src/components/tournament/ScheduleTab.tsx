@@ -31,6 +31,7 @@ import {
   tournamentMatches,
   validFinalScore,
 } from '../../lib/engine/tournament';
+import { matchFlow } from '../../lib/engine/rally';
 import { formatTime, listJoin, matchCode } from '../../lib/format';
 import { teamFill, teamName } from '../../lib/teamColors';
 import { toast } from '../../lib/toast';
@@ -43,6 +44,7 @@ import { Field, Input, Select, Toggle } from '../ui/Field';
 import { Menu, type MenuItem } from '../ui/Menu';
 import { Segmented } from '../ui/Segmented';
 import { TargetPicker } from './TargetPicker';
+import { ScoreFlow } from './ScoreFlow';
 import { SideNames, TeamDot } from './TeamBits';
 
 const nextOrder = (t: Tournament) => Math.max(0, ...Object.values(t.matches).map((m) => m.order)) + 1;
@@ -384,6 +386,8 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
           <ol className="divide-y divide-line pt-2">
             {list.map((m, i) => {
               const winner = matchWinner(m);
+              // Finished and scored point by point: how the game went.
+              const flow = m.status === 'completed' ? matchFlow(t, m) : null;
               return (
                 <li key={m.id} className={cn('px-4 py-3', m.status === 'live' && 'bg-accent/5')}>
                   <div className="flex min-h-8 items-center gap-2">
@@ -415,6 +419,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
                     <SideNames t={t} team="a" ids={m.a} result={winner && (winner === 'a' ? 'won' : 'lost')} />
                     <SideNames t={t} team="b" ids={m.b} result={winner && (winner === 'b' ? 'won' : 'lost')} />
                   </Link>
+                  {flow && <ScoreFlow t={t} flow={flow} />}
                 </li>
               );
             })}

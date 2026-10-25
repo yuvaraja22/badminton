@@ -3,15 +3,14 @@ import { longestRunOf, type MatchFlow } from '../../lib/engine/rally';
 import { matchCode } from '../../lib/format';
 import { teamFill, teamName } from '../../lib/teamColors';
 import type { Tournament } from '../../lib/types';
-import { SideNames } from './TeamBits';
 
 const W = 300;
-const H = 64;
+const H = 48;
 const MID = H / 2;
 
 /**
- * One match as a "worm": the lead after every point, above the line while Team A is ahead and below
- * while Team B is. Drag or hover to read the score at any point.
+ * A finished match as a "worm": the lead after every point, above the line while Team A is ahead and
+ * below while Team B is. Drag or hover to read the score at any point.
  */
 export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
   const id = useId();
@@ -33,26 +32,13 @@ export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
     const r = e.currentTarget.getBoundingClientRect();
     setAt(Math.max(0, Math.min(n, Math.round(((e.clientX - r.left) / r.width) * n))));
   };
-  const winner = flow.winner;
-  const runA = longestRunOf(flow, 'a');
-  const runB = longestRunOf(flow, 'b');
 
   return (
-    <div className="px-4 py-3">
-      <div className="flex items-center gap-2">
-        <span className="font-score text-lg leading-none font-black tracking-wide">{matchCode(m.order)}</span>
-        <span className="min-w-0 flex-1 space-y-0.5 text-sm">
-          <SideNames t={t} team="a" ids={m.a} result={winner && (winner === 'a' ? 'won' : 'lost')} />
-          <SideNames t={t} team="b" ids={m.b} result={winner && (winner === 'b' ? 'won' : 'lost')} />
-        </span>
-        <span className="font-score tabular text-xl leading-none font-black">
-          {m.scoreA}–{m.scoreB}
-        </span>
-      </div>
+    <div className="mt-2">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
-        className="mt-2 h-16 w-full touch-pan-y overflow-visible"
+        className="h-12 w-full touch-pan-y overflow-visible"
         role="img"
         aria-label={`${matchCode(m.order)} score flow: biggest leads ${teamName(t, 'a')} ${flow.maxLead.a.lead}, ${teamName(t, 'b')} ${flow.maxLead.b.lead}; ${flow.leadChanges} lead changes.`}
         onPointerMove={move}
@@ -80,7 +66,8 @@ export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
           </>
         ) : (
           <>
-            Longest run {runA} / {runB} · biggest lead {flow.maxLead.a.lead} / {flow.maxLead.b.lead} · {flow.leadChanges} lead change{flow.leadChanges === 1 ? '' : 's'}
+            Longest run {longestRunOf(flow, 'a')} / {longestRunOf(flow, 'b')} · biggest lead {flow.maxLead.a.lead} / {flow.maxLead.b.lead} · {flow.leadChanges} lead change
+            {flow.leadChanges === 1 ? '' : 's'}
           </>
         )}
       </p>

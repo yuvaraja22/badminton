@@ -9,7 +9,6 @@ import type { Tournament } from '../../lib/types';
 import { ReportView } from '../report/ReportView';
 import { Card, CardHeader } from '../ui/Card';
 import { Stat } from '../ui/Stat';
-import { ScoreFlow } from './ScoreFlow';
 import { TeamDot } from './TeamBits';
 
 /** Each team side by side on the point-by-point numbers. */
@@ -78,7 +77,7 @@ export function ResultsTab({ t }: { t: Tournament }) {
 
       {rally.flows.length > 0 && (
         <Card className="overflow-hidden">
-          <CardHeader title="Point by point" subtitle="From the live scorer, rally by rally." />
+          <CardHeader title="Point by point" subtitle="From the live scorer, rally by rally. Each match's score flow is on the Schedule." />
           <div className="grid gap-2 p-4 sm:grid-cols-2">
             {highlights.map((h) => (
               <div key={h.label} className="rounded-2xl border border-line bg-surface-2/50 px-3.5 py-3">
@@ -90,17 +89,6 @@ export function ResultsTab({ t }: { t: Tournament }) {
           </div>
           <div className="border-t border-line pt-2">
             <TeamRallyTable t={t} r={rally} />
-          </div>
-          <div className="border-t border-line">
-            <h3 className="kicker px-4 pt-3">Score flow</h3>
-            <p className="px-4 text-xs text-muted">
-              Above the line: {teamName(t, 'a')} ahead. Below: {teamName(t, 'b')} ahead. Touch a chart to read the score.
-            </p>
-            <div className="divide-y divide-line">
-              {rally.flows.map((f) => (
-                <ScoreFlow key={f.match.id} t={t} flow={f} />
-              ))}
-            </div>
           </div>
           {rally.typedIn.length > 0 && (
             <p className="border-t border-line px-4 py-3 text-xs text-muted">

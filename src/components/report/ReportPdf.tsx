@@ -95,6 +95,106 @@ function Footer({ text }: { text: string }) {
 const COLS = { rank: 32, player: 124, played: 40, won: 34, lost: 34, rate: 86, pf: 40, pa: 48, diff: 46, ppg: 27 };
 const LOG = { match: 34, t1: 112, score: 50, t2: 112, winner: 46, ctx: 160 };
 
+/** Player standings table (also on a tournament PDF's results page). */
+export function ReportStandings({ report }: { report: SessionReport }) {
+  const { mvp } = report;
+  const center = { textAlign: 'center' as const };
+  return (
+    <>
+      <Section>Player standings &amp; performance leaderboard</Section>
+      <View style={s.table}>
+        <View style={s.th} fixed>
+          <Text style={[s.thText, { width: COLS.rank }]}>Rank</Text>
+          <Text style={[s.thText, { width: COLS.player }]}>Player</Text>
+          <Text style={[s.thText, center, { width: COLS.played }]}>Played</Text>
+          <Text style={[s.thText, center, { width: COLS.won }]}>Won</Text>
+          <Text style={[s.thText, center, { width: COLS.lost }]}>Lost</Text>
+          <Text style={[s.thText, center, { width: COLS.rate }]}>Win rate (%)</Text>
+          <Text style={[s.thText, center, { width: COLS.pf }]}>Pts for</Text>
+          <Text style={[s.thText, center, { width: COLS.pa }]}>Pts against</Text>
+          <Text style={[s.thText, center, { width: COLS.diff }]}>Diff</Text>
+          <Text style={[s.thText, center, { width: COLS.ppg }]}>PPG</Text>
+        </View>
+        {report.standings.map((r) => {
+          const rs = RANK_STYLES[r.rank] ?? { bg: '#ffffff', border: '#e0d9c8' };
+          return (
+            <View key={r.playerId} style={s.tr} wrap={false}>
+              <View style={{ width: COLS.rank }}>
+                <View style={[s.rank, { backgroundColor: rs.bg, borderColor: rs.border }]}>
+                  <Text style={[s.bold, { fontSize: 7.5 }]}>{r.rank}</Text>
+                </View>
+              </View>
+              <View style={{ width: COLS.player }}>
+                <Text style={s.bold}>
+                  {r.name}
+                  {r.isNew ? ' (New)' : ''}
+                </Text>
+                {r.rank === 1 && mvp && <Text style={{ fontSize: 6.5, color: '#8a5a0c', fontFamily: B, marginTop: 1 }}>Top performer</Text>}
+              </View>
+              <Text style={[center, { width: COLS.played }]}>{r.played}</Text>
+              <Text style={[center, s.bold, { width: COLS.won }]}>{r.won}</Text>
+              <Text style={[center, { width: COLS.lost, color: '#b8321f' }]}>{r.lost}</Text>
+              <View style={{ width: COLS.rate, alignItems: 'center' }}>
+                <View style={s.barTrack}>
+                  <View style={{ height: 3, borderRadius: 2, width: `${Math.max(3, r.winRate * 100)}%`, backgroundColor: winColor(r.winRate) }} />
+                </View>
+                <Text style={{ width: 64, marginTop: 2, fontFamily: B, fontSize: 8, color: winColor(r.winRate) }}>{pct(r.winRate)}</Text>
+              </View>
+              <Text style={[center, { width: COLS.pf }]}>{r.pointsFor}</Text>
+              <Text style={[center, { width: COLS.pa }]}>{r.pointsAgainst}</Text>
+              <View style={{ width: COLS.diff, alignItems: 'center' }}>
+                <Diff value={r.diff} />
+              </View>
+              <Text style={[center, s.bold, { width: COLS.ppg }]}>{oneDecimal(r.ppg)}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
+/** Partnerships beside the takeaways. */
+export function ReportPairsAndTakeaways({ report, takeaways }: { report: SessionReport; takeaways: string[] }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+      <View style={[s.box, { flex: 1 }]}>
+        <Text style={s.boxTitle}>Partnership performance</Text>
+        {report.partnerships.map((p, i) => (
+          <View
+            key={p.label}
+            wrap={false}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderTopWidth: i ? 1 : 0, borderTopColor: '#ece7d9' }}
+          >
+            <Text style={[s.bold, { flex: 1, fontSize: 8 }]}>{p.label}</Text>
+            <Text style={{ width: 62, fontSize: 8 }}>
+              {p.won} - {p.lost} ({pctRound(p.winRate)})
+            </Text>
+            <Diff value={p.diff} width={30} />
+          </View>
+        ))}
+      </View>
+      <View style={[s.box, { flex: 1.2 }]}>
+        <Text style={s.boxTitle}>{`Key ${report.kind} takeaways`}</Text>
+        {takeaways.map((t, i) => {
+          const cut = t.indexOf(': ');
+          const lead = cut > 0 && cut < 48 ? t.slice(0, cut + 1) : '';
+          const rest = lead ? t.slice(cut + 2) : t;
+          return (
+            <View key={i} style={{ flexDirection: 'row', marginBottom: 5 }} wrap={false}>
+              <Text style={{ width: 9, fontSize: 8.5 }}>•</Text>
+              <Text style={{ flex: 1, fontSize: 8.5, lineHeight: 1.35 }}>
+                {lead && <Text style={s.bold}>{lead} </Text>}
+                {rest}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function ReportDocument({ report, takeaways }: { report: SessionReport; takeaways: string[] }) {
   return (
     <Document title={`${report.title} - ${report.dateLabel}`} author="Badminton Stats">
@@ -136,91 +236,8 @@ export function ReportPages({ report, takeaways }: { report: SessionReport; take
           <Card color="#c2410c" label="Tightest contest" value={tightest?.score ?? '-'} lines={tightest ? [tightest.line] : []} />
         </View>
 
-        <Section>Player standings &amp; performance leaderboard</Section>
-        <View style={s.table}>
-          <View style={s.th} fixed>
-            <Text style={[s.thText, { width: COLS.rank }]}>Rank</Text>
-            <Text style={[s.thText, { width: COLS.player }]}>Player</Text>
-            <Text style={[s.thText, center, { width: COLS.played }]}>Played</Text>
-            <Text style={[s.thText, center, { width: COLS.won }]}>Won</Text>
-            <Text style={[s.thText, center, { width: COLS.lost }]}>Lost</Text>
-            <Text style={[s.thText, center, { width: COLS.rate }]}>Win rate (%)</Text>
-            <Text style={[s.thText, center, { width: COLS.pf }]}>Pts for</Text>
-            <Text style={[s.thText, center, { width: COLS.pa }]}>Pts against</Text>
-            <Text style={[s.thText, center, { width: COLS.diff }]}>Diff</Text>
-            <Text style={[s.thText, center, { width: COLS.ppg }]}>PPG</Text>
-          </View>
-          {report.standings.map((r) => {
-            const rs = RANK_STYLES[r.rank] ?? { bg: '#ffffff', border: '#e0d9c8' };
-            return (
-              <View key={r.playerId} style={s.tr} wrap={false}>
-                <View style={{ width: COLS.rank }}>
-                  <View style={[s.rank, { backgroundColor: rs.bg, borderColor: rs.border }]}>
-                    <Text style={[s.bold, { fontSize: 7.5 }]}>{r.rank}</Text>
-                  </View>
-                </View>
-                <View style={{ width: COLS.player }}>
-                  <Text style={s.bold}>
-                    {r.name}
-                    {r.isNew ? ' (New)' : ''}
-                  </Text>
-                  {r.rank === 1 && mvp && <Text style={{ fontSize: 6.5, color: '#8a5a0c', fontFamily: B, marginTop: 1 }}>Top performer</Text>}
-                </View>
-                <Text style={[center, { width: COLS.played }]}>{r.played}</Text>
-                <Text style={[center, s.bold, { width: COLS.won }]}>{r.won}</Text>
-                <Text style={[center, { width: COLS.lost, color: '#b8321f' }]}>{r.lost}</Text>
-                <View style={{ width: COLS.rate, alignItems: 'center' }}>
-                  <View style={s.barTrack}>
-                    <View style={{ height: 3, borderRadius: 2, width: `${Math.max(3, r.winRate * 100)}%`, backgroundColor: winColor(r.winRate) }} />
-                  </View>
-                  <Text style={{ width: 64, marginTop: 2, fontFamily: B, fontSize: 8, color: winColor(r.winRate) }}>{pct(r.winRate)}</Text>
-                </View>
-                <Text style={[center, { width: COLS.pf }]}>{r.pointsFor}</Text>
-                <Text style={[center, { width: COLS.pa }]}>{r.pointsAgainst}</Text>
-                <View style={{ width: COLS.diff, alignItems: 'center' }}>
-                  <Diff value={r.diff} />
-                </View>
-                <Text style={[center, s.bold, { width: COLS.ppg }]}>{oneDecimal(r.ppg)}</Text>
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-          <View style={[s.box, { flex: 1 }]}>
-            <Text style={s.boxTitle}>Partnership performance</Text>
-            {report.partnerships.map((p, i) => (
-              <View
-                key={p.label}
-                wrap={false}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 3.5, borderTopWidth: i ? 1 : 0, borderTopColor: '#ece7d9' }}
-              >
-                <Text style={[s.bold, { flex: 1, fontSize: 8 }]}>{p.label}</Text>
-                <Text style={{ width: 62, fontSize: 8 }}>
-                  {p.won} - {p.lost} ({pctRound(p.winRate)})
-                </Text>
-                <Diff value={p.diff} width={30} />
-              </View>
-            ))}
-          </View>
-          <View style={[s.box, { flex: 1.2 }]}>
-            <Text style={s.boxTitle}>{`Key ${report.kind} takeaways`}</Text>
-            {takeaways.map((t, i) => {
-              const cut = t.indexOf(': ');
-              const lead = cut > 0 && cut < 48 ? t.slice(0, cut + 1) : '';
-              const rest = lead ? t.slice(cut + 2) : t;
-              return (
-                <View key={i} style={{ flexDirection: 'row', marginBottom: 5 }} wrap={false}>
-                  <Text style={{ width: 9, fontSize: 8.5 }}>•</Text>
-                  <Text style={{ flex: 1, fontSize: 8.5, lineHeight: 1.35 }}>
-                    {lead && <Text style={s.bold}>{lead} </Text>}
-                    {rest}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
+        <ReportStandings report={report} />
+        <ReportPairsAndTakeaways report={report} takeaways={takeaways} />
         <Footer text={report.footer} />
       </Page>
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Search, UserPlus, Users } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { allTimeStats } from '../lib/engine/alltime';
@@ -11,10 +11,14 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Empty, PageTitle, Spinner } from '../components/ui/Card';
 import { Input, Toggle } from '../components/ui/Field';
+import { Segmented } from '../components/ui/Segmented';
 
 export default function PlayersPage() {
   const { players, history, nameOf, pathOf, ready, ratings } = useData();
   const { isAdmin } = useAuth();
+  // In the address, so the order stays when you open a player and come back.
+  const [params, setParams] = useSearchParams();
+  const sort = params.get('sort') === 'az' ? 'az' : 'rating';
   const [q, setQ] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
@@ -25,7 +29,16 @@ export default function PlayersPage() {
 
   const archived = players.filter((p) => !p.active).length;
   const guests = players.filter((p) => p.guest && p.active).length;
-  const list = players.filter((p) => (showArchived || p.active) && (showGuests || !p.guest || !p.active) && p.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const shown = players.filter((p) => (showArchived || p.active) && (showGuests || !p.guest || !p.active) && p.name.toLowerCase().includes(q.trim().toLowerCase()));
+  // `players` is A–Z. By rating: the number on each card, highest first; players without one last (A–Z among equals).
+  const list =
+    sort === 'az'
+      ? shown
+      : [...shown].sort((a, b) => {
+          const x = ratings.get(a.id)?.level;
+          const y = ratings.get(b.id)?.level;
+          return x == null || y == null ? Number(x == null) - Number(y == null) : y - x;
+        });
 
   return (
     <div>
@@ -45,6 +58,16 @@ export default function PlayersPage() {
           <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search players" className="pl-9" aria-label="Search players" />
         </div>
+        <Segmented
+          value={sort}
+          onChange={(s) => setParams(s === 'az' ? { sort: 'az' } : {}, { replace: true })}
+          options={[
+            { value: 'rating', label: 'By rating' },
+            { value: 'az', label: 'A–Z' },
+          ]}
+          label="Sort players"
+          className="shrink-0"
+        />
         {guests > 0 && <Toggle checked={showGuests} onChange={setShowGuests} label="Show guests" />}
         {archived > 0 && <Toggle checked={showArchived} onChange={setShowArchived} label="Show archived" />}
       </div>

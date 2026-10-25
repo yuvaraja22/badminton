@@ -4,15 +4,18 @@ export function Segmented<T extends string>({
   value,
   onChange,
   options,
+  label,
   className,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
+  /** What the choice is about, for screen readers (e.g. "Sort players"). */
+  label?: string;
   className?: string;
 }) {
   return (
-    <div role="tablist" className={cn('flex rounded-full border border-line bg-surface-2 p-1', className)}>
+    <div role="tablist" aria-label={label} className={cn('flex rounded-full border border-line bg-surface-2 p-1', className)}>
       {options.map((o) => (
         <button
           key={o.value}

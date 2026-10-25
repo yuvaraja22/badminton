@@ -10,6 +10,7 @@ import { MatchLinks } from '../report/MatchLinks';
 import { ReportView } from '../report/ReportView';
 import { Card, CardHeader } from '../ui/Card';
 import { Stat } from '../ui/Stat';
+import { ScoreFlow } from './ScoreFlow';
 import { TeamDot } from './TeamBits';
 
 /** Each team side by side on the point-by-point numbers. */
@@ -61,6 +62,11 @@ export function ResultsTab({ t }: { t: Tournament }) {
   const highlights = useMemo(() => rallyHighlights(t, rally, nameOf), [t, rally, nameOf]);
   const report = useMemo(() => tournamentReport(t, nameOf), [t, nameOf]);
   const hrefOf = (n: number) => matchPath(t, n);
+  // Each match in the log gets its score flow (live-scored matches only).
+  const flowOf = (n: number) => {
+    const f = rally.flows.find((x) => x.match.order === n);
+    return f ? <ScoreFlow t={t} flow={f} paper /> : null;
+  };
 
   return (
     <div className="space-y-4">
@@ -79,7 +85,7 @@ export function ResultsTab({ t }: { t: Tournament }) {
 
       {rally.flows.length > 0 && (
         <Card className="overflow-hidden">
-          <CardHeader title="Point by point" subtitle="From the live scorer, rally by rally. Each match's score flow is on the Schedule." />
+          <CardHeader title="Point by point" subtitle="From the live scorer, rally by rally. Each match's score flow is in the match log below." />
           <div className="grid gap-2 p-4 sm:grid-cols-2">
             {highlights.map((h) => (
               <div key={h.label} className="rounded-2xl border border-line bg-surface-2/50 px-3.5 py-3">
@@ -103,7 +109,7 @@ export function ResultsTab({ t }: { t: Tournament }) {
         </Card>
       )}
 
-      {s.played > 0 && <ReportView report={report} takeaways={report.autoTakeaways} inProgress={t.status !== 'completed'} matchHref={hrefOf} />}
+      {s.played > 0 && <ReportView report={report} takeaways={report.autoTakeaways} inProgress={t.status !== 'completed'} matchHref={hrefOf} logExtra={flowOf} />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { oneDecimal, pct, pctRound, signed } from '../../lib/format';
 import type { SessionReport } from '../../lib/engine/report';
@@ -109,12 +109,15 @@ export function ReportView({
   takeaways,
   inProgress,
   matchHref,
+  logExtra,
 }: {
   report: SessionReport;
   takeaways: string[];
   inProgress?: boolean;
   /** Links match codes (in the takeaways, tightest contest and log) to each match's page. */
   matchHref?: MatchHref;
+  /** More to show under match n in the log (a tournament's score flow). */
+  logExtra?: (n: number) => ReactNode;
 }) {
   const { mvp, bestPair, tightest } = report;
   const totalLines = [`${report.totalPoints} total points scored`, `${report.playerCount} players`];
@@ -315,6 +318,7 @@ export function ReportView({
                 {r.winnerLabel && <span className="font-bold">{r.winnerLabel} · </span>}
                 <span className="text-[#5b6862]">{r.context}</span>
               </div>
+              {logExtra && <div className="pl-12">{logExtra(r.number)}</div>}
             </li>
           );
         })}
@@ -334,22 +338,33 @@ export function ReportView({
           <tbody>
             {report.log.map((r) => {
               const done = r.status === 'completed';
+              const extra = logExtra?.(r.number);
               return (
-                <tr key={r.number} className={clsx('border-t border-[#ece7d9]', !done && 'bg-[#f6f3ea]')}>
-                  <td className="px-3 py-3 font-bold">
-                    <MatchCode code={r.code} n={r.number} matchHref={matchHref} />
-                  </td>
-                  <td className={clsx('px-3 py-3', r.winner === 'A' && 'font-bold')}>{r.team1}</td>
-                  <td className={clsx('tabular px-3 py-3 text-center font-bold whitespace-nowrap', !done && 'text-[#7b8781]')}>
-                    {r.scoreA ?? '–'} : {r.scoreB ?? '–'}
-                    {r.status === 'unfinished' && '*'}
-                  </td>
-                  <td className={clsx('px-3 py-3', r.winner === 'B' && 'font-bold')}>{r.team2}</td>
-                  <td className="px-3 py-3 font-bold text-[#1b6f3f]">
-                    {r.winnerLabel ?? <span className="text-[#7b8781]">—</span>}
-                  </td>
-                  <td className="px-3 py-3 text-[13px]">{r.context}</td>
-                </tr>
+                <Fragment key={r.number}>
+                  <tr className={clsx('border-t border-[#ece7d9]', !done && 'bg-[#f6f3ea]')}>
+                    <td className="px-3 py-3 font-bold">
+                      <MatchCode code={r.code} n={r.number} matchHref={matchHref} />
+                    </td>
+                    <td className={clsx('px-3 py-3', r.winner === 'A' && 'font-bold')}>{r.team1}</td>
+                    <td className={clsx('tabular px-3 py-3 text-center font-bold whitespace-nowrap', !done && 'text-[#7b8781]')}>
+                      {r.scoreA ?? '–'} : {r.scoreB ?? '–'}
+                      {r.status === 'unfinished' && '*'}
+                    </td>
+                    <td className={clsx('px-3 py-3', r.winner === 'B' && 'font-bold')}>{r.team2}</td>
+                    <td className="px-3 py-3 font-bold text-[#1b6f3f]">
+                      {r.winnerLabel ?? <span className="text-[#7b8781]">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-[13px]">{r.context}</td>
+                  </tr>
+                  {extra && (
+                    <tr>
+                      <td />
+                      <td colSpan={5} className="px-3 pb-3">
+                        {extra}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>

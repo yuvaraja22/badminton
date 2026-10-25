@@ -34,6 +34,7 @@ function PlayerForm({ player, mode, onDone }: { player: Player | null; mode: Mod
   const [name, setName] = useState(player?.name ?? '');
   const [level, setLevel] = useState(player?.level ?? 3);
   const [active, setActive] = useState(player?.active ?? true);
+  const [guest, setGuest] = useState(player?.guest ?? false);
   const [photo, setPhoto] = useState<string | null>(player?.photo ?? null);
   const [bio, setBio] = useState(player?.bio ?? '');
   const [hand, setHand] = useState<Hand | ''>(player?.hand ?? '');
@@ -97,8 +98,8 @@ function PlayerForm({ player, mode, onDone }: { player: Player | null; mode: Mod
     if (wanted && linkedTo) return setError(`${wanted} is already linked to ${nameOf(linkedTo)}.`);
 
     let id = player?.id;
-    if (player) updatePlayer(player.id, { ...profile, level, active });
-    else id = createPlayer({ ...profile, level });
+    if (player) updatePlayer(player.id, { ...profile, level, active, guest });
+    else id = createPlayer({ ...profile, level, guest });
 
     const previous = (player && links?.[player.id]) || null;
     if (id && wanted !== (previous ?? '')) {
@@ -205,6 +206,11 @@ function PlayerForm({ player, mode, onDone }: { player: Player | null; mode: Mod
               disabled={links === null}
             />
           </Field>
+          <Toggle
+            checked={guest}
+            onChange={setGuest}
+            label={guest ? 'Guest (plays and shows in reports, but stays off the players list and leaderboards)' : 'Regular player (not a guest)'}
+          />
           {player && (
             <Toggle checked={active} onChange={setActive} label={active ? 'Active (shown when starting sessions)' : 'Archived (hidden, stats kept)'} />
           )}

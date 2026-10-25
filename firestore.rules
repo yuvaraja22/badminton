@@ -2,7 +2,8 @@ rules_version = '2';
 
 // Anyone with the link can read. Admins (listed in /admins/{email}) can change everything.
 // A player linked to a profile (/links/{email} → playerId) can edit a few fields of their own
-// profile and their own RSVP for planned sessions, nothing else.
+// profile and their own RSVP for planned sessions, nothing else. Someone signed in but not linked
+// yet can ask to be linked to a profile (/claims/{email}); an admin approves it.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -30,25 +31,43 @@ service cloud.firestore {
       return !(field in d) || d[field] == null || (d[field] is string && d[field].size() <= max);
     }
 
+    // Profile photos are small images uploaded through the app, never a link to somewhere else.
+    function optionalPhoto(d) {
+      return !('photo' in d) || d.photo == null
+        || (d.photo is string && d.photo.size() <= 100000 && d.photo.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+'));
+    }
+
     // Own-profile edits: only these fields, with sensible limits.
     function validOwnProfileUpdate() {
       let d = request.resource.data;
       return d.diff(resource.data).affectedKeys().hasOnly(['name', 'photo', 'bio', 'hand', 'position', 'racket'])
         && d.name is string && d.name.trim().size() > 0 && d.name.size() <= 30
-        && optionalString(d, 'photo', 100000)
+        && optionalPhoto(d)
         && optionalString(d, 'bio', 160)
         && optionalString(d, 'racket', 40)
         && (!('hand' in d) || d.hand == null || d.hand in ['left', 'right'])
         && (!('position' in d) || d.position == null || d.position in ['front', 'back', 'both']);
     }
 
-    // RSVP edits: only the signed-in player's own entry, set to "in" or "out" (or removed).
+    // One RSVP: "in" or "out", when it was given (kept when only the guests change, so nobody jumps
+    // the waitlist) and up to 3 guests.
+    function validRsvp(r, previous) {
+      let now = request.time.toMillis();
+      return r is map && r.keys().hasOnly(['status', 'at', 'guests'])
+        && r.status in ['in', 'out']
+        && r.at is number
+        && ((previous != null && r.at == previous.get('at', -1)) || (r.at > now - 600000 && r.at < now + 600000))
+        && (!('guests' in r) || (r.guests is int && r.guests >= 0 && r.guests <= 3));
+    }
+
+    // RSVP edits: only the signed-in player's own entry, on a plan that's still open (or removed).
     function validOwnRsvpUpdate() {
       let me = linkedPlayerId();
       let after = request.resource.data.rsvps;
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps'])
+      return resource.data.status == 'planned'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps'])
         && after.diff(resource.data.rsvps).affectedKeys().hasOnly([me])
-        && (!(me in after) || after[me].status in ['in', 'out']);
+        && (!(me in after) || validRsvp(after[me], resource.data.rsvps.get(me, null)));
     }
 
     match /players/{playerId} {
@@ -80,6 +99,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Deleted sessions and tournaments, kept 30 days so admins can restore them.
+    match /trash/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // The admin list itself stays private. A signed-in user may check their own entry.
     match /admins/{email} {
       allow get: if request.auth != null && signedInEmail() == email;
@@ -94,6 +118,20 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create, update: if isAdmin() && email == email.lower() && request.resource.data.playerId is string;
       allow delete: if isAdmin();
+    }
+
+    // "This is me": a signed-in, not yet linked person asking to be linked to an existing player.
+    // Private like the links: only admins and the person themselves see it.
+    match /claims/{email} {
+      allow get: if request.auth != null && signedInEmail() == email;
+      allow read: if isAdmin();
+      allow create, update: if verified() && signedInEmail() == email && email == email.lower() && !hasLink()
+        && request.resource.data.keys().hasOnly(['playerId', 'name', 'at'])
+        && request.resource.data.playerId is string && request.resource.data.playerId.size() > 0 && request.resource.data.playerId.size() <= 64
+        && exists(/databases/$(database)/documents/players/$(request.resource.data.playerId))
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.at is number;
+      allow delete: if isAdmin() || (request.auth != null && signedInEmail() == email);
     }
   }
 }

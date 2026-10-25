@@ -8,6 +8,7 @@
     "emulators": "firebase emulators:start --project demo-badminton --only firestore,auth,ui",
     "emulator:admin": "node scripts/emulator-admin.mjs",
     "build": "tsc -b && vite build",
+    "vercel-build": "npm run lint && npm test && npm run build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",

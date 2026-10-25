@@ -8,7 +8,14 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
   someone resting, a late arrival, a corrected past match) re-plans the upcoming matches instantly on every phone.
 - **Late arrivals and breaks.** When someone joins late or comes back, you choose **Join fairly** (equal share from
   now on) or **Catch up** (priority until level with everyone).
-- **Final-score entry.** Mark a game "stopped early" and it's shown with `*` and left out of the stats.
+- **Final-score entry.** Mark a game "stopped early" and it's shown with `*` and left out of the stats. A score that
+  can't finish a game (21–20 in a game to 21) asks for a second tap, in case it's a typo.
+- **Live scoring for sessions too.** On the Court tab, **Score point by point instead** opens the same full-screen scorer
+  tournaments use: tap a side for a point, **Undo**, swap sides. Everyone else can watch the score live (Home shows it
+  too). When it's over, **Start M06 and score it** puts the next planned match on court. Matches scored this way get the
+  point-by-point stats in the session report and its PDF.
+- **Serve indicator.** The scorer shows who serves and from which side: the side that won the last rally serves, from the
+  right on an even score and the left on an odd one (at 0–0, tap who serves first).
 - **Session report.** Same layout as the old PDF reports: MVP, best partnership, tightest contest, standings,
   partnerships, auto-written (editable) takeaways and the match log. Share it as a **PDF** straight to WhatsApp or as a link.
 - **Player profiles**, an all-time **leaderboard**, partnerships, head-to-head and past sessions.
@@ -32,16 +39,40 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
   partnerships, takeaways, match log) plus **point-by-point** stats from the scorer: longest run, biggest comeback,
   game points saved, who reached 11 first, and a score-flow chart per match (in the app and the PDF). Once finished,
   its matches count in the stats exactly like sessions — profiles, leaderboard, partnerships, ratings — singles included.
+- **Create matches (tournaments).** After picking the teams, **Create matches** ranks each team best first (by rating,
+  which you can reorder) and asks how many doubles and singles. Doubles pair the same ranks: A1 & A2 vs B1 & B2, then
+  A1 & A3 vs B1 & B3, then whoever has played least; singles are A1 vs B1, A2 vs B2… mixed in so as few players as
+  possible play twice in a row. You see the list before anything is saved, and can add it after the current matches or
+  replace the ones not played yet.
 - **Play.** Sessions and tournaments in one list (live first, then coming up, then newest). **New** asks Session or
   Tournament.
 - **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
 - **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
   player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.
-- **Next up.** Admins plan the next session or tournament (or start one now); players tap **I'm in** or **Can't make
-  it**. Starting a session pre-ticks everyone who said they're in; a tournament lists them first when picking teams.
-- **Phone-first.** Installable as an app, and keeps working without signal at the court (changes sync later).
-  Light and dark themes (Claude-style warm dark), following the device or picked from the header.
-- **Home and leaderboard** show the last 30 days, with all-time one tap away. Admins tap a player's photo to change it.
+- **"This is me".** Someone signed in with Google but not linked yet taps **This is me** on their profile (or picks their
+  name on the Me tab); an admin approves it on the Admin page (a dot on Admin says one is waiting).
+- **Next up.** Admins plan sessions or tournaments (or start one now); players tap **I'm in** or **Can't make
+  it**, and can say they're bringing guests. A plan can have a **most players** limit: later answers go on a waitlist and
+  move up when someone drops out. **Repeat every week** plans the next one when this one starts (or **Skip this week**).
+  **Share invite** sends it to WhatsApp. Starting a session pre-ticks everyone with a spot; a tournament lists them first
+  when picking teams.
+- **Guests.** A one-off visitor can be added as a guest: they play and appear in that session's report, but stay off the
+  players list and the leaderboards.
+- **Phone-first.** Installable as an app, and keeps working without signal at the court (changes sync later). The header
+  says when it's **Offline · 3 to sync**, still **Saving…**, or **Saved**, and the app never reloads itself for an update
+  in the middle of a match, a dialog or unsaved scores. Light and dark themes (Claude-style warm dark), following the
+  device or picked from the header.
+- **Home and leaderboard** show the last 30 days, with this **season** (quarters: Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec)
+  and all-time one tap away. Each season has a champion and each month a **Player of the Month** (the top of that
+  period's table). Home also lists recent **milestones** (100 games, 5 wins in a row, a first MVP…). Admins tap a
+  player's photo to change it.
+- **Streaks and milestones** on every profile: the run they're on, their best run of wins, how often they turn up, and
+  their badges (games, wins, MVPs, unbeaten sessions, deuce games won, seasons and months won).
+- **How good are the win chances?** The leaderboard shows how often the favourite actually won, and partnerships can be
+  ranked by **Beat the odds**: wins above what their ratings expected against the opposition they faced.
+- **Change history.** Every session and tournament keeps who entered or changed which result, and when.
+- **Recently deleted.** Deleting a session or tournament moves it to Admin → Recently deleted for 30 days; **Restore** puts
+  it back exactly as it was, stats included.
 
 ## Run it locally (no Firebase account needed)
 
@@ -123,6 +154,34 @@ open their profile → **Edit** → **Linked Google account** and enter their Gm
 The "Stop after M10 and everyone will have played 8" hint shows the next point where everyone is even.
 Tuning and guarantees are covered by `src/lib/engine/scheduler.test.ts`.
 
+## Safety net
+
+- **Checks on every push and pull request** (`.github/workflows/checks.yml`): types, lint, unit tests, the build and the
+  security-rules tests. Vercel also runs lint and the unit tests before every deploy (`npm run vercel-build`), so a
+  change that breaks them never goes live; the site stays on the last good version.
+- **Backups.** Admin → **Download backup** saves everything as one file (players, every session and tournament, plans,
+  settings, accounts). Admin → **Restore from backup** brings back only what's missing from the app now; it never changes
+  anything that's still there. Older backup files (players + stats summary) work too.
+- **Nightly backups** (`.github/workflows/backup.yml`) save the same file every night, kept 90 days under
+  GitHub → Actions → Nightly backup → a run → Artifacts. One-time setup:
+  1. Google Cloud console → IAM & Admin → **Service accounts** for the `badminton-console` project → **Create service
+     account** (e.g. `backup-reader`) with the role **Cloud Datastore Viewer** (read-only).
+  2. That account → **Keys** → **Add key** → JSON. Keep the file private.
+  3. GitHub → the repository → Settings → Secrets and variables → Actions → **New repository secret** named
+     `FIREBASE_SERVICE_ACCOUNT`, with the whole JSON file as its value. Delete the downloaded file afterwards.
+
+  Until the secret exists the workflow just says so and does nothing. **Run workflow** on the Actions tab tries it at once.
+
+## Signing in from the iPhone home-screen app
+
+Safari blocks the usual Google sign-in hand-over when the sign-in page is on a different domain from the app. The app
+already forwards `/__/auth/…` to Firebase (see `vercel.json`); to use it:
+
+1. Vercel → Project → Settings → Environment Variables: set `VITE_FIREBASE_AUTH_DOMAIN` to the site's own domain
+   (`badminton-self.vercel.app`) and redeploy.
+2. Google Cloud console → APIs & Services → **Credentials** → the OAuth client Firebase created ("Web client") →
+   **Authorized redirect URIs** → add `https://badminton-self.vercel.app/__/auth/handler`.
+
 ## Free-tier budget
 
 - **Reads.** A visit reads the player list plus a few documents. All-time stats come from one compact summary
@@ -142,16 +201,22 @@ Tuning and guarantees are covered by `src/lib/engine/scheduler.test.ts`.
 | `npm test` | Engine tests: stats reproduce the original PDF reports; scheduler fairness simulations |
 | `npm run test:rules` | Security-rules tests against the Firestore emulator |
 | `npm run build` | Type-check and production build (`dist/`) |
+| `npm run vercel-build` | What Vercel runs: lint, unit tests, then the build |
 | `npm run lint` | ESLint |
 
 ## Project layout
 
 ```
-src/lib/engine/      Pure logic: stats, report, takeaways, scheduler (+ tests, fixtures from the PDFs)
-src/lib/data/        Firebase listeners (DataProvider, AuthProvider, useSession) and all writes (mutations.ts)
-src/components/      UI: session (court, matches, report tabs), report (web + PDF), stats, ui primitives
-src/pages/           Home, Play (sessions + tournaments), New session, Session, Tournament, live scorer, Leaderboard, Players, Player, Me, Admin
-firestore.rules      Public read; admins write everything, linked players only their own profile and RSVP
+src/lib/engine/      Pure logic: stats, report, takeaways, scheduler, scoring, rally stats, ratings, seasons,
+                     milestones, insights, tournament matches (+ tests, fixtures from the PDFs)
+src/lib/data/        Firebase listeners (DataProvider, AuthProvider, useSession) and all writes (mutations/, by area)
+src/components/      UI: session (court, matches, report tabs), scorer, report (web + PDF), stats, tournament, ui primitives
+src/pages/           Home, Play (sessions + tournaments), New session, Session, session and tournament match pages
+                     (live scorer / summary), Tournament, Leaderboard, Players, Player, Me, Admin
+firestore.rules      Public read; admins write everything, linked players only their own profile and RSVP,
+                     signed-in people only their own "This is me" request
+scripts/backup/      The nightly backup (run by GitHub Actions)
+.github/workflows/   Checks on every push and pull request; the nightly backup
 ```
 
 ## Notes on the original reports

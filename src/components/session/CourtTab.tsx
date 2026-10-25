@@ -1,11 +1,15 @@
 import clsx from 'clsx';
 import { useState } from 'react';
-import { CheckCircle2, Pencil, Play, Shuffle, UserPlus, Users } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { CheckCircle2, Pencil, Play, Radio, Shuffle, UserPlus, Users } from 'lucide-react';
+import { useHoldUpdates } from '../../lib/appUpdate';
 import { useData } from '../../lib/data/context';
-import { saveMatch, setNextPick, shuffleNext, startMatch } from '../../lib/data/mutations';
+import { saveMatch, setNextPick, shuffleNext, startLiveScoring, startMatch } from '../../lib/data/mutations';
 import { useQueuePlan } from '../../lib/data/usePlan';
+import { useScorer } from '../../lib/data/useScorer';
 import { useWinChance } from '../../lib/data/useWinChance';
 import { sortedMatches } from '../../lib/engine/games';
+import { maxPointsFor, validFinalScore } from '../../lib/engine/scoring';
 import type { PlannedMatch } from '../../lib/engine/scheduler';
 import { matchCode, oneDecimal } from '../../lib/format';
 import { levelName } from '../../lib/levels';
@@ -45,20 +49,36 @@ function NowPlaying({
   onEdit: () => void;
 }) {
   const chanceOf = useWinChance();
+  const navigate = useNavigate();
+  const me = useScorer();
   const chance = skills ? chanceOf(match.teamA, match.teamB, skills) : null;
   const [a, setA] = useState(match.scoreA?.toString() ?? '');
   const [b, setB] = useState(match.scoreB?.toString() ?? '');
   const [stopped, setStopped] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // An unusual final score the admin has been warned about once (saving it again keeps it).
+  const [odd, setOdd] = useState<string | null>(null);
+  // Being scored point by point on someone's phone: the score follows the scorer, not these boxes.
+  const scoring = Boolean(match.log) || Boolean(match.scorer);
+  const scorerPath = `/sessions/${session.id}/matches/${match.id}`;
+  const dirty = !scoring && (a !== (match.scoreA?.toString() ?? '') || b !== (match.scoreB?.toString() ?? '') || stopped);
+  // Typed but not saved yet: a new version of the app waits instead of reloading the page.
+  useHoldUpdates(isAdmin && dirty);
+  const maxPoints = maxPointsFor(session.pointsToWin);
 
   const save = (thenStart: boolean) => {
     const status = stopped ? 'unfinished' : 'completed';
     const check = checkScores(a, b, status);
     if (!check.ok) return setError(check.message);
     setError(null);
+    if (status === 'completed' && check.scoreA !== null && check.scoreB !== null) {
+      const key = `${check.scoreA}-${check.scoreB}`;
+      if (!validFinalScore(check.scoreA, check.scoreB, session.pointsToWin, maxPoints) && odd !== key) return setOdd(key);
+    }
     saveMatch(session, { ...match, scoreA: check.scoreA, scoreB: check.scoreB, status });
     if (thenStart && next) startMatch(session, { teamA: next.teamA, teamB: next.teamB });
   };
+  const warned = odd !== null && odd === `${a.trim()}-${b.trim()}`;
 
   const scoreBox = (value: string, set: (v: string) => void, label: string) => (
     <Input
@@ -72,6 +92,7 @@ function NowPlaying({
       className="font-score tabular h-16 w-[4.75rem] shrink-0 rounded-2xl border-white/25 bg-black/25 px-1 text-center text-[2.6rem] font-black text-court-ink placeholder:text-court-ink/45 hover:border-white/40 focus:border-volt focus:ring-volt/30"
     />
   );
+  const liveScore = (value: number | null) => <span className="font-score tabular text-[3rem] leading-none font-black text-court-ink">{value ?? 0}</span>;
 
   return (
     <section className="court-mat relative overflow-hidden rounded-[1.6rem] p-3 shadow-[var(--shadow-card)]">
@@ -89,29 +110,52 @@ function NowPlaying({
       <CourtMatch
         teamA={match.teamA}
         teamB={match.teamB}
-        scoreA={isAdmin ? scoreBox(a, setA, 'Team 1 score') : undefined}
-        scoreB={isAdmin ? scoreBox(b, setB, 'Team 2 score') : undefined}
-        className={isAdmin ? 'min-h-60' : 'min-h-44'}
+        scoreA={scoring ? liveScore(match.scoreA) : isAdmin ? scoreBox(a, setA, 'Team 1 score') : undefined}
+        scoreB={scoring ? liveScore(match.scoreB) : isAdmin ? scoreBox(b, setB, 'Team 2 score') : undefined}
+        className={isAdmin || scoring ? 'min-h-60' : 'min-h-44'}
       />
       <div className="space-y-3 px-1 pt-3.5">
         {chance != null && <ChanceBar chance={chance} onCourt />}
         <BalanceLabel levelA={teamLevel(session, match.teamA, skills)} levelB={teamLevel(session, match.teamB, skills)} chance={chance} className="text-court-ink/85" />
-        {isAdmin && (
-          <>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--volt)]" />
-              Stopped early (not counted in stats)
-            </label>
-            {error && <Notice tone="bad">{error}</Notice>}
-            <div className="grid grid-cols-2 gap-2 pb-1">
-              <Button variant="secondary" size="lg" onClick={() => save(false)}>
-                Save result
-              </Button>
-              <Button variant="volt" size="lg" onClick={() => save(true)} disabled={!next}>
-                Save &amp; next <Play size={16} />
-              </Button>
-            </div>
-          </>
+        {scoring ? (
+          <Link to={scorerPath} className="block">
+            <Button variant="volt" size="lg" block>
+              <Radio size={17} /> {isAdmin ? 'Open the live scorer' : 'Watch live, point by point'}
+            </Button>
+          </Link>
+        ) : (
+          isAdmin && (
+            <>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={stopped} onChange={(e) => setStopped(e.target.checked)} className="size-4 accent-[var(--volt)]" />
+                Stopped early (not counted in stats)
+              </label>
+              {error && <Notice tone="bad">{error}</Notice>}
+              {warned && (
+                <Notice tone="warn">
+                  {a}–{b} isn't a usual finish for a game to {session.pointsToWin} (win by 2, max {maxPoints}). Tap Save again to keep it.
+                </Notice>
+              )}
+              <div className="grid grid-cols-2 gap-2 pb-1">
+                <Button variant="secondary" size="lg" onClick={() => save(false)}>
+                  Save result
+                </Button>
+                <Button variant="volt" size="lg" onClick={() => save(true)} disabled={!next}>
+                  Save &amp; next <Play size={16} />
+                </Button>
+              </div>
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-1.5 rounded-full py-1.5 text-sm font-semibold text-court-ink/90 hover:bg-white/10"
+                onClick={() => {
+                  startLiveScoring(session, match.id, me);
+                  navigate(scorerPath);
+                }}
+              >
+                <Radio size={15} /> Score point by point instead
+              </button>
+            </>
+          )
         )}
       </div>
     </section>

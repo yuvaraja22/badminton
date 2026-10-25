@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowDown, ArrowUp, Clock, Hash, MoreVertical, Pencil, Play, Plus, RotateCcw, Trash2, Tv } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Hash, MoreVertical, Pencil, Play, Plus, RotateCcw, Trash2, Tv, WandSparkles } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useData } from '../../lib/data/context';
 import {
@@ -20,12 +20,14 @@ import {
   backToBack,
   checkMatch,
   liveMatch,
+  matchPath,
   matchWinner,
   maxPointsFor,
   minutesBetween,
   nextTime,
   playerRecords,
   playerTeam,
+  rallyGameOf,
   rulesFor,
   sideSize,
   tournamentMatches,
@@ -33,7 +35,7 @@ import {
 } from '../../lib/engine/tournament';
 import { matchFlow } from '../../lib/engine/rally';
 import { formatTime, listJoin, matchCode } from '../../lib/format';
-import { teamFill, teamName } from '../../lib/teamColors';
+import { teamFill, teamName, tournamentSides } from '../../lib/teamColors';
 import { toast } from '../../lib/toast';
 import type { MatchKind, PlayerId, TeamKey, Tournament, TournamentMatch } from '../../lib/types';
 import { Badge, LiveDot } from '../ui/Badge';
@@ -43,6 +45,8 @@ import { Dialog } from '../ui/Dialog';
 import { Field, Input, Select, Toggle } from '../ui/Field';
 import { Menu, type MenuItem } from '../ui/Menu';
 import { Segmented } from '../ui/Segmented';
+import { EditHistory } from '../EditHistory';
+import { CreateMatchesForm } from './CreateMatches';
 import { TargetPicker } from './TargetPicker';
 import { ScoreFlow } from './ScoreFlow';
 import { SideNames, TeamDot } from './TeamBits';
@@ -327,6 +331,7 @@ function PlayerCounts({ t }: { t: Tournament }) {
 
 type DialogState =
   | { kind: 'add' }
+  | { kind: 'create' }
   | { kind: 'times' }
   | { kind: 'edit' | 'time' | 'score' | 'delete' | 'reset'; m: TournamentMatch }
   | null;
@@ -371,23 +376,28 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
           subtitle={`${doubles} doubles · ${list.length - doubles} singles${t.schedule.start ? ` · from ${formatTime(t.schedule.start)}, ${t.schedule.minutes} min each` : ''}`}
         />
         {isAdmin && (
-          <div className="flex gap-2 px-4 pt-3">
-            <Button size="sm" className="flex-1" disabled={noTeams} onClick={() => setDialog({ kind: 'add' })}>
-              <Plus size={15} /> Add matches
+          <div className="flex flex-wrap gap-2 px-4 pt-3">
+            <Button size="sm" className="flex-1" disabled={noTeams} onClick={() => setDialog({ kind: 'create' })}>
+              <WandSparkles size={15} /> Create matches
             </Button>
-            <Button variant="secondary" size="sm" className="flex-1" onClick={() => setDialog({ kind: 'times' })} aria-label="Match times">
+            <Button variant="secondary" size="sm" className="flex-1" disabled={noTeams} onClick={() => setDialog({ kind: 'add' })}>
+              <Plus size={15} /> Add one
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setDialog({ kind: 'times' })} aria-label="Match times">
               <Clock size={15} /> Times
             </Button>
           </div>
         )}
         {list.length === 0 ? (
-          <p className="px-4 pt-2 pb-4 text-sm text-muted">{isAdmin ? 'No matches yet. Tap Add matches to add the first one.' : 'The schedule appears here once it is set.'}</p>
+          <p className="px-4 pt-2 pb-4 text-sm text-muted">
+            {isAdmin ? 'No matches yet. Create matches makes the whole schedule from the teams; Add one adds a single match.' : 'The schedule appears here once it is set.'}
+          </p>
         ) : (
           <ol className="divide-y divide-line pt-2">
             {list.map((m, i) => {
               const winner = matchWinner(m);
               // Finished and scored point by point: how the game went.
-              const flow = m.status === 'completed' ? matchFlow(t, m) : null;
+              const flow = m.status === 'completed' ? matchFlow(rallyGameOf(t, m)) : null;
               return (
                 <li key={m.id} className={cn('px-4 py-3', m.status === 'live' && 'bg-accent/5')}>
                   <div className="flex min-h-8 items-center gap-2">
@@ -419,7 +429,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
                     <SideNames t={t} team="a" ids={m.a} result={winner && (winner === 'a' ? 'won' : 'lost')} />
                     <SideNames t={t} team="b" ids={m.b} result={winner && (winner === 'b' ? 'won' : 'lost')} />
                   </Link>
-                  {flow && <ScoreFlow t={t} flow={flow} />}
+                  {flow && <ScoreFlow sides={tournamentSides(t)} flow={flow} />}
                 </li>
               );
             })}
@@ -436,6 +446,12 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
       </Card>
 
       {isAdmin && list.length > 0 && <PlayerCounts t={t} />}
+
+      <EditHistory edits={t.edits} hrefOf={(n) => matchPath(t, n)} />
+
+      <Dialog open={dialog?.kind === 'create'} onClose={close} title="Create matches">
+        {dialog?.kind === 'create' && <CreateMatchesForm t={t} onDone={close} />}
+      </Dialog>
 
       <Dialog open={dialog?.kind === 'add' || dialog?.kind === 'edit'} onClose={close} title={dialog?.kind === 'edit' ? `Change ${matchCode(dialog.m.order)}` : 'Add matches'}>
         {(dialog?.kind === 'add' || dialog?.kind === 'edit') && <MatchForm t={t} match={dialog.kind === 'edit' ? dialog.m : null} onDone={close} />}

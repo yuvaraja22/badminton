@@ -135,7 +135,7 @@ function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => vo
   const [level, setLevel] = useState(candidates[0]?.level ?? 3);
   // A level changed here is used for this session instead of the player's rating.
   const [levelChanged, setLevelChanged] = useState(false);
-  const rated = choice === 'new' ? null : establishedLevel(ratings.get(choice));
+  const rated = choice === 'new' || choice === 'guest' ? null : establishedLevel(ratings.get(choice));
   const [mode, setMode] = useState<JoinMode>('fair');
   const [error, setError] = useState<string | null>(null);
   const last = lastNumber(session);
@@ -149,11 +149,11 @@ function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => vo
 
   const add = () => {
     let id = choice;
-    if (choice === 'new') {
+    if (choice === 'new' || choice === 'guest') {
       const trimmed = name.trim();
       if (!trimmed) return setError('Enter a name.');
       if (players.some((p) => p.name.trim().toLowerCase() === trimmed.toLowerCase())) return setError('A player with that name already exists. Pick them from the list.');
-      id = createPlayer({ name: trimmed, level });
+      id = createPlayer({ name: trimmed, level, guest: choice === 'guest' });
     }
     addAttendee(session, id, level, mode, levelChanged);
     onDone();
@@ -166,12 +166,14 @@ function AddPlayerForm({ session, onDone }: { session: Session; onDone: () => vo
           {candidates.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
+              {p.guest ? ' (guest)' : ''}
             </option>
           ))}
           <option value="new">+ New player…</option>
+          <option value="guest">+ New guest (one-off, off the leaderboards)…</option>
         </Select>
       </Field>
-      {choice === 'new' && (
+      {(choice === 'new' || choice === 'guest') && (
         <Field label="Name">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hardesh" autoFocus />
         </Field>

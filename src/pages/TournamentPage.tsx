@@ -212,8 +212,9 @@ export default function TournamentPage() {
             <Button
               variant="danger"
               onClick={() => {
-                deleteTournament(t.id);
+                deleteTournament(t);
                 navigate('/sessions');
+                toast('Tournament deleted. Admins can restore it from the Admin page for 30 days.');
               }}
             >
               Delete
@@ -221,7 +222,7 @@ export default function TournamentPage() {
           </div>
         }
       >
-        <p className="text-sm">The teams, the schedule and every score in “{t.name}” are removed for everyone. This can't be undone.</p>
+        <p className="text-sm">The teams, the schedule and every score in “{t.name}” are removed for everyone. Admins can restore it from Recently deleted on the Admin page for 30 days.</p>
       </Dialog>
     </div>
   );

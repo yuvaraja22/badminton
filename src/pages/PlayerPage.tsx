@@ -1,19 +1,19 @@
 import clsx from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
-import { ChevronLeft, Pencil, Share2, Trophy } from 'lucide-react';
+import { ChevronLeft, Pencil, Share2 } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { playerProfile } from '../lib/engine/alltime';
 import { partnerOf, sideOf, teamOf, otherSide, winnerSide } from '../lib/engine/games';
-import { entryPath } from '../lib/engine/alltime';
 import type { RelationLine } from '../lib/engine/stats';
 import { oneDecimal, pct, pctRound, shortDate, signed } from '../lib/format';
 import { levelName } from '../lib/levels';
 import { shareLink } from '../lib/share';
 import { findPlayer } from '../lib/slug';
+import { ClaimButton } from '../components/players/ClaimButton';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { PlayerHero } from '../components/players/PlayerHero';
-import { Avatar } from '../components/ui/Avatar';
+import { AchievementsCard, FormStrip, PartnerCards, SessionsList } from '../components/players/ProfileSections';
 import { ProfileDetails } from '../components/players/ProfileDetails';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
 import { WinRateChart } from '../components/stats/WinRateChart';
@@ -50,7 +50,7 @@ function RelationTable({ rows, title, subtitle }: { rows: RelationLine[]; title:
 export default function PlayerPage() {
   // The URL ends with the player's name (/players/vikram); older links with the id still work.
   const { id: param = '' } = useParams();
-  const { players, playersById, history, nameOf, pathOf, ready } = useData();
+  const { players, history, nameOf, pathOf, ready } = useData();
   const { isAdmin, playerId: myPlayerId } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,9 +83,6 @@ export default function PlayerPage() {
     winRate: Math.round(s.winRate * 1000) / 10,
     record: `${s.won}-${s.lost}`,
   }));
-  const qualified = (r: RelationLine) => r.played >= 3;
-  const bestPartner = [...profile.partners].filter(qualified).sort((a, b) => b.winRate - a.winRate || b.diff - a.diff)[0];
-  const toughest = [...profile.opponents].filter(qualified).sort((a, b) => a.winRate - b.winRate || a.diff - b.diff)[0];
 
   return (
     <div className="space-y-4">
@@ -126,6 +123,7 @@ export default function PlayerPage() {
                 <Pencil size={14} /> Edit
               </Button>
             )}
+            {!isAdmin && <ClaimButton player={player} />}
           </>
         }
       />
@@ -152,23 +150,7 @@ export default function PlayerPage() {
             />
           </div>
 
-          <Card>
-            <CardHeader title="Last 10 games" subtitle="Oldest first, latest at the end" />
-            <div className="flex flex-wrap gap-1.5 p-4">
-              {[...profile.form].reverse().map((r, i) => (
-                <span
-                  key={i}
-                  className={clsx(
-                    'font-score inline-flex size-9 items-center justify-center rounded-xl text-lg font-black',
-                    r === 'W' ? 'bg-good text-good-bg' : 'border-2 border-bad/45 text-bad',
-                  )}
-                  aria-label={r === 'W' ? 'Win' : 'Loss'}
-                >
-                  {r}
-                </span>
-              ))}
-            </div>
-          </Card>
+          <FormStrip form={profile.form} />
 
           <RatingHistoryCard playerId={player.id} />
 
@@ -181,61 +163,16 @@ export default function PlayerPage() {
             </Card>
           )}
 
-          {(bestPartner || toughest) && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {bestPartner && (
-                <Card className="flex items-center gap-3 p-4">
-                  <Avatar name={nameOf(bestPartner.otherId)} photo={playersById.get(bestPartner.otherId)?.photo} size={48} />
-                  <div className="min-w-0">
-                    <div className="kicker">Best partner</div>
-                    <div className="mt-1 truncate text-lg leading-tight font-bold tracking-tight">{nameOf(bestPartner.otherId)}</div>
-                    <div className="text-sm text-muted">
-                      {bestPartner.won}-{bestPartner.lost} together · {signed(bestPartner.diff)} pts (3+ games)
-                    </div>
-                  </div>
-                </Card>
-              )}
-              {toughest && (
-                <Card className="flex items-center gap-3 p-4">
-                  <Avatar name={nameOf(toughest.otherId)} photo={playersById.get(toughest.otherId)?.photo} size={48} />
-                  <div className="min-w-0">
-                    <div className="kicker">Toughest opponent</div>
-                    <div className="mt-1 truncate text-lg leading-tight font-bold tracking-tight">{nameOf(toughest.otherId)}</div>
-                    <div className="text-sm text-muted">
-                      {toughest.won}-{toughest.lost} against · {signed(toughest.diff)} pts (3+ games)
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
+          <PartnerCards partners={profile.partners} opponents={profile.opponents} />
+
+          <AchievementsCard playerId={player.id} />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <RelationTable rows={profile.partners} title="Partners" subtitle="Record when playing together" />
             <RelationTable rows={profile.opponents} title="Opponents" subtitle="Record when on the other side of the net" />
           </div>
 
-          <Card>
-            <CardHeader title={sessions.some((s) => s.kind === 'tournament') ? 'Sessions & tournaments' : 'Sessions'} />
-            <ul className="tabular divide-y divide-line pt-2 text-sm">
-              {sessions.map((s) => (
-                <li key={s.id}>
-                  <Link to={entryPath(s.id, s.kind)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
-                    <span className="w-24 shrink-0 text-muted">{shortDate(s.date)}</span>
-                    <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                    {s.kind === 'tournament' && <Badge tone="info">Tournament</Badge>}
-                    {s.mvp && <Trophy size={15} className="shrink-0 text-warn" aria-label="MVP" />}
-                    <span className="shrink-0 font-semibold">
-                      {s.won}-{s.lost}
-                    </span>
-                    <span className="w-14 shrink-0 text-right text-muted">
-                      #{s.rank}/{s.of}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          <SessionsList sessions={sessions} />
 
           <Card>
             <CardHeader title="Recent matches" />

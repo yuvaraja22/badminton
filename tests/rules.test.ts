@@ -19,6 +19,8 @@ beforeAll(async () => {
     await setDoc(doc(db, 'players/p2'), { name: 'Anu', level: 4, active: true });
     await setDoc(doc(db, 'links/vikram@example.com'), { playerId: 'p1' });
     await setDoc(doc(db, 'events/e1'), { date: '2026-10-26', status: 'planned', rsvps: {} });
+    await setDoc(doc(db, 'events/e2'), { date: '2026-10-19', status: 'started', rsvps: {} });
+    await setDoc(doc(db, 'trash/s0'), { kind: 'session', title: 'Old', date: '2026-10-01', data: {}, deletedAt: 1, deletedBy: 'Yuva' });
     await setDoc(doc(db, 'tournaments/t1'), { name: 'Cup', status: 'live', matches: { m1: { status: 'live', scoreA: 3, scoreB: 2, log: 'AABBA' } } });
   });
 });
@@ -90,13 +92,61 @@ describe('firestore.rules', () => {
   });
 
   it('lets a linked player RSVP only for themselves', async () => {
-    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at: 1 } }));
-    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'out', at: 2 } }));
-    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p2': { status: 'in', at: 3 } }));
-    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'maybe', at: 4 } }));
+    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at: Date.now() } }));
+    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'out', at: Date.now() } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p2': { status: 'in', at: Date.now() } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'maybe', at: Date.now() } }));
     await assertFails(updateDoc(doc(vikram(), 'events/e1'), { date: '2026-10-27' }));
-    await assertFails(updateDoc(doc(viewer(), 'events/e1'), { 'rsvps.p2': { status: 'in', at: 5 } }));
+    await assertFails(updateDoc(doc(viewer(), 'events/e1'), { 'rsvps.p2': { status: 'in', at: Date.now() } }));
     await assertSucceeds(updateDoc(doc(admin(), 'events/e1'), { note: 'Court 2' }));
+  });
+
+  it('checks guests and when an RSVP was given', async () => {
+    const at = Date.now();
+    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at, guests: 2 } }));
+    // Changing only the guests keeps the original time (the place in the queue)…
+    await assertSucceeds(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at, guests: 1 } }));
+    // …but nobody can backdate an answer to jump the waitlist, bring more than 3, or add other fields.
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at: 1, guests: 1 } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at, guests: 4 } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at, guests: 1.5 } }));
+    await assertFails(updateDoc(doc(vikram(), 'events/e1'), { 'rsvps.p1': { status: 'in', at, vip: true } }));
+    // A plan that already started takes no more answers.
+    await assertFails(updateDoc(doc(vikram(), 'events/e2'), { 'rsvps.p1': { status: 'in', at: Date.now() } }));
+  });
+
+  it('only accepts uploaded photos on a player’s own profile', async () => {
+    await assertSucceeds(updateDoc(doc(vikram(), 'players/p1'), { photo: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==' }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { photo: 'https://example.com/pixel.gif' }));
+    await assertFails(updateDoc(doc(vikram(), 'players/p1'), { photo: 'data:text/html;base64,PGgxPg==' }));
+    await assertSucceeds(updateDoc(doc(vikram(), 'players/p1'), { photo: null }));
+  });
+
+  it('keeps recently deleted items to admins', async () => {
+    await assertFails(getDoc(doc(anon(), 'trash/s0')));
+    await assertFails(getDocs(collection(viewer(), 'trash')));
+    await assertFails(setDoc(doc(viewer(), 'trash/x'), { kind: 'session' }));
+    await assertSucceeds(getDocs(collection(admin(), 'trash')));
+    await assertSucceeds(deleteDoc(doc(admin(), 'trash/s0')));
+  });
+
+  it('lets someone not yet linked ask to be linked, privately', async () => {
+    const claim = { playerId: 'p2', name: 'Viewer', at: Date.now() };
+    await assertSucceeds(setDoc(doc(viewer(), 'claims/viewer@example.com'), claim));
+    await assertSucceeds(getDoc(doc(viewer(), 'claims/viewer@example.com')));
+    // Not for someone else's email, not for a player that doesn't exist, no extra fields.
+    await assertFails(setDoc(doc(viewer(), 'claims/other@example.com'), claim));
+    await assertFails(setDoc(doc(viewer(), 'claims/viewer@example.com'), { ...claim, playerId: 'nobody' }));
+    await assertFails(setDoc(doc(viewer(), 'claims/viewer@example.com'), { ...claim, approved: true }));
+    // Already linked, or signed out, or unverified: no.
+    await assertFails(setDoc(doc(vikram(), 'claims/vikram@example.com'), claim));
+    await assertFails(setDoc(doc(anon(), 'claims/viewer@example.com'), claim));
+    await assertFails(setDoc(doc(impostor(), 'claims/admin@example.com'), claim));
+    // Only admins see everyone's requests; the person can withdraw theirs.
+    await assertFails(getDocs(collection(viewer(), 'claims')));
+    await assertFails(getDoc(doc(vikram(), 'claims/viewer@example.com')));
+    await assertSucceeds(getDocs(collection(admin(), 'claims')));
+    await assertSucceeds(deleteDoc(doc(viewer(), 'claims/viewer@example.com')));
   });
 
   it('keeps player links private and admin-managed', async () => {

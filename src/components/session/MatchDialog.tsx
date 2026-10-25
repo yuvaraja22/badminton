@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react';
 import { deleteMatch, saveMatch } from '../../lib/data/mutations';
 import { newId } from '../../lib/ids';
 import { checkScores, lineupComplete } from '../../lib/lineup';
+import { maxPointsFor, validFinalScore } from '../../lib/engine/scoring';
 import { matchCode } from '../../lib/format';
 import type { Lineup, Match, Session } from '../../lib/types';
 import { sortedMatches } from '../../lib/engine/games';
@@ -43,11 +44,20 @@ function MatchForm({ session, match, options, onDone }: { session: Session; matc
   const [status, setStatus] = useState<Match['status']>(match?.status ?? 'completed');
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // An unusual final score the admin has been warned about once (saving it again keeps it).
+  const [odd, setOdd] = useState<string | null>(null);
+  const maxPoints = maxPointsFor(session.pointsToWin);
+  const warned = odd !== null && odd === `${scoreA.trim()}-${scoreB.trim()}`;
 
   const save = () => {
     if (!lineupComplete(lineup)) return setError('Pick four different players.');
     const check = checkScores(scoreA, scoreB, status);
     if (!check.ok) return setError(check.message);
+    setError(null);
+    if (status === 'completed' && check.scoreA !== null && check.scoreB !== null) {
+      const key = `${check.scoreA}-${check.scoreB}`;
+      if (!validFinalScore(check.scoreA, check.scoreB, session.pointsToWin, maxPoints) && odd !== key) return setOdd(key);
+    }
     const base: Match = match ?? {
       id: newId(),
       number: (sortedMatches(session).at(-1)?.number ?? 0) + 1,
@@ -85,6 +95,11 @@ function MatchForm({ session, match, options, onDone }: { session: Session; matc
         ]}
       />
       {error && <Notice tone="bad">{error}</Notice>}
+      {warned && status === 'completed' && (
+        <Notice tone="warn">
+          {scoreA}–{scoreB} isn't a usual finish for a game to {session.pointsToWin} (win by 2, max {maxPoints}). Tap Save again to keep it.
+        </Notice>
+      )}
       <div className="flex items-center justify-between gap-2 pt-1">
         {match ? (
           confirmDelete ? (

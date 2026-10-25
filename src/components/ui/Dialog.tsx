@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { useHoldUpdates } from '../../lib/appUpdate';
 
 /** Native <dialog>: a bottom sheet on phones, a centered modal on wider screens. */
 export function Dialog({
@@ -17,6 +18,8 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // A new version of the app waits until the dialog is closed (nobody loses what they were typing).
+  useHoldUpdates(open);
 
   useEffect(() => {
     const d = ref.current;

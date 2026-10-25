@@ -5,6 +5,11 @@
     { "collectionGroup": "sessions", "fieldPath": "matches", "indexes": [] },
     { "collectionGroup": "sessions", "fieldPath": "attendees", "indexes": [] },
     { "collectionGroup": "sessions", "fieldPath": "takeaways", "indexes": [] },
+    { "collectionGroup": "sessions", "fieldPath": "edits", "indexes": [] },
+    { "collectionGroup": "tournaments", "fieldPath": "matches", "indexes": [] },
+    { "collectionGroup": "tournaments", "fieldPath": "edits", "indexes": [] },
+    { "collectionGroup": "events", "fieldPath": "rsvps", "indexes": [] },
+    { "collectionGroup": "trash", "fieldPath": "data", "indexes": [] },
     { "collectionGroup": "players", "fieldPath": "photo", "indexes": [] }
   ]
 }

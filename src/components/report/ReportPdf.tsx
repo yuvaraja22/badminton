@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { rallyHighlights, type RallySummary } from '../../lib/engine/rally';
 import type { SessionReport } from '../../lib/engine/report';
 import { oneDecimal, pct, pctRound, signed } from '../../lib/format';
+import type { SidePair } from '../../lib/teamColors';
+import { FlowRow, Highlights, TeamRallyTable } from './RallyPdf';
 
 /** A4 PDF version of the report, mirroring the original two-page layout. Uses built-in Helvetica. */
 
@@ -196,16 +199,57 @@ export function ReportPairsAndTakeaways({ report, takeaways }: { report: Session
   );
 }
 
-export function ReportDocument({ report, takeaways }: { report: SessionReport; takeaways: string[] }) {
+/** Point-by-point data for a session whose matches were (partly) scored live. */
+export interface ReportRally {
+  summary: RallySummary;
+  sides: SidePair;
+  nameOf: (id: string) => string;
+}
+
+export function ReportDocument({ report, takeaways, rally }: { report: SessionReport; takeaways: string[]; rally?: ReportRally | null }) {
+  const flows = new Map((rally?.summary.flows ?? []).map((f) => [f.match.order, f]));
   return (
     <Document title={`${report.title} - ${report.dateLabel}`} author="Badminton Stats">
-      <ReportPages report={report} takeaways={takeaways} />
+      <ReportPages
+        report={report}
+        takeaways={takeaways}
+        logExtra={
+          rally
+            ? (n) => {
+                const f = flows.get(n);
+                return f ? <FlowRow sides={rally.sides} flow={f} /> : null;
+              }
+            : undefined
+        }
+        after={
+          rally && rally.summary.flows.length > 0 ? (
+            <View wrap={false}>
+              <Section>Point by point (matches scored live)</Section>
+              <Highlights items={rallyHighlights(rally.summary, (k) => rally.sides[k].name, rally.nameOf)} />
+              <View style={{ marginTop: 8 }}>
+                <TeamRallyTable sides={rally.sides} r={rally.summary} />
+              </View>
+            </View>
+          ) : null
+        }
+      />
     </Document>
   );
 }
 
 /** The report's pages, also the second half of a tournament's PDF (which adds each match's score flow to the log). */
-export function ReportPages({ report, takeaways, logExtra }: { report: SessionReport; takeaways: string[]; logExtra?: (n: number) => ReactNode }) {
+export function ReportPages({
+  report,
+  takeaways,
+  logExtra,
+  after,
+}: {
+  report: SessionReport;
+  takeaways: string[];
+  logExtra?: (n: number) => ReactNode;
+  /** More after the match log (a session's point-by-point summary). */
+  after?: ReactNode;
+}) {
   const { mvp, bestPair, tightest } = report;
   const totalLines = [`${report.totalPoints} total points scored`, `${report.playerCount} players`];
   if (report.unfinishedCount) totalLines.push(`(+${report.unfinishedCount} match${report.unfinishedCount === 1 ? '' : 'es'} left unfinished)`);
@@ -280,6 +324,7 @@ export function ReportPages({ report, takeaways, logExtra }: { report: SessionRe
           {report.unfinishedCount > 0 ? '* Match not completed; excluded from player standings, partnership records and totals. ' : ''}
           Margins are shown as winning score minus losing score.
         </Text>
+        {after}
         <Footer text={report.footer} />
       </Page>
     </>

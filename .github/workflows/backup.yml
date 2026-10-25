@@ -1,0 +1,49 @@
+# A copy of all the data every night (02:00 India time), kept for 90 days under this workflow's runs
+# (Actions → Nightly backup → a run → Artifacts). Restore one from the app: Admin → Restore from backup.
+# Needs a one-time setup: the FIREBASE_SERVICE_ACCOUNT secret (see README, "Nightly backups").
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '30 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the key is set up
+        id: key
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::notice::No FIREBASE_SERVICE_ACCOUNT secret yet, so there's nothing to back up. See the README (Nightly backups)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.key.outputs.ready == 'true'
+        uses: actions/checkout@v7
+      - if: steps.key.outputs.ready == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - if: steps.key.outputs.ready == 'true'
+        working-directory: scripts/backup
+        run: npm install --no-package-lock --no-audit --no-fund
+      - if: steps.key.outputs.ready == 'true'
+        working-directory: scripts/backup
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node backup.mjs
+      - if: steps.key.outputs.ready == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: badminton-backup-${{ github.run_number }}
+          path: scripts/backup/out/*.json
+          retention-days: 90
+          if-no-files-found: error

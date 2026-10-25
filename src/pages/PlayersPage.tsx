@@ -17,19 +17,21 @@ export default function PlayersPage() {
   const { isAdmin } = useAuth();
   const [q, setQ] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [showGuests, setShowGuests] = useState(false);
   const [adding, setAdding] = useState(false);
   const lines = useMemo(() => new Map(allTimeStats(history, nameOf, { minGames: 0 }).standings.map((l) => [l.playerId, l])), [history, nameOf]);
 
   if (!ready) return <Spinner />;
 
   const archived = players.filter((p) => !p.active).length;
-  const list = players.filter((p) => (showArchived || p.active) && p.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const guests = players.filter((p) => p.guest && p.active).length;
+  const list = players.filter((p) => (showArchived || p.active) && (showGuests || !p.guest || !p.active) && p.name.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
     <div>
       <PageTitle
         title="Players"
-        subtitle={`${players.length - archived} active${archived ? ` · ${archived} archived` : ''}`}
+        subtitle={`${players.length - archived - guests} active${guests ? ` · ${guests} guest${guests === 1 ? '' : 's'}` : ''}${archived ? ` · ${archived} archived` : ''}`}
         action={
           isAdmin && (
             <Button onClick={() => setAdding(true)}>
@@ -43,6 +45,7 @@ export default function PlayersPage() {
           <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search players" className="pl-9" aria-label="Search players" />
         </div>
+        {guests > 0 && <Toggle checked={showGuests} onChange={setShowGuests} label="Show guests" />}
         {archived > 0 && <Toggle checked={showArchived} onChange={setShowArchived} label="Show archived" />}
       </div>
 
@@ -84,6 +87,7 @@ export default function PlayersPage() {
                       <span className="mt-2.5 text-xs text-muted">No matches yet</span>
                     )}
                     {!p.active && <Badge className="mt-1.5">Archived</Badge>}
+                    {p.active && p.guest && <Badge className="mt-1.5">Guest</Badge>}
                   </Link>
                 </li>
               );

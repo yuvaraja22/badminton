@@ -17,6 +17,8 @@ export interface Player {
   hand?: Hand | null;
   position?: CourtPosition | null;
   racket?: string | null;
+  /** A one-off visitor: plays and appears in session reports, but stays off the players list and leaderboards. */
+  guest?: boolean;
   createdAt?: number;
 }
 
@@ -26,6 +28,16 @@ export type OwnProfileFields = Pick<Player, 'name' | 'photo' | 'bio' | 'hand' | 
 export const PROFILE_LIMITS = { name: 30, bio: 160, racket: 40 } as const;
 
 export type RsvpStatus = 'in' | 'out';
+
+export interface Rsvp {
+  status: RsvpStatus;
+  at: number;
+  /** Friends this player is bringing along (they take spots too). */
+  guests?: number;
+}
+
+/** Most guests one player can bring (also enforced by firestore.rules). */
+export const MAX_GUESTS = 3;
 
 /** A session or tournament the admins have scheduled; players RSVP before it starts. */
 export interface PlannedSession {
@@ -41,12 +53,36 @@ export interface PlannedSession {
   status: 'planned' | 'started' | 'cancelled';
   /** What it became once started: the session's id, or the tournament's. */
   sessionId: string | null;
-  rsvps: Record<PlayerId, { status: RsvpStatus; at: number }>;
+  rsvps: Record<PlayerId, Rsvp>;
+  /** Most spots (players plus their guests); later answers go on a waitlist. null = no limit. */
+  cap: number | null;
+  /** 'weekly': the same session is planned again a week later once this one starts (or is skipped). */
+  repeat: 'weekly' | null;
   createdAt?: number;
 }
 
 /** live = being played now, completed = final score, unfinished = stopped early (excluded from stats). */
 export type MatchStatus = 'live' | 'completed' | 'unfinished';
+
+/** A side of a game as written in a point-by-point log: Team 1 / Team A is 'A'. */
+export type ServeSide = 'A' | 'B';
+
+/** An admin keeping score or making a change: account id (to tell phones apart) and first name (to show). */
+export interface ScorerInfo {
+  id: string;
+  name: string;
+}
+
+/** One line of a session's or tournament's change history: who changed which result, and when. */
+export interface EditEntry {
+  at: number;
+  /** First name of the admin who made the change. */
+  by: string;
+  uid: string;
+  /** Match number (session) or schedule position (tournament); null for the whole event. */
+  match: number | null;
+  text: string;
+}
 
 export interface Match {
   id: string;
@@ -58,6 +94,14 @@ export interface Match {
   status: MatchStatus;
   /** Players who were available when the match was created (used for fair-share accounting). */
   available: PlayerId[];
+  /** One letter per point ("A" or "B") when scored live; empty or absent when the score was typed in. */
+  log?: string;
+  /** Points at the start of the log that were typed in, not scored live. */
+  typedPoints?: number;
+  /** Who is scoring it live: a soft lock so two phones don't score the same match. */
+  scorer?: (ScorerInfo & { at: number }) | null;
+  /** Which side served first (for the serve indicator); null when nobody said. */
+  firstServe?: ServeSide | null;
   createdAt?: number;
   completedAt?: number | null;
 }
@@ -105,6 +149,8 @@ export interface Session {
   /** Saved (possibly edited) takeaways; null means "generate automatically". */
   takeaways: string[] | null;
   playerIds: PlayerId[];
+  /** Who changed which result, oldest first. */
+  edits: EditEntry[];
   createdAt?: number;
   updatedAt?: number;
   completedAt?: number | null;
@@ -177,11 +223,6 @@ export interface TournamentTeam {
 
 export type MatchKind = 'doubles' | 'singles';
 
-/** An admin keeping score: account id (to tell phones apart) and first name (to show). */
-export interface ScorerInfo {
-  id: string;
-  name: string;
-}
 export type TournamentMatchStatus = 'scheduled' | 'live' | 'completed';
 
 export interface TournamentMatch {
@@ -206,6 +247,8 @@ export interface TournamentMatch {
   /** This game's target when it was changed (e.g. 15 or 10); null means the tournament's 21. */
   pointsToWin: number | null;
   maxPoints: number | null;
+  /** Which side served first (for the serve indicator); null when nobody said. */
+  firstServe: ServeSide | null;
   startedAt: number | null;
   completedAt: number | null;
 }
@@ -227,6 +270,32 @@ export interface Tournament {
   matches: Record<string, TournamentMatch>;
   /** Players who said they're in when the tournament was planned (listed first when picking teams). */
   invited: PlayerId[];
+  /** Who changed which result, oldest first. */
+  edits: EditEntry[];
   createdAt?: number;
   updatedAt?: number;
+}
+
+// ---------------------------------------------------------------- admin
+
+/** A deleted session or tournament, kept for 30 days so it can be restored. */
+export interface TrashEntry {
+  id: string;
+  kind: 'session' | 'tournament';
+  title: string;
+  date: string;
+  /** The document as it was, without its id. */
+  data: Record<string, unknown>;
+  deletedAt: number;
+  deletedBy: string;
+}
+
+/** Someone signed in with Google asking to be linked to a player profile ("This is me"). */
+export interface LinkClaim {
+  /** Their Google email (the document id). */
+  email: string;
+  playerId: PlayerId;
+  /** Their Google display name, to help the admin recognise them. */
+  name: string;
+  at: number;
 }

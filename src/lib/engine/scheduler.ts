@@ -328,7 +328,11 @@ function isValidLineup(lineup: Lineup, allowed: Iterable<PlayerId>): boolean {
   return new Set(ids).size === 4 && ids.every((id) => ok.has(id));
 }
 
-export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
+/**
+ * The next `count` matches. With `checkpoint` (the default) it also looks further ahead for the next
+ * point where everyone is even; without it, it stops after `count` matches (the plan is the same).
+ */
+export function planQueue(input: SchedulerInput, count = 4, { checkpoint = true }: { checkpoint?: boolean } = {}): QueuePlan {
   const state = buildState(input);
   const available = Object.entries(input.attendees)
     .filter(([, a]) => a.status === 'available')
@@ -359,7 +363,7 @@ export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
   plan.evenNow = state.lastNumber > 0 && isEven(state, available);
 
   const sim = cloneState(state);
-  const lookahead = Math.max(count, Math.min(2 * available.length, 24));
+  const lookahead = checkpoint ? Math.max(count, Math.min(2 * available.length, 24)) : count;
   let number = state.lastNumber + 1;
   for (let i = 0; i < lookahead; i++) {
     let chosen: PlannedMatch;

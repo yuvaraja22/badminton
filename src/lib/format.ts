@@ -83,6 +83,13 @@ export function shortDate(date: string): string {
   });
 }
 
+/** "2026-10-25" + 7 → "2026-11-01" */
+export function addDaysISO(date: string, days: number): string {
+  const d = parseISODate(date);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export function todayISO(): string {
   return toISO(new Date());
 }
@@ -97,6 +104,18 @@ export function nextWeekendISO(): string {
   do d.setDate(d.getDate() + 1);
   while (d.getDay() !== 6 && d.getDay() !== 0);
   return toISO(d);
+}
+
+/** A moment as "Oct 25, 9:42 PM" (adds the year when it isn't this year). */
+export function formatStamp(at: number): string {
+  const d = new Date(at);
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 /** "19:00" → "7:00 PM" */

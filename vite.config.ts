@@ -58,7 +58,8 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Network first; the last copy of each page is used only offline or on a very slow network.
-            urlPattern: ({ request }) => request.mode === 'navigate',
+            // Sign-in pages (/__/auth/…, proxied to Firebase) are never cached.
+            urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/__/'),
             handler: 'NetworkFirst',
             options: { cacheName: 'pages', networkTimeoutSeconds: 4, expiration: { maxEntries: 40 } },
           },
@@ -74,6 +75,18 @@ export default defineConfig({
   build: {
     // The PDF renderer (~1.2 MB) is loaded only when a report is exported.
     chunkSizeWarningLimit: 1300,
+    rolldownOptions: {
+      output: {
+        // Libraries in their own files, so a deploy (which changes the app's own code) doesn't make every
+        // phone download Firebase and React again. Charts and the PDF renderer stay in their lazy chunks.
+        codeSplitting: {
+          groups: [
+            { name: 'firebase', test: /node_modules[\\/](@firebase|firebase|re2js|idb)[\\/]/, priority: 2 },
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/, priority: 1 },
+          ],
+        },
+      },
+    },
   },
   test: {
     include: ['src/**/*.test.ts'],

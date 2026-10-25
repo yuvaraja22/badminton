@@ -12,12 +12,15 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, usingEmulators } from '../firebase';
 import { toast } from '../toast';
 import { AuthContext, type AuthValue } from './context';
+import { toClaim } from './convert';
+import type { LinkClaim } from '../types';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [adminFor, setAdminFor] = useState<{ email: string; isAdmin: boolean } | null>(null);
   const [linkFor, setLinkFor] = useState<{ email: string; playerId: string | null } | null>(null);
+  const [claimFor, setClaimFor] = useState<{ email: string; claim: LinkClaim | null } | null>(null);
 
   useEffect(
     () =>
@@ -50,12 +53,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [email]);
 
+  // A "This is me" request waiting for an admin (only while there's no link yet).
+  const linked = Boolean(email && linkFor?.email === email && linkFor.playerId);
+  useEffect(() => {
+    if (!email || linked) return;
+    return onSnapshot(
+      doc(db, 'claims', email),
+      (snap) => setClaimFor({ email, claim: snap.exists() ? toClaim(email, snap.data()) : null }),
+      () => setClaimFor({ email, claim: null }),
+    );
+  }, [email, linked]);
+
   const value = useMemo<AuthValue>(() => {
     const adminKnown = !email || adminFor?.email === email;
     return {
       user,
       isAdmin: Boolean(email && adminFor?.email === email && adminFor.isAdmin),
       playerId: email && linkFor?.email === email ? linkFor.playerId : null,
+      claim: email && !linked && claimFor?.email === email ? claimFor.claim : null,
       loading: authLoading || !adminKnown,
       signIn: async (emulatorEmail?: string) => {
         if (usingEmulators && emulatorEmail) {
@@ -77,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: () => fbSignOut(auth),
     };
-  }, [user, email, adminFor, linkFor, authLoading]);
+  }, [user, email, adminFor, linkFor, claimFor, linked, authLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

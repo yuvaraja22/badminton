@@ -1,9 +1,10 @@
-import { Document, Font, Line, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
-import { COMEBACK_MIN, longestRunOf, rallyHighlights, rallySummary, type MatchFlow, type RallySummary } from '../../lib/engine/rally';
-import { playerTeam, resultLine, rulesFor, teamScore, tournamentMatches, tournamentReport } from '../../lib/engine/tournament';
+import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { rallyHighlights } from '../../lib/engine/rally';
+import { playerTeam, resultLine, rulesFor, teamScore, tournamentMatches, tournamentRally, tournamentReport } from '../../lib/engine/tournament';
 import { formatTime, longDate, matchCode } from '../../lib/format';
-import { teamFill, teamName } from '../../lib/teamColors';
+import { teamFill, teamName, tournamentSides } from '../../lib/teamColors';
 import type { PlayerId, TeamKey, Tournament } from '../../lib/types';
+import { FlowRow, Highlights, TeamRallyTable } from '../report/RallyPdf';
 import { ReportPages } from '../report/ReportPdf';
 
 /**
@@ -35,7 +36,6 @@ const s = StyleSheet.create({
   sectionText: { fontFamily: B, fontSize: 10, textTransform: 'uppercase' },
   board: { flexDirection: 'row', gap: 4, marginTop: 12, borderRadius: 8, overflow: 'hidden' },
   boardSide: { flex: 1, paddingVertical: 12, paddingHorizontal: 14 },
-  card: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderTopWidth: 3, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 10 },
   teams: { flexDirection: 'row', gap: 10, marginTop: 12 },
   team: { flex: 1, backgroundColor: '#ffffff', borderWidth: 1, borderColor: LINE, borderRadius: 6, overflow: 'hidden' },
   teamBar: { paddingVertical: 7, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -47,10 +47,6 @@ const s = StyleSheet.create({
   tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5.5, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: '#ece7d9' },
   side: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
-  row: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  kicker: { fontFamily: B, fontSize: 6.5, color: GREY, textTransform: 'uppercase', letterSpacing: 0.6 },
-  tileValue: { fontFamily: B, fontSize: 13, marginTop: 2 },
-  tileDetail: { fontSize: 7.5, color: GREY, marginTop: 2, lineHeight: 1.3 },
   footer: { position: 'absolute', bottom: 20, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
 });
 
@@ -155,41 +151,6 @@ function SchedulePage({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => 
 
 // ---------------------------------------------------------------- after play: the Results tab
 
-const WORM = { w: 360, h: 28 };
-
-/** The lead after every point: Team A's colour above the line, Team B's below. */
-function Worm({ t, flow }: { t: Tournament; flow: MatchFlow }) {
-  const { leads } = flow;
-  const n = leads.length - 1;
-  const mid = WORM.h / 2;
-  const top = Math.max(3, ...leads.map(Math.abs));
-  const x = (i: number) => ((i / n) * WORM.w).toFixed(1);
-  const y = (lead: number) => (mid - (lead / top) * (mid - 1)).toFixed(1);
-  const area = (clamp: (l: number) => number) => `M0,${mid} ${leads.map((l, i) => `L${x(i)},${y(clamp(l))}`).join(' ')} L${WORM.w},${mid} Z`;
-  return (
-    <Svg width={WORM.w} height={WORM.h} viewBox={`0 0 ${WORM.w} ${WORM.h}`}>
-      <Path d={area((l) => Math.max(0, l))} fill={teamFill(t, 'a')} />
-      <Path d={area((l) => Math.min(0, l))} fill={teamFill(t, 'b')} />
-      <Line x1={0} x2={WORM.w} y1={mid} y2={mid} stroke={LINE} strokeWidth={0.75} />
-    </Svg>
-  );
-}
-
-/** Under each match in the report's log: its score flow and the numbers beside it. */
-function FlowRow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <Worm t={t} flow={flow} />
-      <Text style={{ flex: 1, marginLeft: 10, fontSize: 7, color: GREY, lineHeight: 1.4 }}>
-        Longest run {longestRunOf(flow, 'a')} / {longestRunOf(flow, 'b')}
-        {'\n'}Biggest lead {flow.maxLead.a.lead} / {flow.maxLead.b.lead}
-        {'\n'}
-        {flow.leadChanges} lead change{flow.leadChanges === 1 ? '' : 's'}
-      </Text>
-    </View>
-  );
-}
-
 /** Both teams in their colours with matches won and players; the winners tagged. One line underneath sums it up. */
 function Scoreboard({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
   const score = teamScore(t);
@@ -217,67 +178,9 @@ function Scoreboard({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => st
   );
 }
 
-// The report's card colours, so the highlights look like the summary cards that follow.
-const CARD_COLORS = [COURT, '#c2410c', '#0f766e', '#8a5a0c'];
-
-function Highlights({ items }: { items: { label: string; value: string; detail: string }[] }) {
-  const rows: (typeof items)[] = [];
-  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
-  return (
-    <>
-      {rows.map((row, i) => (
-        <View key={i} style={[s.row, i === 0 ? { marginTop: 0 } : {}]}>
-          {row.map((h, j) => {
-            const color = CARD_COLORS[(i * 2 + j) % CARD_COLORS.length];
-            return (
-              <View key={h.label} style={[s.card, { borderTopColor: color }]} wrap={false}>
-                <Text style={[s.kicker, { color }]}>{h.label}</Text>
-                <Text style={s.tileValue}>{h.value}</Text>
-                <Text style={s.tileDetail}>{h.detail}</Text>
-              </View>
-            );
-          })}
-          {row.length === 1 && <View style={{ flex: 1 }} />}
-        </View>
-      ))}
-    </>
-  );
-}
-
-function TeamRallyTable({ t, r }: { t: Tournament; r: RallySummary }) {
-  const { a, b } = r.teams;
-  const rows: [string, string | number, string | number][] = [
-    ['Longest run', a.longestRun, b.longestRun],
-    ['Biggest lead', a.biggestLead, b.biggestLead],
-    ['Game points saved', a.gamePointsSaved, b.gamePointsSaved],
-    [`Wins from ${COMEBACK_MIN}+ down`, a.comebackWins, b.comebackWins],
-    ['First to halfway, then won', `${a.firstToHalfWon}/${a.firstToHalf}`, `${b.firstToHalfWon}/${b.firstToHalf}`],
-  ];
-  const center = { textAlign: 'center' as const };
-  return (
-    <View style={s.table}>
-      <View style={s.th}>
-        <Text style={[s.thText, { flex: 1 }]}> </Text>
-        {(['a', 'b'] as const).map((k) => (
-          <View key={k} style={[s.side, { width: 110, justifyContent: 'center' }]}>
-            <View style={[s.dot, { backgroundColor: teamFill(t, k) }]} />
-            <Text style={s.thText}>{teamName(t, k)}</Text>
-          </View>
-        ))}
-      </View>
-      {rows.map(([label, x, y]) => (
-        <View key={label} style={s.tr} wrap={false}>
-          <Text style={{ flex: 1 }}>{label}</Text>
-          <Text style={[center, { width: 110, fontFamily: B }]}>{x}</Text>
-          <Text style={[center, { width: 110, fontFamily: B }]}>{y}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function ResultsPages({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => string }) {
-  const rally = rallySummary(t);
+  const rally = tournamentRally(t);
+  const sides = tournamentSides(t);
   const report = tournamentReport(t, nameOf);
   const flows = new Map(rally.flows.map((f) => [f.match.order, f]));
   return (
@@ -288,9 +191,9 @@ function ResultsPages({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => 
         {rally.flows.length > 0 && (
           <>
             <Section>Point by point</Section>
-            <Highlights items={rallyHighlights(t, rally, nameOf)} />
+            <Highlights items={rallyHighlights(rally, (k) => sides[k].name, nameOf)} />
             <Section>Team by team</Section>
-            <TeamRallyTable t={t} r={rally} />
+            <TeamRallyTable sides={sides} r={rally} />
             <Text style={{ fontSize: 7, color: GREY, marginTop: 6 }}>
               From the live scorer, rally by rally. Each match's score flow is in the match log.
               {rally.typedIn.length > 0
@@ -306,7 +209,7 @@ function ResultsPages({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => 
         takeaways={report.autoTakeaways}
         logExtra={(n) => {
           const f = flows.get(n);
-          return f ? <FlowRow t={t} flow={f} /> : null;
+          return f ? <FlowRow sides={sides} flow={f} /> : null;
         }}
       />
     </>

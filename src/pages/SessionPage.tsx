@@ -224,17 +224,17 @@ export default function SessionPage() {
                 deleteSession(session);
                 setDialog(null);
                 navigate('/sessions');
-                toast('Session deleted');
+                toast('Session deleted. Admins can restore it from the Admin page for 30 days.');
               }}
             >
-              Delete permanently
+              Delete
             </Button>
           </div>
         }
       >
         <p className="text-sm">
-          All {sortedMatches(session).length} matches of “{session.title}” ({longDate(session.date)}) will be removed, including from the all-time stats. This
-          can't be undone.
+          All {sortedMatches(session).length} matches of “{session.title}” ({longDate(session.date)}) will be removed, including from the all-time stats. Admins can
+          restore it from Recently deleted on the Admin page for 30 days.
         </p>
       </Dialog>
     </div>

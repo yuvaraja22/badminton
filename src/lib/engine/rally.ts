@@ -1,12 +1,31 @@
-import type { PlayerId, TeamKey, Tournament, TournamentMatch } from '../types';
+import type { PlayerId, TeamKey } from '../types';
 import { matchCode } from '../format';
-import { teamName } from '../teamColors';
-import { gameState, rulesFor, scoresOf, tournamentMatches, type Side } from './tournament';
+import { gameState, scoresOf, type Side } from './scoring';
 
 /**
- * Point-by-point stats for a team tournament, from the live scorer's log (one letter per point).
- * Matches whose score was typed in have no log and are left out.
+ * Point-by-point stats from the live scorer's log (one letter per point), for tournament matches and
+ * session matches alike. Matches whose score was typed in have no log and are left out.
  */
+
+/** A game as the rally stats see it: a tournament match or a session match, with its own rules. */
+export interface RallyGame {
+  id: string;
+  /** Its number in the schedule or the session (shown as M01…). */
+  order: number;
+  a: PlayerId[];
+  b: PlayerId[];
+  log: string;
+  typedPoints: number;
+  scoreA: number;
+  scoreB: number;
+  /** Only 'completed' games count. */
+  status: string;
+  pointsToWin: number;
+  maxPoints: number;
+}
+
+/** What each side is called: a tournament's team names, or Team 1 / Team 2 in a session. */
+export type SideName = (k: TeamKey) => string;
 
 /** A score as [Team A, Team B]. */
 export type Score = [number, number];
@@ -19,7 +38,7 @@ export interface Run {
 }
 
 export interface MatchFlow {
-  match: TournamentMatch;
+  match: RallyGame;
   /** Team A's lead at 0–0 and after every point (negative while Team B is ahead). */
   leads: number[];
   winner: TeamKey | null;
@@ -49,15 +68,15 @@ const key = (s: Side): TeamKey => (s === 'A' ? 'a' : 'b');
 const other = (k: TeamKey): TeamKey => (k === 'a' ? 'b' : 'a');
 
 /** Whether a match has a complete point-by-point log. */
-export function hasRallyLog(m: TournamentMatch): boolean {
+export function hasRallyLog(m: Pick<RallyGame, 'log' | 'typedPoints' | 'scoreA' | 'scoreB'>): boolean {
   if (!m.log || m.typedPoints > 0) return false;
   const { a, b } = scoresOf(m.log);
   return a === m.scoreA && b === m.scoreB;
 }
 
-export function matchFlow(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: TournamentMatch): MatchFlow | null {
+export function matchFlow(m: RallyGame): MatchFlow | null {
   if (!hasRallyLog(m)) return null;
-  const { pointsToWin, maxPoints } = rulesFor(t, m);
+  const { pointsToWin, maxPoints } = m;
   const half = Math.ceil(pointsToWin / 2);
   let a = 0;
   let b = 0;
@@ -140,18 +159,19 @@ export interface RallySummary {
   /** Finished matches with a point-by-point log, in schedule order. */
   flows: MatchFlow[];
   /** Finished matches whose score was typed in (no point-by-point data). */
-  typedIn: TournamentMatch[];
+  typedIn: RallyGame[];
   teams: Record<TeamKey, TeamRally>;
 }
 
 export const COMEBACK_MIN = 3;
 
-export function rallySummary(t: Tournament): RallySummary {
-  const done = tournamentMatches(t).filter((m) => m.status === 'completed');
+/** Every finished game's flow, in the order given (schedule or match order). */
+export function rallySummary(games: RallyGame[]): RallySummary {
+  const done = games.filter((m) => m.status === 'completed');
   const flows: MatchFlow[] = [];
-  const typedIn: TournamentMatch[] = [];
+  const typedIn: RallyGame[] = [];
   for (const m of done) {
-    const f = matchFlow(t, m);
+    const f = matchFlow(m);
     if (f) flows.push(f);
     else typedIn.push(m);
   }
@@ -191,15 +211,15 @@ export interface Highlight {
   detail: string;
 }
 
-const code = (m: TournamentMatch) => matchCode(m.order);
+const code = (m: RallyGame) => matchCode(m.order);
 const score = (s: Score) => `${s[0]}–${s[1]}`;
 
 /** The headline point-by-point facts, worded for the Results tab and the PDF. */
-export function rallyHighlights(t: Tournament, r: RallySummary, nameOf: (id: PlayerId) => string): Highlight[] {
+export function rallyHighlights(r: RallySummary, sideName: SideName, nameOf: (id: PlayerId) => string): Highlight[] {
   const out: Highlight[] = [];
   const { flows } = r;
   if (!flows.length) return out;
-  const who = (f: MatchFlow, k: TeamKey) => `${teamName(t, k)} (${f.match[k].map(nameOf).join(' & ')})`;
+  const who = (f: MatchFlow, k: TeamKey) => `${sideName(k)} (${f.match[k].map(nameOf).join(' & ')})`;
   const final = (f: MatchFlow) => `${f.match.scoreA}–${f.match.scoreB}`;
 
   const run = flows.filter((f) => f.longestRun).sort((x, y) => y.longestRun!.length - x.longestRun!.length)[0];
@@ -242,7 +262,7 @@ export function rallyHighlights(t: Tournament, r: RallySummary, nameOf: (id: Pla
 
   const halves = flows.filter((f) => f.firstToHalf && f.winner);
   if (halves.length >= 3) {
-    const targets = new Set(halves.map((f) => rulesFor(t, f.match).pointsToWin));
+    const targets = new Set(halves.map((f) => f.match.pointsToWin));
     const half = targets.size === 1 ? String(Math.ceil([...targets][0] / 2)) : 'halfway';
     const won = halves.filter((f) => f.winner === f.firstToHalf).length;
     out.push({ label: `First to ${half}`, value: `Won ${won} of ${halves.length}`, detail: `The side that reached ${half} first went on to win ${won} of ${halves.length} matches.` });

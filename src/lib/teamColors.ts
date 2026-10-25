@@ -32,3 +32,19 @@ export function teamName(t: Pick<Tournament, 'teams'>, key: TeamKey): string {
 export function teamFill(t: Pick<Tournament, 'teams'>, key: TeamKey): string {
   return TEAM_COLORS[t.teams[key].color]?.fill ?? TEAM_COLORS[DEFAULT_TEAM_COLORS[key]].fill;
 }
+
+/** The two sides of a game as drawn on a scoreboard or chart: name and colour. */
+export interface SidePair {
+  a: { name: string; fill: string };
+  b: { name: string; fill: string };
+}
+
+export function tournamentSides(t: Pick<Tournament, 'teams'>): SidePair {
+  return { a: { name: teamName(t, 'a'), fill: teamFill(t, 'a') }, b: { name: teamName(t, 'b'), fill: teamFill(t, 'b') } };
+}
+
+/** A session's matches have no teams of their own: Team 1 in blue, Team 2 in orange (easy to tell apart for everyone). */
+export const SESSION_SIDES: SidePair = {
+  a: { name: 'Team 1', fill: TEAM_COLORS.blue.fill },
+  b: { name: 'Team 2', fill: TEAM_COLORS.orange.fill },
+};

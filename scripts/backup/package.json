@@ -1,0 +1,9 @@
+{
+  "name": "badminton-backup",
+  "private": true,
+  "type": "module",
+  "description": "Nightly copy of the Firestore data (run by .github/workflows/backup.yml).",
+  "dependencies": {
+    "firebase-admin": "14.5.0"
+  }
+}

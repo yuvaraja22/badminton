@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
 import type { RatingTable } from '../engine/rating';
-import type { AppConfig, HistorySession, PlannedSession, Player, PlayerId, Session, Tournament } from '../types';
+import type { AppConfig, HistorySession, LinkClaim, PlannedSession, Player, PlayerId, Session, Tournament } from '../types';
 
 export interface DataValue {
   players: Player[];
@@ -15,14 +15,20 @@ export interface DataValue {
   sessionHistory: Record<string, HistorySession>;
   /** OpenSkill ratings replayed from the history. */
   ratings: RatingTable['ratings'];
+  /** The win chance the ratings gave every rated game before it was played (how good the predictions are). */
+  predictions: RatingTable['predictions'];
   config: AppConfig;
   liveSessions: Session[];
   /** Upcoming sessions people can RSVP to, soonest first. */
   planned: PlannedSession[];
   /** Team tournaments, newest first (null until loaded). */
   tournaments: Tournament[] | null;
-  /** Players and history have loaded at least once (from cache or server). */
+  /** Players and history have loaded at least once (from cache or server), or loading failed. */
   ready: boolean;
+  /** Why live updates stopped, in plain words (null while all is well). */
+  connectionError: string | null;
+  /** Reconnect every listener after a failure. */
+  retry: () => void;
 }
 
 export const DataContext = createContext<DataValue | null>(null);
@@ -38,6 +44,8 @@ export interface AuthValue {
   isAdmin: boolean;
   /** The player profile linked to this Google account (null if none). */
   playerId: string | null;
+  /** This account's pending "This is me" request, if any. */
+  claim: LinkClaim | null;
   loading: boolean;
   /** Google sign-in. With the local emulators, pass a test email instead. */
   signIn: (emulatorEmail?: string) => Promise<void>;

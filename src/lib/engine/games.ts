@@ -1,4 +1,6 @@
 import type { GameRecord, HistorySession, Match, PlayerId, Session } from '../types';
+import type { RallyGame } from './rally';
+import { maxPointsFor } from './scoring';
 
 /** Anything with two sides of players: a game, a match, a lineup (singles sides have one player). */
 type Sides = { teamA: readonly PlayerId[]; teamB: readonly PlayerId[] };
@@ -100,4 +102,26 @@ export function historyGames(sessionId: string, h: HistorySession): GameRecord[]
 /** History entries sorted oldest → newest (by date, then id for stability). */
 export function sortedHistory(history: Record<string, HistorySession>): [string, HistorySession][] {
   return Object.entries(history).sort(([ia, a], [ib, b]) => a.date.localeCompare(b.date) || ia.localeCompare(ib));
+}
+
+/** A session's matches as the rally stats see them (only those scored live have a log). */
+export function sessionRallyGames(session: Pick<Session, 'matches' | 'pointsToWin'>): RallyGame[] {
+  const maxPoints = maxPointsFor(session.pointsToWin);
+  return sortedMatches(session).map((m) => rallyGameOfMatch(m, session.pointsToWin, maxPoints));
+}
+
+export function rallyGameOfMatch(m: Match, pointsToWin: number, maxPoints = maxPointsFor(pointsToWin)): RallyGame {
+  return {
+    id: m.id,
+    order: m.number,
+    a: m.teamA,
+    b: m.teamB,
+    log: m.log ?? '',
+    typedPoints: m.typedPoints ?? 0,
+    scoreA: m.scoreA ?? 0,
+    scoreB: m.scoreB ?? 0,
+    status: m.status,
+    pointsToWin,
+    maxPoints,
+  };
 }

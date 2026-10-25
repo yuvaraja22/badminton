@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, FileText, Trophy, UserPlus } from 'lucide-react';
+import { ChevronRight, Crown, FileText, Sparkles, Trophy, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { useQueuePlan } from '../lib/data/usePlan';
 import { useWinChance } from '../lib/data/useWinChance';
 import { allTimeStats, entryPath, summarizeHistory } from '../lib/engine/alltime';
+import { recentMilestones } from '../lib/engine/milestones';
+import { awards, monthOf } from '../lib/engine/seasons';
 import { resultLine } from '../lib/engine/tournament';
 import { sortedMatches } from '../lib/engine/games';
-import { isoDaysAgo, matchCode, odds, shortDate, todayISO } from '../lib/format';
+import { isoDaysAgo, matchCode, odds, pctRound, shortDate, todayISO } from '../lib/format';
 import { ChanceBar, CourtMatch } from '../components/session/CourtView';
 import { Avatar } from '../components/ui/Avatar';
 import { DateStub } from '../components/ui/DateStub';
@@ -22,7 +24,8 @@ import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 
 function LiveSessionCard({ session }: { session: Session }) {
   const { nameOf } = useData();
-  const plan = useQueuePlan(session, 1);
+  // Only the next match is shown here, so skip looking further ahead.
+  const plan = useQueuePlan(session, 1, { checkpoint: false });
   const live = sortedMatches(session).find((m) => m.status === 'live');
   const next = plan?.upcoming[0];
   const team = (t: [string, string]) => `${nameOf(t[0])} & ${nameOf(t[1])}`;
@@ -43,7 +46,14 @@ function LiveSessionCard({ session }: { session: Session }) {
         </div>
         {live ? (
           <>
-            <CourtMatch teamA={live.teamA} teamB={live.teamB} className="min-h-40" />
+            <CourtMatch
+              teamA={live.teamA}
+              teamB={live.teamB}
+              // Scored point by point: everyone can follow the score from here.
+              scoreA={live.log || live.scorer ? <span className="font-score tabular text-[2.6rem] leading-none font-black">{live.scoreA ?? 0}</span> : undefined}
+              scoreB={live.log || live.scorer ? <span className="font-score tabular text-[2.6rem] leading-none font-black">{live.scoreB ?? 0}</span> : undefined}
+              className="min-h-40"
+            />
             {plan && <ChanceBar chance={chanceOf(live.teamA, live.teamB, plan.skills)} onCourt className="px-1 pt-3" />}
           </>
         ) : (
@@ -68,15 +78,97 @@ function LiveSessionCard({ session }: { session: Session }) {
   );
 }
 
+/** Player of the Month: this month's leader so far, and last month's winner. */
+function MonthCard() {
+  const { history, nameOf, pathOf, playersById } = useData();
+  const list = useMemo(() => awards(history, nameOf, 'month', todayISO(), (id) => playersById.has(id) && !playersById.get(id)?.guest).slice(0, 2), [history, nameOf, playersById]);
+  if (!list.length) return null;
+  const thisMonth = monthOf(todayISO()).key;
+  return (
+    <Card>
+      <CardHeader
+        title="Player of the Month"
+        action={
+          <Link to="/leaderboard?range=season" className="shrink-0 rounded-full border border-line px-3 py-1 text-xs font-semibold text-primary-text hover:bg-surface-2">
+            Seasons
+          </Link>
+        }
+      />
+      <ul className="divide-y divide-line pt-2 text-sm">
+        {list.map((a) => (
+          <li key={a.period.key}>
+            <Link to={pathOf(a.winner.playerId)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
+              <span className="relative shrink-0">
+                <Avatar name={nameOf(a.winner.playerId)} photo={playersById.get(a.winner.playerId)?.photo} size={36} className={a.final ? 'ring-volt ring-3' : undefined} />
+                {a.final && (
+                  <span className="absolute -right-1 -bottom-1 inline-flex size-4.5 items-center justify-center rounded-full bg-volt text-volt-ink ring-2 ring-surface">
+                    <Crown size={10} strokeWidth={2.75} />
+                  </span>
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-bold">{nameOf(a.winner.playerId)}</span>
+                <span className="block text-xs text-muted">
+                  {a.period.label}
+                  {a.period.key === thisMonth && !a.final ? ' · so far' : ''}
+                </span>
+              </span>
+              <span className="tabular shrink-0 text-muted">
+                {a.winner.won}-{a.winner.lost} · {pctRound(a.winner.winRate)}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+/** Milestones reached in the last 30 days: 100 games, 5 wins in a row, a first MVP… */
+function MilestonesCard() {
+  const { history, nameOf, pathOf, players, playersById } = useData();
+  const list = useMemo(() => {
+    const regular = players.filter((p) => p.active && !p.guest).map((p) => p.id);
+    const eligible = (id: string) => playersById.has(id) && !playersById.get(id)?.guest;
+    const today = todayISO();
+    return recentMilestones(history, regular, nameOf, isoDaysAgo(30), {
+      seasons: awards(history, nameOf, 'season', today, eligible),
+      months: awards(history, nameOf, 'month', today, eligible),
+    }).slice(0, 6);
+  }, [history, nameOf, players, playersById]);
+  if (!list.length) return null;
+  return (
+    <Card>
+      <CardHeader title="Milestones" subtitle="Reached in the last 30 days" action={<Sparkles size={18} className="text-muted" />} />
+      <ul className="divide-y divide-line pt-2 text-sm">
+        {list.map((m, i) => (
+          <li key={`${m.playerId}-${m.label}-${i}`}>
+            <Link to={pathOf(m.playerId)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
+              <Avatar name={nameOf(m.playerId)} photo={playersById.get(m.playerId)?.photo} size={30} />
+              <span className="min-w-0 flex-1 truncate">
+                <strong>{nameOf(m.playerId)}</strong> · {m.label}
+              </span>
+              <span className="shrink-0 text-xs text-muted">{shortDate(m.date)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export default function HomePage() {
   const { liveSessions, history, nameOf, ready, players, playersById, tournaments } = useData();
   const { isAdmin } = useAuth();
   // Sessions and finished tournaments alike: the latest report is whichever was played last.
   const summaries = useMemo(() => summarizeHistory(history, nameOf), [history, nameOf]);
-  // Home shows the last 30 days; all-time is one tap away on the leaderboard.
+  // Home shows the last 30 days; all-time is one tap away on the leaderboard. Guests aren't ranked.
   const top = useMemo(
-    () => allTimeStats(history, nameOf, { from: isoDaysAgo(30) }).standings.filter((l) => l.qualified).slice(0, 5),
-    [history, nameOf],
+    () =>
+      allTimeStats(history, nameOf, { from: isoDaysAgo(30) })
+        .standings.filter((l) => l.qualified && playersById.has(l.playerId) && !playersById.get(l.playerId)?.guest)
+        .slice(0, 5),
+    [history, nameOf, playersById],
   );
   const latest = summaries[0];
   const latestTournament = latest?.kind === 'tournament' ? tournaments?.find((t) => t.id === latest.id) : undefined;
@@ -161,6 +253,9 @@ export default function HomePage() {
           )}
         </Card>
       )}
+
+      {summaries.length > 0 && <MonthCard />}
+      {summaries.length > 0 && <MilestonesCard />}
 
       {!liveSessions.length && !latest && (
         <Empty icon={<Trophy size={28} />} title="No sessions yet">

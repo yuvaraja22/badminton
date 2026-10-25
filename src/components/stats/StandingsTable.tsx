@@ -66,24 +66,37 @@ export function StandingsTable({ rows, showSessions }: { rows: Row[]; showSessio
   );
 }
 
-export function PartnershipList({ rows, limit }: { rows: PairLine[]; limit?: number }) {
+/** Pairs and their record; with `vsOdds`, also how many more (or fewer) wins they had than their ratings expected. */
+export function PartnershipList({ rows, limit, vsOdds }: { rows: PairLine[]; limit?: number; vsOdds?: (p: PairLine) => number | null }) {
   const { nameOf } = useData();
   const shown = limit ? rows.slice(0, limit) : rows;
   return (
     <ul className="tabular divide-y divide-line text-sm">
-      {shown.map((p) => (
-        <li key={p.pair.join('|')} className="flex items-center justify-between gap-2 px-4 py-2.5">
-          <span className="min-w-0 truncate font-semibold">
-            {nameOf(p.pair[0])} &amp; {nameOf(p.pair[1])}
-          </span>
-          <span className="flex shrink-0 items-center gap-3">
-            <span className="text-muted">
-              {p.won}-{p.lost} ({pctRound(p.winRate)})
+      {shown.map((p) => {
+        const above = vsOdds?.(p) ?? null;
+        return (
+          <li key={p.pair.join('|')} className="flex items-center justify-between gap-2 px-4 py-2.5">
+            <span className="min-w-0 truncate font-semibold">
+              {nameOf(p.pair[0])} &amp; {nameOf(p.pair[1])}
             </span>
-            <DiffPill value={p.diff} />
-          </span>
-        </li>
-      ))}
+            <span className="flex shrink-0 items-center gap-3">
+              <span className="text-muted">
+                {p.won}-{p.lost} ({pctRound(p.winRate)})
+              </span>
+              {above !== null && (
+                <span
+                  className={clsx('text-right text-xs font-semibold whitespace-nowrap', above >= 0.5 ? 'text-good' : above <= -0.5 ? 'text-bad' : 'text-muted')}
+                  title="Wins above (or below) what their ratings expected in those games"
+                >
+                  {above >= 0 ? '+' : '−'}
+                  {Math.abs(above).toFixed(1)} vs odds
+                </span>
+              )}
+              <DiffPill value={p.diff} />
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

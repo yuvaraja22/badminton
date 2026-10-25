@@ -2,18 +2,23 @@ import type { DocumentData } from 'firebase/firestore';
 import type {
   AppConfig,
   Attendee,
+  EditEntry,
   HistorySession,
+  LinkClaim,
   Match,
   PlannedSession,
   Player,
+  ScorerInfo,
+  ServeSide,
   Session,
   TeamColor,
   TeamKey,
   Tournament,
   TournamentMatch,
   TournamentTeam,
+  TrashEntry,
 } from '../types';
-import { DEFAULT_CONFIG } from '../types';
+import { DEFAULT_CONFIG, MAX_GUESTS } from '../types';
 import { DEFAULT_TEAM_COLORS, TEAM_COLOR_KEYS } from '../teamColors';
 import { sortedMatches } from '../engine/games';
 
@@ -30,12 +35,31 @@ export function toPlayer(id: string, d: DocumentData): Player {
     hand: d.hand === 'left' || d.hand === 'right' ? d.hand : null,
     position: d.position === 'front' || d.position === 'back' || d.position === 'both' ? d.position : null,
     racket: typeof d.racket === 'string' ? d.racket : null,
+    guest: d.guest === true,
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
   };
 }
 
 const ids = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+const serveSide = (v: unknown): ServeSide | null => (v === 'A' || v === 'B' ? v : null);
+
+function toScorer(d: DocumentData | null | undefined): (ScorerInfo & { at: number }) | null {
+  return typeof d?.name === 'string' ? { id: typeof d.id === 'string' ? d.id : '', name: d.name, at: num(d.at, 0) } : null;
+}
+
+function toEdits(v: unknown): EditEntry[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((e): e is DocumentData => typeof e?.text === 'string')
+    .map((e) => ({
+      at: num(e.at, 0),
+      by: typeof e.by === 'string' ? e.by : 'an admin',
+      uid: typeof e.uid === 'string' ? e.uid : '',
+      match: typeof e.match === 'number' ? e.match : null,
+      text: e.text,
+    }));
+}
 
 function toTeam(d: DocumentData | undefined, key: TeamKey): TournamentTeam {
   return {
@@ -58,9 +82,10 @@ function toTournamentMatch(id: string, d: DocumentData, order: number): Tourname
     scoreB: num(d.scoreB, 0),
     log: typeof d.log === 'string' ? d.log : '',
     typedPoints: num(d.typedPoints, 0),
-    scorer: typeof d.scorer?.name === 'string' ? { id: typeof d.scorer.id === 'string' ? d.scorer.id : '', name: d.scorer.name, at: num(d.scorer.at, 0) } : null,
+    scorer: toScorer(d.scorer),
     pointsToWin: typeof d.pointsToWin === 'number' && d.pointsToWin > 0 ? d.pointsToWin : null,
     maxPoints: typeof d.maxPoints === 'number' && d.maxPoints > 0 ? d.maxPoints : null,
+    firstServe: serveSide(d.firstServe),
     startedAt: typeof d.startedAt === 'number' ? d.startedAt : null,
     completedAt: typeof d.completedAt === 'number' ? d.completedAt : null,
   };
@@ -82,6 +107,7 @@ export function toTournament(id: string, d: DocumentData): Tournament {
     schedule: { start: typeof d.schedule?.start === 'string' && d.schedule.start ? d.schedule.start : null, minutes: num(d.schedule?.minutes, 15) },
     matches,
     invited: ids(d.invited),
+    edits: toEdits(d.edits),
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
     updatedAt: typeof d.updatedAt === 'number' ? d.updatedAt : undefined,
   };
@@ -90,7 +116,9 @@ export function toTournament(id: string, d: DocumentData): Tournament {
 export function toPlanned(id: string, d: DocumentData): PlannedSession {
   const rsvps: PlannedSession['rsvps'] = {};
   for (const [pid, r] of Object.entries((d.rsvps ?? {}) as Record<string, DocumentData>)) {
-    if (r?.status === 'in' || r?.status === 'out') rsvps[pid] = { status: r.status, at: Number(r.at ?? 0) };
+    if (r?.status !== 'in' && r?.status !== 'out') continue;
+    const guests = Math.min(MAX_GUESTS, Math.max(0, Math.round(num(r.guests, 0))));
+    rsvps[pid] = { status: r.status, at: Number(r.at ?? 0), ...(guests && r.status === 'in' ? { guests } : {}) };
   }
   return {
     id,
@@ -102,6 +130,8 @@ export function toPlanned(id: string, d: DocumentData): PlannedSession {
     status: d.status === 'started' || d.status === 'cancelled' ? d.status : 'planned',
     sessionId: typeof d.sessionId === 'string' ? d.sessionId : null,
     rsvps,
+    cap: typeof d.cap === 'number' && d.cap > 0 ? Math.round(d.cap) : null,
+    repeat: d.repeat === 'weekly' ? 'weekly' : null,
     createdAt: typeof d.createdAt === 'number' ? d.createdAt : undefined,
   };
 }
@@ -127,6 +157,9 @@ function toMatch(id: string, d: DocumentData): Match {
     scoreB: typeof d.scoreB === 'number' ? d.scoreB : null,
     status: d.status === 'completed' || d.status === 'unfinished' ? d.status : 'live',
     available: Array.isArray(d.available) ? d.available : [],
+    ...(typeof d.log === 'string' && d.log ? { log: d.log, typedPoints: num(d.typedPoints, 0) } : {}),
+    scorer: toScorer(d.scorer),
+    firstServe: serveSide(d.firstServe),
     createdAt: d.createdAt,
     completedAt: d.completedAt ?? null,
   };
@@ -151,6 +184,7 @@ export function toSession(id: string, d: DocumentData): Session {
     shuffle: Number(d.shuffle ?? 0),
     takeaways: Array.isArray(d.takeaways) ? d.takeaways.map(String) : null,
     playerIds: Array.isArray(d.playerIds) ? d.playerIds : Object.keys(attendees),
+    edits: toEdits(d.edits),
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
     completedAt: d.completedAt ?? null,
@@ -197,6 +231,23 @@ export function toHistory(s: Session): HistorySession {
       ...(m.status === 'completed' ? {} : { u: true }),
     })),
   };
+}
+
+export function toTrash(id: string, d: DocumentData): TrashEntry {
+  return {
+    id,
+    kind: d.kind === 'tournament' ? 'tournament' : 'session',
+    title: String(d.title ?? ''),
+    date: String(d.date ?? ''),
+    data: (d.data ?? {}) as Record<string, unknown>,
+    deletedAt: num(d.deletedAt, 0),
+    deletedBy: typeof d.deletedBy === 'string' ? d.deletedBy : 'an admin',
+  };
+}
+
+export function toClaim(email: string, d: DocumentData): LinkClaim | null {
+  if (typeof d.playerId !== 'string' || !d.playerId) return null;
+  return { email, playerId: d.playerId, name: typeof d.name === 'string' ? d.name : '', at: num(d.at, 0) };
 }
 
 /** Firestore stores the session without its id. */

@@ -15,6 +15,7 @@ export function tournament(matches: Partial<TournamentMatch>[] = []): Tournament
     },
     schedule: { start: '07:00', minutes: 15 },
     invited: [],
+    edits: [],
     matches: Object.fromEntries(
       matches.map((m, i) => {
         const id = m.id ?? `m${i + 1}`;
@@ -33,6 +34,7 @@ export function tournament(matches: Partial<TournamentMatch>[] = []): Tournament
           scorer: null,
           pointsToWin: null,
           maxPoints: null,
+          firstServe: null,
           startedAt: null,
           completedAt: null,
           ...m,

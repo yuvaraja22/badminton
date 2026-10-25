@@ -1,6 +1,8 @@
 import { teamName } from '../teamColors';
 import type { GameRecord, HistorySession, MatchKind, PlayerId, TeamKey, Tournament, TournamentMatch } from '../types';
+import { rallySummary, type RallyGame, type RallySummary } from './rally';
 import { buildReport, type SessionReport } from './report';
+import { maxPointsFor, type Side } from './scoring';
 
 /**
  * Team tournaments: two teams, matches set up by hand (doubles and singles), each one game to 21,
@@ -9,8 +11,7 @@ import { buildReport, type SessionReport } from './report';
 
 export const DEFAULT_TOURNAMENT_NAME = 'Team Tournament';
 
-/** A point for Team A or Team B, as written in a match's log. */
-export type Side = 'A' | 'B';
+export { addPoint, gameState, maxPointsFor, rallyState, scoresOf, undoPoint, validFinalScore, type GameState, type Side } from './scoring';
 
 export const sideKey = (s: Side): TeamKey => (s === 'A' ? 'a' : 'b');
 
@@ -30,86 +31,20 @@ export function nextMatch(t: Pick<Tournament, 'matches'>): TournamentMatch | nul
 
 // ---------------------------------------------------------------- scoring
 
-/**
- * The cap for a game to `pointsToWin`, won by 2: the target plus 40%, rounded up. That gives the
- * official 21 → 30 and 15 → 21, and 11 → 16, 10 → 14 for quicker games.
- */
-export function maxPointsFor(pointsToWin: number): number {
-  return pointsToWin + Math.ceil(pointsToWin * 0.4);
-}
-
 /** A match's target and cap: its own when changed (e.g. cut to 15), else the tournament's. */
 export function rulesFor(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: Pick<TournamentMatch, 'pointsToWin' | 'maxPoints'>): { pointsToWin: number; maxPoints: number } {
   if (!m.pointsToWin) return { pointsToWin: t.pointsToWin, maxPoints: t.maxPoints };
   return { pointsToWin: m.pointsToWin, maxPoints: m.maxPoints ?? maxPointsFor(m.pointsToWin) };
 }
 
-export function scoresOf(log: string): { a: number; b: number } {
-  let a = 0;
-  for (const c of log) if (c === 'A') a += 1;
-  return { a, b: log.length - a };
+/** A tournament match as the rally stats see it, with its own target and cap. */
+export function rallyGameOf(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: TournamentMatch): RallyGame {
+  return { ...m, ...rulesFor(t, m) };
 }
 
-export interface GameState {
-  a: number;
-  b: number;
-  over: boolean;
-  winner: Side | null;
-  /** Sides one point from winning (both at 29–29 in a game capped at 30). */
-  gamePoint: Side[];
-  /** Level at pointsToWin − 1 or more (20–20 in a game to 21). */
-  deuce: boolean;
-  /** The last point took a side to the halfway mark (11) first: players change ends. */
-  changeEnds: boolean;
-}
-
-function isOver(a: number, b: number, pointsToWin: number, maxPoints: number): boolean {
-  const hi = Math.max(a, b);
-  return hi >= maxPoints || (hi >= pointsToWin && Math.abs(a - b) >= 2);
-}
-
-/** Where a game stands, from its scores (and the last point, for changing ends). */
-export function gameState(a: number, b: number, pointsToWin = 21, maxPoints = 30, last: Side | null = null): GameState {
-  const over = isOver(a, b, pointsToWin, maxPoints);
-  const gamePoint: Side[] = over ? [] : ([isOver(a + 1, b, pointsToWin, maxPoints) && 'A', isOver(a, b + 1, pointsToWin, maxPoints) && 'B'].filter(Boolean) as Side[]);
-  const mid = Math.ceil(pointsToWin / 2);
-  const [mine, theirs] = last === 'A' ? [a, b] : [b, a];
-  return {
-    a,
-    b,
-    over,
-    winner: over ? (a > b ? 'A' : 'B') : null,
-    gamePoint,
-    deuce: !over && a === b && a >= pointsToWin - 1,
-    changeEnds: last !== null && !over && mine === mid && theirs < mid,
-  };
-}
-
-/** Where a live-scored game stands, from its log. */
-export function rallyState(log: string, pointsToWin = 21, maxPoints = 30): GameState {
-  const { a, b } = scoresOf(log);
-  const last = log.length ? (log[log.length - 1] as Side) : null;
-  return gameState(a, b, pointsToWin, maxPoints, last);
-}
-
-/** The log after a point for `side`; unchanged once the game is over. */
-export function addPoint(log: string, side: Side, pointsToWin = 21, maxPoints = 30): string {
-  return rallyState(log, pointsToWin, maxPoints).over ? log : log + side;
-}
-
-export function undoPoint(log: string): string {
-  return log.slice(0, -1);
-}
-
-/** Whether typed-in scores are a game that could have finished that way (21–19, 24–22, 30–29…). */
-export function validFinalScore(a: number, b: number, pointsToWin = 21, maxPoints = 30): boolean {
-  if (![a, b].every((x) => Number.isInteger(x) && x >= 0)) return false;
-  const hi = Math.max(a, b);
-  const lo = Math.min(a, b);
-  if (hi === pointsToWin) return lo <= pointsToWin - 2;
-  if (hi > pointsToWin && hi < maxPoints) return hi - lo === 2;
-  if (hi === maxPoints) return lo >= maxPoints - 2;
-  return false;
+/** Point-by-point stats for every finished match, in schedule order. */
+export function tournamentRally(t: Tournament): RallySummary {
+  return rallySummary(tournamentMatches(t).map((m) => rallyGameOf(t, m)));
 }
 
 // ---------------------------------------------------------------- results

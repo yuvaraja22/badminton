@@ -1,22 +1,57 @@
-import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, LogIn, Pencil, Trophy, UserRound } from 'lucide-react';
+import { ChevronRight, LogIn, Pencil, UserRound } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
-import { allTimeStats, entryPath, playerProfile } from '../lib/engine/alltime';
-import type { RelationLine } from '../lib/engine/stats';
-import { isoDaysAgo, pct, shortDate, signed } from '../lib/format';
+import { allTimeStats, playerProfile } from '../lib/engine/alltime';
+import { isoDaysAgo, pct, signed } from '../lib/format';
 import { usingEmulators } from '../lib/firebase';
 import { levelName } from '../lib/levels';
+import { ClaimButton } from '../components/players/ClaimButton';
 import { PlayerHero } from '../components/players/PlayerHero';
 import { PlayerDialog } from '../components/players/PlayerDialog';
 import { ProfileDetails } from '../components/players/ProfileDetails';
+import { AchievementsCard, FormStrip, PartnerCards, SessionsList } from '../components/players/ProfileSections';
 import { NextSessionCard } from '../components/session/NextSessionCard';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
+import { Select } from '../components/ui/Field';
 import { Stat } from '../components/ui/Stat';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
+
+/** Signed in but not linked yet: pick your own profile and ask an admin to confirm. */
+function FindMe() {
+  const { user, claim } = useAuth();
+  const { players, playersById, nameOf } = useData();
+  const options = players.filter((p) => p.active);
+  const [choice, setChoice] = useState(claim?.playerId ?? options[0]?.id ?? '');
+  const picked = playersById.get(choice);
+  return (
+    <div className="space-y-4">
+      <Empty icon={<UserRound size={28} />} title="Your account isn't linked to a player yet">
+        Pick your name and tap <strong>This is me</strong>. Once an admin confirms, you can edit your profile, RSVP and see your stats here.
+      </Empty>
+      <Card>
+        <CardHeader title="Which player are you?" subtitle={`Signed in as ${user?.email}`} />
+        <div className="flex flex-wrap items-center gap-2 p-4">
+          <Select value={choice} onChange={(e) => setChoice(e.target.value)} className="min-w-48 flex-1" aria-label="Your name">
+            {options.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+          {picked && <ClaimButton player={picked} size="md" />}
+        </div>
+        {claim && (
+          <p className="px-4 pb-4 text-sm text-muted">
+            You asked to be linked to <strong>{nameOf(claim.playerId)}</strong>. An admin will confirm it soon.
+          </p>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 /** Personal dashboard for a signed-in player linked to a profile. */
 export default function MePage() {
@@ -42,19 +77,9 @@ export default function MePage() {
     );
   }
   const player = playerId ? playersById.get(playerId) : undefined;
-  if (!player) {
-    return (
-      <Empty icon={<UserRound size={28} />} title="Your account isn't linked to a player yet">
-        Ask an admin to add <strong>{user.email}</strong> to your profile (Players → your name → Edit → Linked Google account).
-      </Empty>
-    );
-  }
+  if (!player) return <FindMe />;
 
   const { line } = profile;
-  const pick = (rows: RelationLine[], best: boolean) =>
-    [...rows].filter((r) => r.played >= 3).sort((a, b) => (best ? b.winRate - a.winRate || b.diff - a.diff : a.winRate - b.winRate || a.diff - b.diff))[0];
-  const bestPartner = pick(profile.partners, true);
-  const toughest = pick(profile.opponents, false);
 
   return (
     <div className="space-y-4">
@@ -92,77 +117,10 @@ export default function MePage() {
       </div>
 
       <RatingHistoryCard playerId={player.id} title="Your skill rating" />
-
-      {profile.form.length > 0 && (
-        <Card>
-          <CardHeader title="Your last 10 games" subtitle="Oldest first, latest at the end" />
-          <div className="flex flex-wrap gap-1.5 p-4">
-            {[...profile.form].reverse().map((r, i) => (
-              <span
-                key={i}
-                className={clsx(
-                  'font-score inline-flex size-9 items-center justify-center rounded-xl text-lg font-black',
-                  r === 'W' ? 'bg-good text-good-bg' : 'border-2 border-bad/45 text-bad',
-                )}
-                aria-label={r === 'W' ? 'Win' : 'Loss'}
-              >
-                {r}
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {(bestPartner || toughest) && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {bestPartner && (
-            <Card className="p-4">
-              <div className="text-xs font-bold uppercase text-muted">Your best partner</div>
-              <Link to={pathOf(bestPartner.otherId)} className="mt-1 block text-lg font-bold hover:underline">
-                {nameOf(bestPartner.otherId)}
-              </Link>
-              <div className="text-sm text-muted">
-                {bestPartner.won}-{bestPartner.lost} together · {signed(bestPartner.diff)} pts
-              </div>
-            </Card>
-          )}
-          {toughest && (
-            <Card className="p-4">
-              <div className="text-xs font-bold uppercase text-muted">Your toughest opponent</div>
-              <Link to={pathOf(toughest.otherId)} className="mt-1 block text-lg font-bold hover:underline">
-                {nameOf(toughest.otherId)}
-              </Link>
-              <div className="text-sm text-muted">
-                {toughest.won}-{toughest.lost} against · {signed(toughest.diff)} pts
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {profile.sessions.length > 0 && (
-        <Card>
-          <CardHeader title="Your recent sessions and tournaments" />
-          <ul className="tabular divide-y divide-line pt-2 text-sm">
-            {profile.sessions.slice(0, 5).map((s) => (
-              <li key={s.id}>
-                <Link to={entryPath(s.id, s.kind)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
-                  <span className="w-24 shrink-0 text-muted">{shortDate(s.date)}</span>
-                  <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                  {s.kind === 'tournament' && <Badge tone="info">Tournament</Badge>}
-                  {s.mvp && <Trophy size={15} className="shrink-0 text-warn" aria-label="MVP" />}
-                  <span className="shrink-0 font-semibold">
-                    {s.won}-{s.lost}
-                  </span>
-                  <span className="w-14 shrink-0 text-right text-muted">
-                    #{s.rank}/{s.of}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+      <FormStrip form={profile.form} title="Your last 10 games" />
+      <AchievementsCard playerId={player.id} />
+      <PartnerCards partners={profile.partners} opponents={profile.opponents} you />
+      <SessionsList sessions={profile.sessions} title="Your recent sessions and tournaments" limit={5} />
 
       <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} mode={isAdmin ? 'admin' : 'self'} />
     </div>

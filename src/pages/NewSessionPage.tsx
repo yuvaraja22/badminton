@@ -5,14 +5,16 @@ import { Check, Info, Play, UserPlus } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { createPlayer, createSession, markPlannedStarted, updatePlayer } from '../lib/data/mutations';
 import { establishedLevel } from '../lib/engine/rating';
-import { defaultSessionTitle, oneDecimal, todayISO } from '../lib/format';
+import { rsvpLists } from '../lib/engine/rsvp';
+import { defaultSessionTitle, listJoin, oneDecimal, todayISO } from '../lib/format';
 import { levelName } from '../lib/levels';
 import type { PlannedSession, Player, PlayerId } from '../lib/types';
 import { AdminOnly } from '../components/AdminOnly';
 import { Avatar } from '../components/ui/Avatar';
+import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Notice, PageTitle, Spinner } from '../components/ui/Card';
-import { Field, Input, LevelStepper, Select } from '../components/ui/Field';
+import { Field, Input, LevelStepper, Select, Toggle } from '../components/ui/Field';
 
 const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
@@ -29,31 +31,30 @@ export default function NewSessionPage() {
 }
 
 function NewSessionForm({ event }: { event: PlannedSession | null }) {
-  const { players, config, liveSessions, ratings } = useData();
+  const { players, playersById, nameOf, config, liveSessions, ratings } = useData();
   const navigate = useNavigate();
-  const rsvpIn = event
-    ? Object.entries(event.rsvps)
-        .filter(([id, r]) => r.status === 'in' && players.some((p) => p.id === id && p.active))
-        .sort((a, b) => a[1].at - b[1].at)
-        .map(([id]) => id)
-    : [];
+  const lists = event ? rsvpLists(event, (id) => playersById.get(id)?.active === true) : null;
+  const rsvpIn = lists?.confirmed ?? [];
   const [date, setDate] = useState(event && event.date >= todayISO() ? event.date : todayISO());
   const [title, setTitle] = useState<string | null>(null);
   const [points, setPoints] = useState<number | null>(null);
   const [order, setOrder] = useState<PlayerId[]>(rsvpIn);
-  const [levels, setLevels] = useState<Record<PlayerId, number>>(() =>
-    Object.fromEntries(rsvpIn.map((id) => [id, players.find((p) => p.id === id)?.level ?? 3])),
-  );
+  const [levels, setLevels] = useState<Record<PlayerId, number>>(() => Object.fromEntries(rsvpIn.map((id) => [id, playersById.get(id)?.level ?? 3])));
   // Players whose level was changed here: balanced by that level today instead of their skill rating.
   const [overrides, setOverrides] = useState<Set<PlayerId>>(() => new Set());
   const [newName, setNewName] = useState('');
   const [newLevel, setNewLevel] = useState(3);
+  const [newGuest, setNewGuest] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const effectiveTitle = title ?? defaultSessionTitle(date, config.groupName);
   const pointsToWin = points ?? config.pointsToWin;
   const active = players.filter((p) => p.active);
+  // Guests are one-offs: listed after everyone else, and only once they exist.
+  const regulars = active.filter((p) => !p.guest);
+  const guests = active.filter((p) => p.guest);
   const n = order.length;
+  const rated = (id: PlayerId) => establishedLevel(ratings.get(id));
 
   const toggle = (id: PlayerId, level: number) => {
     if (order.includes(id)) {
@@ -85,7 +86,7 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       setError(`${name} already exists. Tick them in the list instead.`);
       return;
     }
-    const id = createPlayer({ name, level: newLevel });
+    const id = createPlayer({ name, level: newLevel, guest: newGuest });
     setOrder((o) => [...o, id]);
     setLevels((l) => ({ ...l, [id]: newLevel }));
     setNewName('');
@@ -93,10 +94,11 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
   };
 
   const start = () => {
-    // Levels chosen here become each player's default for next time.
+    // A level changed here becomes the default for next time, except for players with a skill rating:
+    // for them it only balances today's teams, so their profile level (where the rating starts) stays put.
     for (const pid of order) {
-      const p = players.find((x) => x.id === pid);
-      if (p && levels[pid] !== undefined && levels[pid] !== p.level) updatePlayer(pid, { level: levels[pid] });
+      const p = playersById.get(pid);
+      if (p && rated(pid) === null && levels[pid] !== undefined && levels[pid] !== p.level) updatePlayer(pid, { level: levels[pid] });
     }
     const id = createSession({
       date,
@@ -104,18 +106,71 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       pointsToWin,
       players: order.map((pid) => ({ id: pid, level: levels[pid] ?? 3, levelOverride: overrides.has(pid) })),
     });
-    if (event) markPlannedStarted(event.id, id);
+    if (event) markPlannedStarted(event, id);
     navigate(`/sessions/${id}`);
   };
 
   const cycle = n >= 4 ? n / gcd(n, 4) : 0;
+  const bringing = lists ? Object.entries(lists.guests).filter(([id]) => lists.confirmed.includes(id)) : [];
+
+  const row = (p: Player) => {
+    const on = order.includes(p.id);
+    const rating = rated(p.id);
+    return (
+      <li key={p.id} className="px-2 py-2">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => toggle(p.id, p.level)}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            aria-pressed={on}
+            aria-label={`${p.name}${on ? ', playing' : ''}`}
+          >
+            <span className={clsx('inline-flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition', on ? 'border-primary bg-primary text-primary-ink' : 'border-line')}>
+              {on && <Check size={15} strokeWidth={3} />}
+            </span>
+            <Avatar name={p.name} photo={p.photo} size={32} />
+            <span className="truncate font-semibold">{p.name}</span>
+            {p.guest && <Badge>Guest</Badge>}
+          </button>
+          {on ? (
+            <LevelStepper value={levels[p.id] ?? p.level} onChange={(v) => changeLevel(p.id, v)} label={`${p.name}'s level`} />
+          ) : (
+            <span className="text-right text-xs text-muted">{levelName(p.level)}</span>
+          )}
+        </div>
+        {on && rating !== null && (
+          <p className="mt-1 pl-20 text-xs text-muted">
+            {overrides.has(p.id) ? (
+              <>
+                Balanced by this level today only ·{' '}
+                <button type="button" onClick={() => backToRating(p)} className="font-semibold text-primary-text hover:underline">
+                  Use rating {oneDecimal(rating)}
+                </button>
+              </>
+            ) : (
+              `Balanced by rating ${oneDecimal(rating)}`
+            )}
+          </p>
+        )}
+      </li>
+    );
+  };
 
   return (
     <div className="space-y-4 pb-24">
       <PageTitle title="New session" subtitle="Tick who's here and check their levels. You can add late arrivals later." />
       {event && (
         <Notice tone="good">
-          From the planned session: {rsvpIn.length} {rsvpIn.length === 1 ? 'player said' : 'players said'} they're in and {rsvpIn.length === 1 ? 'is' : 'are'} ticked below. Add or untick anyone who turned up differently.
+          From the planned session: {rsvpIn.length} {rsvpIn.length === 1 ? 'player said' : 'players said'} they're in and {rsvpIn.length === 1 ? 'is' : 'are'} ticked below. Add or
+          untick anyone who turned up differently.
+          {lists && lists.waitlist.length > 0 && <> On the waitlist (not ticked): {listJoin(lists.waitlist.map(nameOf))}.</>}
+        </Notice>
+      )}
+      {bringing.length > 0 && (
+        <Notice>
+          Bringing guests: {listJoin(bringing.map(([id, g]) => `${nameOf(id)} +${g}`))}. Add them under <strong>Add a new player</strong> with <strong>Guest</strong> ticked, so they
+          stay off the leaderboards.
         </Notice>
       )}
       {liveSessions.length > 0 && <Notice tone="warn">“{liveSessions[0].title}” is still live. You can run two sessions, but you may want to end that one first.</Notice>}
@@ -143,58 +198,18 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
       <Card>
         <CardHeader
           title={`Who's playing · ${n} selected`}
-          subtitle="Levels run from Amateur Low to Professional High. Players with a skill rating (8+ games) are balanced by it unless you change their level here. Changed levels are remembered for next time."
+          subtitle="Levels run from Amateur Low to Professional High. Players with a skill rating (8+ games) are balanced by it; a level you change for them counts for today only. For newer players, a changed level is remembered for next time."
         />
         <ul className="divide-y divide-line px-2 pt-2 pb-1">
-          {active.map((p) => {
-            const on = order.includes(p.id);
-            const rated = establishedLevel(ratings.get(p.id));
-            return (
-              <li key={p.id} className="px-2 py-2">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => toggle(p.id, p.level)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                    aria-pressed={on}
-                    aria-label={`${p.name}${on ? ', playing' : ''}`}
-                  >
-                    <span
-                      className={clsx(
-                        'inline-flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition',
-                        on ? 'border-primary bg-primary text-primary-ink' : 'border-line',
-                      )}
-                    >
-                      {on && <Check size={15} strokeWidth={3} />}
-                    </span>
-                    <Avatar name={p.name} photo={p.photo} size={32} />
-                    <span className="truncate font-semibold">{p.name}</span>
-                  </button>
-                  {on ? (
-                    <LevelStepper value={levels[p.id] ?? p.level} onChange={(v) => changeLevel(p.id, v)} label={`${p.name}'s level`} />
-                  ) : (
-                    <span className="text-right text-xs text-muted">{levelName(p.level)}</span>
-                  )}
-                </div>
-                {on && rated !== null && (
-                  <p className="mt-1 pl-20 text-xs text-muted">
-                    {overrides.has(p.id) ? (
-                      <>
-                        Balanced by this level today ·{' '}
-                        <button type="button" onClick={() => backToRating(p)} className="font-semibold text-primary-text hover:underline">
-                          Use rating {oneDecimal(rated)}
-                        </button>
-                      </>
-                    ) : (
-                      `Balanced by rating ${oneDecimal(rated)}`
-                    )}
-                  </p>
-                )}
-              </li>
-            );
-          })}
+          {regulars.map(row)}
           {!active.length && <li className="px-2 py-4 text-sm text-muted">No players yet. Add them below.</li>}
         </ul>
+        {guests.length > 0 && (
+          <>
+            <h3 className="kicker px-4 pt-2">Guests</h3>
+            <ul className="divide-y divide-line px-2 pt-1 pb-1">{guests.map(row)}</ul>
+          </>
+        )}
         <div className="border-t border-line p-4">
           <div className="mb-1.5 text-sm font-medium">Add a new player</div>
           <div className="flex flex-wrap items-center gap-2">
@@ -210,7 +225,14 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
               <UserPlus size={16} /> Add
             </Button>
           </div>
-          {error && <Notice tone="bad" className="mt-2">{error}</Notice>}
+          <div className="mt-2">
+            <Toggle checked={newGuest} onChange={setNewGuest} label="Guest (a one-off: plays and shows in reports, but stays off the players list and leaderboards)" />
+          </div>
+          {error && (
+            <Notice tone="bad" className="mt-2">
+              {error}
+            </Notice>
+          )}
         </div>
       </Card>
 
@@ -218,8 +240,7 @@ function NewSessionForm({ event }: { event: PlannedSession | null }) {
         <div className="flex items-start gap-2 rounded-2xl bg-info-bg px-3.5 py-2.5 text-sm">
           <Info size={17} className="mt-px shrink-0" />
           <span>
-            With {n} players everyone has played the same number of games after every {cycle} matches (
-            {[1, 2, 3, 4].map((k) => k * cycle).join(', ')}…).
+            With {n} players everyone has played the same number of games after every {cycle} matches ({[1, 2, 3, 4].map((k) => k * cycle).join(', ')}…).
           </span>
         </div>
       )}

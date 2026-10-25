@@ -282,3 +282,18 @@ describe('roster changes re-plan the queue', () => {
     expect(plan.upcoming).toEqual([]);
   });
 });
+
+describe('planning only what is shown', () => {
+  it('gives the same next matches with or without looking ahead for the checkpoint', () => {
+    for (const n of [5, 7, 9, 11]) {
+      const attendees = Object.fromEntries(
+        Array.from({ length: n }, (_, i) => [`p${i}`, { level: 2 + (i % 4), status: 'available' as const, since: 0, catchUp: [], order: i }]),
+      );
+      const input = { sessionId: `s${n}`, attendees, matches: [], nextPick: null, shuffle: 0 };
+      const full = planQueue(input, 3);
+      const quick = planQueue(input, 3, { checkpoint: false });
+      expect(quick.upcoming).toEqual(full.upcoming);
+      expect(quick.checkpoint === null || quick.checkpoint.afterMatch <= 3).toBe(true);
+    }
+  });
+});

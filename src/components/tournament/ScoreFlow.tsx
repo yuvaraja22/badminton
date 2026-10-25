@@ -2,18 +2,17 @@ import { useId, useState, type PointerEvent } from 'react';
 import { longestRunOf, type MatchFlow } from '../../lib/engine/rally';
 import { cn } from '../../lib/cn';
 import { matchCode } from '../../lib/format';
-import { teamFill, teamName } from '../../lib/teamColors';
-import type { Tournament } from '../../lib/types';
+import type { SidePair } from '../../lib/teamColors';
 
 const W = 300;
 const H = 48;
 const MID = H / 2;
 
 /**
- * A finished match as a "worm": the lead after every point, above the line while Team A is ahead and
- * below while Team B is. Drag or hover to read the score at any point.
+ * A finished match as a "worm": the lead after every point, above the line while the first side is
+ * ahead and below while the other is. Drag or hover to read the score at any point.
  */
-export function ScoreFlow({ t, flow, large, paper }: { t: Tournament; flow: MatchFlow; large?: boolean; paper?: boolean }) {
+export function ScoreFlow({ sides, flow, large, paper }: { sides: SidePair; flow: MatchFlow; large?: boolean; paper?: boolean }) {
   // On the report's light "paper" the colours stay light-theme in dark mode too.
   const ink = paper ? '#0f1f1a' : 'var(--ink)';
   const id = useId();
@@ -43,7 +42,7 @@ export function ScoreFlow({ t, flow, large, paper }: { t: Tournament; flow: Matc
         preserveAspectRatio="none"
         className={cn('w-full touch-pan-y overflow-visible', large ? 'h-36' : 'h-12')}
         role="img"
-        aria-label={`${matchCode(m.order)} score flow: biggest leads ${teamName(t, 'a')} ${flow.maxLead.a.lead}, ${teamName(t, 'b')} ${flow.maxLead.b.lead}; ${flow.leadChanges} lead changes.`}
+        aria-label={`${matchCode(m.order)} score flow: biggest leads ${sides.a.name} ${flow.maxLead.a.lead}, ${sides.b.name} ${flow.maxLead.b.lead}; ${flow.leadChanges} lead changes.`}
         onPointerMove={move}
         onPointerDown={move}
         onPointerLeave={() => setAt(null)}
@@ -56,8 +55,8 @@ export function ScoreFlow({ t, flow, large, paper }: { t: Tournament; flow: Matc
             <rect x="0" y={MID} width={W} height={MID} />
           </clipPath>
         </defs>
-        <path d={area} fill={teamFill(t, 'a')} fillOpacity={0.85} clipPath={`url(#${id}a)`} />
-        <path d={area} fill={teamFill(t, 'b')} fillOpacity={0.85} clipPath={`url(#${id}b)`} />
+        <path d={area} fill={sides.a.fill} fillOpacity={0.85} clipPath={`url(#${id}a)`} />
+        <path d={area} fill={sides.b.fill} fillOpacity={0.85} clipPath={`url(#${id}b)`} />
         <path d={line} fill="none" stroke={ink} strokeOpacity={0.35} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         <line x1="0" x2={W} y1={MID} y2={MID} stroke={paper ? '#e0d9c8' : 'var(--line)'} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         {at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} stroke={ink} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />}

@@ -1,11 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Download, Link2, PenLine, Share2 } from 'lucide-react';
+import { useData } from '../../lib/data/context';
 import { updateTakeaways } from '../../lib/data/mutations';
 import { useSessionReport } from '../../lib/data/useSessionReport';
+import { sessionRallyGames, sortedMatches } from '../../lib/engine/games';
+import { rallySummary } from '../../lib/engine/rally';
+import { SESSION_SIDES } from '../../lib/teamColors';
 import { toast } from '../../lib/toast';
 import type { Session } from '../../lib/types';
 import { exportReportPdf, reportFileName } from '../report/exportPdf';
+import { RallyCard } from '../report/RallyCard';
 import { ReportView } from '../report/ReportView';
+import { ScoreFlow } from '../tournament/ScoreFlow';
 import { Button } from '../ui/Button';
 import { Notice } from '../ui/Card';
 import { Dialog } from '../ui/Dialog';
@@ -50,7 +56,19 @@ function TakeawaysForm({ session, auto, onDone }: { session: Session; auto: stri
 }
 
 export function ReportTab({ session, isAdmin }: { session: Session; isAdmin: boolean }) {
+  const { nameOf } = useData();
   const report = useSessionReport(session);
+  // Matches scored live point by point (if any): highlights, and each one's score flow in the log.
+  const rally = useMemo(() => rallySummary(sessionRallyGames(session)), [session]);
+  const byNumber = new Map(sortedMatches(session).map((m) => [m.number, m]));
+  const hrefOf = (n: number) => {
+    const m = byNumber.get(n);
+    return m ? `/sessions/${session.id}/matches/${m.id}` : null;
+  };
+  const flowOf = (n: number) => {
+    const f = rally.flows.find((x) => x.match.order === n);
+    return f ? <ScoreFlow sides={SESSION_SIDES} flow={f} paper /> : null;
+  };
   const takeaways = session.takeaways ?? report.autoTakeaways;
   const [busy, setBusy] = useState<'share' | 'download' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -59,7 +77,7 @@ export function ReportTab({ session, isAdmin }: { session: Session; isAdmin: boo
   const exportPdf = async (mode: 'share' | 'download') => {
     setBusy(mode);
     try {
-      const result = await exportReportPdf(report, takeaways, reportFileName(report, session.date), mode);
+      const result = await exportReportPdf(report, takeaways, reportFileName(report, session.date), mode, rally.flows.length ? { summary: rally, sides: SESSION_SIDES, nameOf } : null);
       if (result === 'downloaded') toast('PDF downloaded', 'success');
     } catch (e) {
       toast(`Couldn't create the PDF: ${(e as Error).message}`, 'error');
@@ -97,7 +115,15 @@ export function ReportTab({ session, isAdmin }: { session: Session; isAdmin: boo
         )}
       </div>
       {live && <Notice>Session in progress: this is the report so far. It updates as results come in.</Notice>}
-      <ReportView report={report} takeaways={takeaways} inProgress={live} />
+      <RallyCard
+        rally={rally}
+        sides={SESSION_SIDES}
+        nameOf={nameOf}
+        hrefOf={hrefOf}
+        subtitle="From matches scored live, point by point. Each one's score flow is in the match log below."
+        typedIn="count"
+      />
+      <ReportView report={report} takeaways={takeaways} inProgress={live} matchHref={hrefOf} logExtra={flowOf} />
       <TakeawaysDialog open={editOpen} onClose={() => setEditOpen(false)} session={session} auto={report.autoTakeaways} />
     </div>
   );

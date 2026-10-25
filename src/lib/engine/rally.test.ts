@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { tournament } from './fixtures/tournament';
 import { hasRallyLog, matchFlow, rallyHighlights, rallySummary } from './rally';
-import { tournamentReport } from './tournament';
+import { rallyGameOf, tournamentRally, tournamentReport } from './tournament';
+import { teamName } from '../teamColors';
+import type { Tournament } from '../types';
+
+const nameOf = (t: Tournament) => (k: 'a' | 'b') => teamName(t, k);
 
 const short = { pointsToWin: 5, maxPoints: 7 };
 const done = (log: string, extra = {}) => {
@@ -12,7 +16,7 @@ const done = (log: string, extra = {}) => {
 describe('point-by-point stats for one match', () => {
   it('finds the run, the comeback and the lead change', () => {
     const t = tournament([{ ...done('BBBAAAAA'), a: ['Vikram'], b: ['Yuva'], kind: 'singles' }]);
-    const f = matchFlow(t, t.matches.m1)!;
+    const f = matchFlow(rallyGameOf(t, t.matches.m1))!;
     expect(f.leads).toEqual([0, -1, -2, -3, -2, -1, 0, 1, 2]);
     expect(f.winner).toBe('a');
     expect(f.longestRun).toEqual({ team: 'a', length: 5, from: [0, 3], to: [5, 3] });
@@ -29,7 +33,7 @@ describe('point-by-point stats for one match', () => {
 
   it('counts game points saved and deuce', () => {
     const t = tournament([done('AAAABBBBAA')]);
-    const f = matchFlow(t, t.matches.m1)!;
+    const f = matchFlow(rallyGameOf(t, t.matches.m1))!;
     expect(f.saved).toEqual({ a: 0, b: 4 });
     expect(f.deuce).toBe(true);
     expect(f.comeback).toBeNull();
@@ -43,10 +47,11 @@ describe('point-by-point stats for one match', () => {
       { status: 'completed', scoreA: 21, scoreB: 16, log: 'A'.repeat(21) + 'B'.repeat(15) },
     ]);
     expect(Object.values(t.matches).map(hasRallyLog)).toEqual([false, false, false]);
-    const r = rallySummary(t);
+    const r = tournamentRally(t);
     expect(r.flows).toHaveLength(0);
     expect(r.typedIn.map((m) => m.order)).toEqual([1, 2, 3]);
-    expect(rallyHighlights(t, r, (id) => id)).toEqual([]);
+    expect(rallyHighlights(r, nameOf(t), (id) => id)).toEqual([]);
+    expect(rallySummary([]).flows).toEqual([]);
   });
 });
 
@@ -56,7 +61,7 @@ describe('tournament summary', () => {
     { ...done('AAAABBBBAA'), a: ['Vikram', 'Anu'], b: ['Yuva', 'Hardesh'] },
     { ...done('BBBBB'), a: ['Sridhar'], b: ['Shashwin'], kind: 'singles' },
   ]);
-  const r = rallySummary(t);
+  const r = tournamentRally(t);
 
   it('adds up each team', () => {
     expect(r.teams.a).toMatchObject({ points: 5 + 6 + 0, longestRun: 5, biggestLead: 4, gamePointsSaved: 0, comebackWins: 1 });
@@ -64,7 +69,7 @@ describe('tournament summary', () => {
   });
 
   it('words the highlights with team and player names', () => {
-    const h = rallyHighlights(t, r, (id) => id);
+    const h = rallyHighlights(r, nameOf(t), (id) => id);
     expect(h.find((x) => x.label === 'Longest run')).toEqual({
       label: 'Longest run',
       value: '5 points in a row',

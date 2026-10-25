@@ -11,3 +11,5 @@ firestore-debug.log
 ui-debug.log
 coverage
 .DS_Store
+scripts/backup/node_modules
+scripts/backup/out

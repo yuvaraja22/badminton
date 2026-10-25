@@ -1,5 +1,6 @@
 import { useId, useState, type PointerEvent } from 'react';
 import { longestRunOf, type MatchFlow } from '../../lib/engine/rally';
+import { cn } from '../../lib/cn';
 import { matchCode } from '../../lib/format';
 import { teamFill, teamName } from '../../lib/teamColors';
 import type { Tournament } from '../../lib/types';
@@ -12,7 +13,7 @@ const MID = H / 2;
  * A finished match as a "worm": the lead after every point, above the line while Team A is ahead and
  * below while Team B is. Drag or hover to read the score at any point.
  */
-export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
+export function ScoreFlow({ t, flow, large }: { t: Tournament; flow: MatchFlow; large?: boolean }) {
   const id = useId();
   const [at, setAt] = useState<number | null>(null);
   const { leads, match: m } = flow;
@@ -38,7 +39,7 @@ export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
-        className="h-12 w-full touch-pan-y overflow-visible"
+        className={cn('w-full touch-pan-y overflow-visible', large ? 'h-36' : 'h-12')}
         role="img"
         aria-label={`${matchCode(m.order)} score flow: biggest leads ${teamName(t, 'a')} ${flow.maxLead.a.lead}, ${teamName(t, 'b')} ${flow.maxLead.b.lead}; ${flow.leadChanges} lead changes.`}
         onPointerMove={move}
@@ -64,6 +65,8 @@ export function ScoreFlow({ t, flow }: { t: Tournament; flow: MatchFlow }) {
           <>
             After {at} point{at === 1 ? '' : 's'}: <strong className="text-ink">{scoreAt(at)}</strong>
           </>
+        ) : large ? (
+          'Touch or hover the chart to read the score at any point.'
         ) : (
           <>
             Longest run {longestRunOf(flow, 'a')} / {longestRunOf(flow, 'b')} · biggest lead {flow.maxLead.a.lead} / {flow.maxLead.b.lead} · {flow.leadChanges} lead change

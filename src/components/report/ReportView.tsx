@@ -1,8 +1,10 @@
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { oneDecimal, pct, pctRound, signed } from '../../lib/format';
 import type { SessionReport } from '../../lib/engine/report';
 import { CourtLines } from '../session/CourtView';
+import { MatchLinks } from './MatchLinks';
 
 /** The session report, laid out like the group's original PDF reports (always on light "paper"). */
 
@@ -54,7 +56,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
   );
 }
 
-function SummaryCard({ color, label, value, lines, highlight }: { color: string; label: string; value: string; lines: string[]; highlight?: boolean }) {
+function SummaryCard({ color, label, value, lines, highlight }: { color: string; label: string; value: string; lines: ReactNode[]; highlight?: boolean }) {
   return (
     <div
       className={clsx(
@@ -67,8 +69,8 @@ function SummaryCard({ color, label, value, lines, highlight }: { color: string;
         {label}
       </div>
       <div className="mt-1.5 text-lg leading-tight font-extrabold tracking-tight sm:text-2xl">{value}</div>
-      {lines.map((l) => (
-        <div key={l} className={clsx('mt-1 text-[11px] leading-snug sm:text-xs', highlight ? 'text-[#0f1f1a]/75' : 'text-[#5b6862]')}>
+      {lines.map((l, i) => (
+        <div key={i} className={clsx('mt-1 text-[11px] leading-snug sm:text-xs', highlight ? 'text-[#0f1f1a]/75' : 'text-[#5b6862]')}>
           {l}
         </div>
       ))}
@@ -76,19 +78,44 @@ function SummaryCard({ color, label, value, lines, highlight }: { color: string;
   );
 }
 
-function Takeaway({ text }: { text: string }) {
+function Takeaway({ text, matchHref }: { text: string; matchHref?: MatchHref }) {
   const i = text.indexOf(': ');
   if (i > 0 && i < 48) {
     return (
       <>
-        <strong>{text.slice(0, i + 1)}</strong> {text.slice(i + 2)}
+        <strong>{text.slice(0, i + 1)}</strong> <MatchLinks text={text.slice(i + 2)} hrefOf={matchHref} />
       </>
     );
   }
-  return <>{text}</>;
+  return <MatchLinks text={text} hrefOf={matchHref} />;
 }
 
-export function ReportView({ report, takeaways, inProgress }: { report: SessionReport; takeaways: string[]; inProgress?: boolean }) {
+/** Where match number n lives (a tournament's matches have their own pages), or null. */
+type MatchHref = (n: number) => string | null;
+
+function MatchCode({ code, n, matchHref }: { code: string; n: number; matchHref?: MatchHref }) {
+  const href = matchHref?.(n);
+  return href ? (
+    <Link to={href} className="underline decoration-1 underline-offset-2 hover:decoration-2">
+      {code}
+    </Link>
+  ) : (
+    <>{code}</>
+  );
+}
+
+export function ReportView({
+  report,
+  takeaways,
+  inProgress,
+  matchHref,
+}: {
+  report: SessionReport;
+  takeaways: string[];
+  inProgress?: boolean;
+  /** Links match codes (in the takeaways, tightest contest and log) to each match's page. */
+  matchHref?: MatchHref;
+}) {
   const { mvp, bestPair, tightest } = report;
   const totalLines = [`${report.totalPoints} total points scored`, `${report.playerCount} players`];
   if (report.unfinishedCount) {
@@ -132,7 +159,7 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
           color="#c2410c"
           label="Tightest contest"
           value={tightest?.score ?? '—'}
-          lines={tightest ? [tightest.line] : ['No results yet']}
+          lines={tightest ? [<MatchLinks key="t" text={tightest.line} hrefOf={matchHref} />] : ['No results yet']}
         />
       </div>
 
@@ -252,7 +279,7 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
           <ul className="list-disc space-y-2 pl-5 text-[13.5px] leading-relaxed marker:text-[#5b6862]">
             {takeaways.map((t, i) => (
               <li key={i}>
-                <Takeaway text={t} />
+                <Takeaway text={t} matchHref={matchHref} />
               </li>
             ))}
             {!takeaways.length && <li className="list-none text-[#5b6862]">Takeaways appear once a few matches are done.</li>}
@@ -267,7 +294,9 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
           return (
             <li key={r.number} className={clsx('px-3 py-2.5', !done && 'bg-[#f6f3ea]')}>
               <div className="flex items-center gap-3">
-                <span className="w-9 shrink-0 text-xs font-bold">{r.code}</span>
+                <span className="w-9 shrink-0 text-xs font-bold">
+                  <MatchCode code={r.code} n={r.number} matchHref={matchHref} />
+                </span>
                 <div className="min-w-0 flex-1 text-sm">
                   <div className={clsx('flex justify-between gap-2', r.winner === 'A' && 'font-bold')}>
                     <span className="truncate">{r.team1}</span>
@@ -307,7 +336,9 @@ export function ReportView({ report, takeaways, inProgress }: { report: SessionR
               const done = r.status === 'completed';
               return (
                 <tr key={r.number} className={clsx('border-t border-[#ece7d9]', !done && 'bg-[#f6f3ea]')}>
-                  <td className="px-3 py-3 font-bold">{r.code}</td>
+                  <td className="px-3 py-3 font-bold">
+                    <MatchCode code={r.code} n={r.number} matchHref={matchHref} />
+                  </td>
                   <td className={clsx('px-3 py-3', r.winner === 'A' && 'font-bold')}>{r.team1}</td>
                   <td className={clsx('tabular px-3 py-3 text-center font-bold whitespace-nowrap', !done && 'text-[#7b8781]')}>
                     {r.scoreA ?? '–'} : {r.scoreB ?? '–'}

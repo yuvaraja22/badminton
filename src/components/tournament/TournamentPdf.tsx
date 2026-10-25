@@ -1,5 +1,5 @@
 import { Document, Font, Line, Page, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer';
-import { matchFlow, rallyHighlights, rallySummary, type MatchFlow } from '../../lib/engine/rally';
+import { longestRunOf, matchFlow, rallyHighlights, rallySummary, type MatchFlow } from '../../lib/engine/rally';
 import { matchWinner, playerTeam, resultLine, rulesFor, teamScore, tournamentMatches, tournamentReport } from '../../lib/engine/tournament';
 import { formatTime, longDate, matchCode } from '../../lib/format';
 import { teamFill, teamName } from '../../lib/teamColors';
@@ -50,7 +50,7 @@ const s = StyleSheet.create({
   footer: { position: 'absolute', bottom: 18, left: 32, right: 32, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
 });
 
-const COL = { code: 32, time: 46, kind: 52, score: 42, flow: 84 };
+const COL = { code: 32, time: 46, kind: 52, score: 42 };
 
 /** A side's names: bold for the winners, grey for the losers. */
 function Side({ t, team, ids, nameOf, winner }: { t: Tournament; team: TeamKey; ids: PlayerId[]; nameOf: (id: PlayerId) => string; winner: TeamKey | null }) {
@@ -81,7 +81,8 @@ function Footer() {
   );
 }
 
-const WORM = { w: COL.flow - 8, h: 18 };
+// Under each finished match, beside its numbers: the row's inner width (515pt) less the code column and the text.
+const WORM = { w: 350, h: 28 };
 
 /** The lead after every point: Team A's colour above the line, Team B's below. */
 function Worm({ t, flow }: { t: Tournament; flow: MatchFlow }) {
@@ -208,23 +209,34 @@ export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: 
             <Text style={[s.thText, { flex: 1 }]}>{teamName(t, 'a')}</Text>
             <Text style={[s.thText, { flex: 1 }]}>{teamName(t, 'b')}</Text>
             <Text style={[s.thText, { width: COL.score, textAlign: 'right' }]}>Score</Text>
-            {anyFlow && <Text style={[s.thText, { width: COL.flow, textAlign: 'right' }]}>Score flow</Text>}
           </View>
           {matches.map((m) => {
             const w = matchWinner(m);
             const flow = flows.get(m.id);
             return (
-              <View key={m.id} style={s.tr} wrap={false}>
-                <Text style={{ width: COL.code, fontFamily: B }}>{matchCode(m.order)}</Text>
-                <Text style={{ width: COL.time }}>{m.time ? formatTime(m.time) : '–'}</Text>
-                <Text style={{ width: COL.kind, color: GREY }}>
-                  {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
-                  {rulesFor(t, m).pointsToWin !== t.pointsToWin ? ` · to ${rulesFor(t, m).pointsToWin}` : ''}
-                </Text>
-                <Side t={t} team="a" ids={m.a} nameOf={nameOf} winner={w} />
-                <Side t={t} team="b" ids={m.b} nameOf={nameOf} winner={w} />
-                <Result m={m} />
-                {anyFlow && <View style={{ width: COL.flow, alignItems: 'flex-end' }}>{flow && <Worm t={t} flow={flow} />}</View>}
+              <View key={m.id} style={[s.tr, { flexDirection: 'column', alignItems: 'stretch' }]} wrap={false}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ width: COL.code, fontFamily: B }}>{matchCode(m.order)}</Text>
+                  <Text style={{ width: COL.time }}>{m.time ? formatTime(m.time) : '–'}</Text>
+                  <Text style={{ width: COL.kind, color: GREY }}>
+                    {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
+                    {rulesFor(t, m).pointsToWin !== t.pointsToWin ? ` · to ${rulesFor(t, m).pointsToWin}` : ''}
+                  </Text>
+                  <Side t={t} team="a" ids={m.a} nameOf={nameOf} winner={w} />
+                  <Side t={t} team="b" ids={m.b} nameOf={nameOf} winner={w} />
+                  <Result m={m} />
+                </View>
+                {flow && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5, marginLeft: COL.code }}>
+                    <Worm t={t} flow={flow} />
+                    <Text style={{ flex: 1, marginLeft: 10, fontSize: 7, color: GREY, lineHeight: 1.4 }}>
+                      Longest run {longestRunOf(flow, 'a')} / {longestRunOf(flow, 'b')}
+                      {'\n'}Biggest lead {flow.maxLead.a.lead} / {flow.maxLead.b.lead}
+                      {'\n'}
+                      {flow.leadChanges} lead change{flow.leadChanges === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                )}
               </View>
             );
           })}
@@ -236,7 +248,8 @@ export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: 
         </View>
         {anyFlow && (
           <Text style={{ fontSize: 7, color: GREY, marginTop: 5 }}>
-            Score flow: the lead after every point, {teamName(t, 'a')}'s colour above the line and {teamName(t, 'b')}'s below. Winners in bold.
+            Score flow: the lead after every point, {teamName(t, 'a')}'s colour above the line and {teamName(t, 'b')}'s below. Runs and leads read{' '}
+            {teamName(t, 'a')} / {teamName(t, 'b')}. Winners in bold.
           </Text>
         )}
         <Footer />

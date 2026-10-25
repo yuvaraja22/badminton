@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { Trophy } from 'lucide-react';
 import { useData } from '../../lib/data/context';
 import { COMEBACK_MIN, rallyHighlights, rallySummary, type RallySummary } from '../../lib/engine/rally';
-import { resultLine, teamScore, tournamentReport } from '../../lib/engine/tournament';
+import { matchPath, resultLine, teamScore, tournamentReport } from '../../lib/engine/tournament';
 import { matchCode } from '../../lib/format';
 import { teamName } from '../../lib/teamColors';
 import type { Tournament } from '../../lib/types';
+import { MatchLinks } from '../report/MatchLinks';
 import { ReportView } from '../report/ReportView';
 import { Card, CardHeader } from '../ui/Card';
 import { Stat } from '../ui/Stat';
@@ -59,6 +60,7 @@ export function ResultsTab({ t }: { t: Tournament }) {
   const rally = useMemo(() => rallySummary(t), [t]);
   const highlights = useMemo(() => rallyHighlights(t, rally, nameOf), [t, rally, nameOf]);
   const report = useMemo(() => tournamentReport(t, nameOf), [t, nameOf]);
+  const hrefOf = (n: number) => matchPath(t, n);
 
   return (
     <div className="space-y-4">
@@ -83,7 +85,9 @@ export function ResultsTab({ t }: { t: Tournament }) {
               <div key={h.label} className="rounded-2xl border border-line bg-surface-2/50 px-3.5 py-3">
                 <div className="kicker">{h.label}</div>
                 <div className="mt-1 text-lg leading-tight font-extrabold tracking-tight">{h.value}</div>
-                <div className="mt-0.5 text-sm text-muted">{h.detail}</div>
+                <div className="mt-0.5 text-sm text-muted">
+                  <MatchLinks text={h.detail} hrefOf={hrefOf} />
+                </div>
               </div>
             ))}
           </div>
@@ -92,14 +96,14 @@ export function ResultsTab({ t }: { t: Tournament }) {
           </div>
           {rally.typedIn.length > 0 && (
             <p className="border-t border-line px-4 py-3 text-xs text-muted">
-              {rally.typedIn.map((m) => matchCode(m.order)).join(', ')} {rally.typedIn.length === 1 ? 'was' : 'were'} typed in, so{' '}
+              <MatchLinks text={rally.typedIn.map((m) => matchCode(m.order)).join(', ')} hrefOf={hrefOf} /> {rally.typedIn.length === 1 ? 'was' : 'were'} typed in, so{' '}
               {rally.typedIn.length === 1 ? "it isn't" : "they aren't"} in the point-by-point numbers.
             </p>
           )}
         </Card>
       )}
 
-      {s.played > 0 && <ReportView report={report} takeaways={report.autoTakeaways} inProgress={t.status !== 'completed'} />}
+      {s.played > 0 && <ReportView report={report} takeaways={report.autoTakeaways} inProgress={t.status !== 'completed'} matchHref={hrefOf} />}
     </div>
   );
 }

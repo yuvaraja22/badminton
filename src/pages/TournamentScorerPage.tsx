@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeftRight, ChevronLeft, Flag, Play, RotateCcw, Target, Undo2 } from 'lucide-react';
+import { Link, useParams } from 'react-router';
+import { ArrowLeftRight, ChevronLeft, Flag, Play, Target, Undo2 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth, useData } from '../lib/data/context';
-import { claimTournamentScorer, finishTournamentMatch, resumeTournamentMatch, scoreTournamentMatch, setMatchTarget, startTournamentMatch } from '../lib/data/mutations';
+import { claimTournamentScorer, finishTournamentMatch, scoreTournamentMatch, setMatchTarget, startTournamentMatch } from '../lib/data/mutations';
 import { useScorer } from '../lib/data/useScorer';
-import { addPoint, gameState, liveMatch, maxPointsFor, nextMatch, rallyState, rulesFor, undoPoint, type Side } from '../lib/engine/tournament';
+import { addPoint, gameState, liveMatch, maxPointsFor, rallyState, rulesFor, undoPoint, type Side } from '../lib/engine/tournament';
 import { formatTime, matchCode } from '../lib/format';
 import { teamFill, teamName } from '../lib/teamColors';
 import type { TeamKey, Tournament, TournamentMatch } from '../lib/types';
@@ -13,6 +13,7 @@ import { Badge, LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Empty, Notice, Spinner } from '../components/ui/Card';
 import { Dialog } from '../components/ui/Dialog';
+import { MatchSummary } from '../components/tournament/MatchSummary';
 import { TargetPicker } from '../components/tournament/TargetPicker';
 import { HalfCourtLines } from '../components/session/CourtView';
 
@@ -55,7 +56,6 @@ export default function TournamentScorerPage() {
   const { tournaments, nameOf } = useData();
   const { isAdmin } = useAuth();
   const me = useScorer();
-  const navigate = useNavigate();
   const [swapped, setSwapped] = useState(false);
   const [tookOver, setTookOver] = useState(false);
   const [targetOpen, setTargetOpen] = useState(false);
@@ -112,11 +112,13 @@ export default function TournamentScorerPage() {
     );
   }
 
+  // A finished match gets its summary page; the full-screen board is for scoring.
+  if (m.status === 'completed') return <MatchSummary t={t} m={m} />;
+
   const rules = rulesFor(t, m);
   const state = m.log ? rallyState(m.log, rules.pointsToWin, rules.maxPoints) : gameState(m.scoreA, m.scoreB, rules.pointsToWin, rules.maxPoints);
   const onCourt = liveMatch(t);
   const courtBusy = onCourt !== null && onCourt.id !== m.id;
-  const upNext = nextMatch(t);
   const winnerTeam: TeamKey | null = state.winner ? (state.winner === 'A' ? 'a' : 'b') : null;
 
   /** `at` is the tap's event time stamp (ms). */
@@ -177,12 +179,6 @@ export default function TournamentScorerPage() {
     );
   };
 
-  const startNext = () => {
-    if (!upNext || onCourt) return;
-    startTournamentMatch(t, upNext.id, me);
-    navigate(`/tournaments/${t.id}/matches/${upNext.id}`, { replace: true });
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <header className="flex items-center gap-2 px-2 py-2">
@@ -202,8 +198,6 @@ export default function TournamentScorerPage() {
           <Badge tone="live">
             <LiveDot /> Live
           </Badge>
-        ) : m.status === 'completed' ? (
-          <Badge tone="good">Final</Badge>
         ) : (
           <Badge>Not started</Badge>
         )}
@@ -249,7 +243,7 @@ export default function TournamentScorerPage() {
             )}
           </>
         )}
-        {isAdmin && m.status !== 'completed' && !state.over && (
+        {isAdmin && !state.over && (
           <Button variant="secondary" size="lg" onClick={() => setTargetOpen(true)} aria-label={`Game to ${rules.pointsToWin}. Change the target`}>
             <Target size={18} /> {rules.pointsToWin}
           </Button>
@@ -258,18 +252,6 @@ export default function TournamentScorerPage() {
           <Button size="lg" className="flex-1" disabled={courtBusy} onClick={() => startTournamentMatch(t, m.id, me)}>
             <Play size={18} /> {courtBusy ? `${matchCode(onCourt!.order)} is on court` : 'Start match'}
           </Button>
-        )}
-        {isAdmin && m.status === 'completed' && (
-          <>
-            {upNext && !onCourt && (
-              <Button size="lg" className="flex-1" onClick={startNext}>
-                <Play size={18} /> Start {matchCode(upNext.order)}
-              </Button>
-            )}
-            <Button variant="secondary" size="lg" disabled={courtBusy} onClick={() => resumeTournamentMatch(t, m.id, me)}>
-              <RotateCcw size={18} /> Reopen
-            </Button>
-          </>
         )}
         <Button variant="secondary" size="lg" onClick={() => setSwapped((s) => !s)} className={cn(!isAdmin && 'flex-1')} aria-label="Swap sides">
           <ArrowLeftRight size={18} /> {isAdmin ? '' : 'Swap sides'}

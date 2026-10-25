@@ -335,3 +335,9 @@ export function tournamentReport(t: Tournament, nameOf: (id: PlayerId) => string
     sides: [teamName(t, 'a'), teamName(t, 'b')],
   });
 }
+
+/** A match's own page (the live scorer while it's on court, its summary once finished), by schedule number. */
+export function matchPath(t: Pick<Tournament, 'id' | 'matches'>, order: number): string | null {
+  const m = Object.values(t.matches).find((x) => x.order === order);
+  return m ? `/tournaments/${t.id}/matches/${m.id}` : null;
+}

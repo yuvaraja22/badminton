@@ -35,9 +35,15 @@ export interface MatchFlow {
   /** Game points each team saved: the other side was one point from winning and lost the rally. */
   saved: Record<TeamKey, number>;
   deuce: boolean;
-  /** Who reached the halfway mark (11 in a game to 21) first. */
+  /** Who reached the halfway mark (11 in a game to 21) first, and the score then. */
   firstToHalf: TeamKey | null;
+  halfAt: Score | null;
+  /** Each team's runs of 3 or more points in a row. */
+  runs: Record<TeamKey, number>;
 }
+
+/** A run worth counting: this many points in a row or more. */
+export const RUN_MIN = 3;
 
 const key = (s: Side): TeamKey => (s === 'A' ? 'a' : 'b');
 const other = (k: TeamKey): TeamKey => (k === 'a' ? 'b' : 'a');
@@ -67,6 +73,8 @@ export function matchFlow(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: T
   let ties = 0;
   let deuce = false;
   let firstToHalf: TeamKey | null = null;
+  let halfAt: Score | null = null;
+  const runs = { a: 0, b: 0 };
 
   for (const c of m.log) {
     const side = c as Side;
@@ -80,6 +88,7 @@ export function matchFlow(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: T
 
     if (runTeam === won) runLength += 1;
     else [runTeam, runLength, runFrom] = [won, 1, won === 'a' ? [a - 1, b] : [a, b - 1]];
+    if (runLength === RUN_MIN) runs[won] += 1;
     if (!longestRun || runLength > longestRun.length) longestRun = { team: won, length: runLength, from: runFrom, to: score };
 
     const now: TeamKey | null = a > b ? 'a' : b > a ? 'b' : null;
@@ -90,7 +99,10 @@ export function matchFlow(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: T
       if (Math.abs(a - b) > maxLead[now].lead) maxLead[now] = { lead: Math.abs(a - b), at: score };
     }
     if (gameState(a, b, pointsToWin, maxPoints).deuce) deuce = true;
-    if (!firstToHalf && (a === half || b === half)) firstToHalf = a === half ? 'a' : 'b';
+    if (!firstToHalf && (a === half || b === half)) {
+      firstToHalf = a === half ? 'a' : 'b';
+      halfAt = score;
+    }
   }
 
   const winner: TeamKey | null = m.status === 'completed' && a !== b ? (a > b ? 'a' : 'b') : null;
@@ -107,6 +119,8 @@ export function matchFlow(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: T
     saved,
     deuce,
     firstToHalf,
+    halfAt,
+    runs,
   };
 }
 

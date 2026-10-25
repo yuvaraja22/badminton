@@ -22,6 +22,8 @@ describe('point-by-point stats for one match', () => {
     expect(f.leadChanges).toBe(1);
     expect(f.ties).toBe(1);
     expect(f.firstToHalf).toBe('b');
+    expect(f.halfAt).toEqual([0, 3]);
+    expect(f.runs).toEqual({ a: 1, b: 1 });
     expect(f.deuce).toBe(false);
   });
 

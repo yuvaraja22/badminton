@@ -40,7 +40,7 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
 - **Next up.** Admins plan the next session or tournament (or start one now); players tap **I'm in** or **Can't make
   it**. Starting a session pre-ticks everyone who said they're in; a tournament lists them first when picking teams.
 - **Phone-first.** Installable as an app, and keeps working without signal at the court (changes sync later).
-  Light and dark themes (Claude-style warm dark), following the phone or picked from the header.
+  Light and dark themes (Claude-style warm dark), following the device or picked from the header.
 - **Home and leaderboard** show the last 30 days, with all-time one tap away. Admins tap a player's photo to change it.
 
 ## Run it locally (no Firebase account needed)

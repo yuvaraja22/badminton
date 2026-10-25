@@ -93,7 +93,7 @@ function ThemeMenu() {
       label="Theme"
       trigger={<Icon size={19} />}
       items={[
-        { label: 'Match phone', icon: <Monitor size={16} />, checked: pref === 'system', onClick: () => setPref('system') },
+        { label: 'Match device', icon: <Monitor size={16} />, checked: pref === 'system', onClick: () => setPref('system') },
         { label: 'Light', icon: <Sun size={16} />, checked: pref === 'light', onClick: () => setPref('light') },
         { label: 'Dark', icon: <Moon size={16} />, checked: pref === 'dark', onClick: () => setPref('dark') },
       ]}

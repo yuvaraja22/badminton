@@ -49,9 +49,10 @@ const s = StyleSheet.create({
 
 const COL = { code: 34, time: 50, kind: 64, score: 54 };
 
-function Side({ t, team, ids, nameOf, winner }: { t: Tournament; team: TeamKey; ids: PlayerId[]; nameOf: (id: PlayerId) => string; winner: boolean }) {
+/** A side's names with a team-colour dot. `stacked` when it sits under the other side (not in a table column). */
+function Side({ t, team, ids, nameOf, winner, stacked }: { t: Tournament; team: TeamKey; ids: PlayerId[]; nameOf: (id: PlayerId) => string; winner: boolean; stacked?: boolean }) {
   return (
-    <View style={[s.side, { flex: 1 }]}>
+    <View style={[s.side, stacked ? {} : { flex: 1 }]}>
       <View style={[s.dot, { backgroundColor: teamFill(t, team) }]} />
       <Text style={winner ? { fontFamily: B } : undefined}>{ids.map(nameOf).join(' & ') || '–'}</Text>
     </View>
@@ -160,8 +161,8 @@ function RallyPage({ t, nameOf }: { t: Tournament; nameOf: (id: PlayerId) => str
           <View key={f.match.id} style={[s.tr, i === 0 ? { borderTopWidth: 0 } : {}]} wrap={false}>
             <Text style={{ width: COL.code, fontFamily: B }}>{matchCode(f.match.order)}</Text>
             <View style={{ flex: 1, paddingRight: 8 }}>
-              <Side t={t} team="a" ids={f.match.a} nameOf={nameOf} winner={f.winner === 'a'} />
-              <Side t={t} team="b" ids={f.match.b} nameOf={nameOf} winner={f.winner === 'b'} />
+              <Side t={t} team="a" ids={f.match.a} nameOf={nameOf} winner={f.winner === 'a'} stacked />
+              <Side t={t} team="b" ids={f.match.b} nameOf={nameOf} winner={f.winner === 'b'} stacked />
               <Text style={{ fontSize: 7, color: GREY, marginTop: 2 }}>
                 {f.match.scoreA}–{f.match.scoreB} · run {longestRunOf(f, 'a')} / {longestRunOf(f, 'b')} · lead {f.maxLead.a.lead} / {f.maxLead.b.lead} ·{' '}
                 {f.leadChanges} lead change{f.leadChanges === 1 ? '' : 's'}

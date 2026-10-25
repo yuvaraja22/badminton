@@ -1,4 +1,7 @@
-import type { GameRecord, HistorySession, Match, PlayerId, Session, Team } from '../types';
+import type { GameRecord, HistorySession, Match, PlayerId, Session } from '../types';
+
+/** Anything with two sides of players: a game, a match, a lineup (singles sides have one player). */
+type Sides = { teamA: readonly PlayerId[]; teamB: readonly PlayerId[] };
 
 export type Side = 'A' | 'B';
 
@@ -24,17 +27,17 @@ export function totalPoints(g: GameRecord): number {
   return (g.scoreA ?? 0) + (g.scoreB ?? 0);
 }
 
-export function playersOf(g: { teamA: Team; teamB: Team }): PlayerId[] {
+export function playersOf(g: Sides): PlayerId[] {
   return [...g.teamA, ...g.teamB];
 }
 
-export function sideOf(g: { teamA: Team; teamB: Team }, pid: PlayerId): Side | null {
+export function sideOf(g: Sides, pid: PlayerId): Side | null {
   if (g.teamA.includes(pid)) return 'A';
   if (g.teamB.includes(pid)) return 'B';
   return null;
 }
 
-export function teamOf(g: { teamA: Team; teamB: Team }, side: Side): Team {
+export function teamOf(g: Sides, side: Side): readonly PlayerId[] {
   return side === 'A' ? g.teamA : g.teamB;
 }
 
@@ -42,11 +45,11 @@ export function otherSide(side: Side): Side {
   return side === 'A' ? 'B' : 'A';
 }
 
-export function partnerOf(g: { teamA: Team; teamB: Team }, pid: PlayerId): PlayerId | null {
+/** The player's partner in a doubles game; null in singles. */
+export function partnerOf(g: Sides, pid: PlayerId): PlayerId | null {
   const side = sideOf(g, pid);
   if (!side) return null;
-  const team = teamOf(g, side);
-  return team[0] === pid ? team[1] : team[0];
+  return teamOf(g, side).find((p) => p !== pid) ?? null;
 }
 
 /** [points for, points against] from a player's (or side's) perspective. */
@@ -90,6 +93,7 @@ export function historyGames(sessionId: string, h: HistorySession): GameRecord[]
       scoreA: m.sa,
       scoreB: m.sb,
       status: m.u ? 'unfinished' : 'completed',
+      ...(m.p ? { pointsToWin: m.p } : {}),
     }));
 }
 

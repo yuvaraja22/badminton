@@ -1,5 +1,5 @@
 import { teamName } from '../teamColors';
-import type { MatchKind, PlayerId, TeamKey, Tournament, TournamentMatch } from '../types';
+import type { HistorySession, MatchKind, PlayerId, TeamKey, Tournament, TournamentMatch } from '../types';
 
 /**
  * Team tournaments: two teams, matches set up by hand (doubles and singles), each one game to 21,
@@ -26,6 +26,20 @@ export function nextMatch(t: Pick<Tournament, 'matches'>): TournamentMatch | nul
 }
 
 // ---------------------------------------------------------------- scoring
+
+/**
+ * The cap for a game to `pointsToWin`, won by 2: the target plus 40%, rounded up. That gives the
+ * official 21 → 30 and 15 → 21, and 11 → 16, 10 → 14 for quicker games.
+ */
+export function maxPointsFor(pointsToWin: number): number {
+  return pointsToWin + Math.ceil(pointsToWin * 0.4);
+}
+
+/** A match's target and cap: its own when changed (e.g. cut to 15), else the tournament's. */
+export function rulesFor(t: Pick<Tournament, 'pointsToWin' | 'maxPoints'>, m: Pick<TournamentMatch, 'pointsToWin' | 'maxPoints'>): { pointsToWin: number; maxPoints: number } {
+  if (!m.pointsToWin) return { pointsToWin: t.pointsToWin, maxPoints: t.maxPoints };
+  return { pointsToWin: m.pointsToWin, maxPoints: m.maxPoints ?? maxPointsFor(m.pointsToWin) };
+}
 
 export function scoresOf(log: string): { a: number; b: number } {
   let a = 0;
@@ -259,3 +273,33 @@ export function nextTime(t: Pick<Tournament, 'matches' | 'schedule'>): string | 
   if (last?.time) return addMinutes(last.time, t.schedule.minutes);
   return t.schedule.start;
 }
+
+// ---------------------------------------------------------------- stats
+
+/**
+ * A finished tournament in the same compact form as a session in meta/history, so its matches count
+ * in the leaderboard, profiles, partnerships and ratings exactly like session matches (singles too).
+ * Null until the tournament is finished or when nothing was played.
+ */
+export function tournamentHistory(t: Tournament): HistorySession | null {
+  if (t.status !== 'completed') return null;
+  const played = tournamentMatches(t).filter((m) => m.status === 'completed' && m.scoreA !== m.scoreB);
+  if (!played.length) return null;
+  return {
+    kind: 'tournament',
+    date: t.date,
+    title: t.name,
+    pointsToWin: t.pointsToWin,
+    players: [...new Set(played.flatMap((m) => [...m.a, ...m.b]))],
+    levels: {},
+    m: played.map((m) => ({
+      n: m.order,
+      a: m.a,
+      b: m.b,
+      sa: m.scoreA,
+      sb: m.scoreB,
+      ...(m.pointsToWin && m.pointsToWin !== t.pointsToWin ? { p: m.pointsToWin } : {}),
+    })),
+  };
+}
+

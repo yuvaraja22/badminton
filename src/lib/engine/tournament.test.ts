@@ -7,13 +7,16 @@ import {
   checkMatch,
   fillTimes,
   gameState,
+  maxPointsFor,
   minutesBetween,
   nextTime,
   playerRecords,
   playerTeam,
   rallyState,
+  rulesFor,
   scoresOf,
   teamScore,
+  tournamentHistory,
   undoPoint,
   validFinalScore,
 } from './tournament';
@@ -47,6 +50,8 @@ function tournament(matches: Partial<TournamentMatch>[] = []): Tournament {
           scoreB: 0,
           log: '',
           scorer: null,
+          pointsToWin: null,
+          maxPoints: null,
           startedAt: null,
           completedAt: null,
           ...m,
@@ -186,3 +191,54 @@ describe('times', () => {
     expect(nextTime(tournament([{ time: '07:00' }, { time: '07:20' }]))).toBe('07:35');
   });
 });
+
+describe('other targets (a game cut to 15, or played to 10)', () => {
+  it('caps a game at its target plus 40%: 21 → 30, 15 → 21, 11 → 16, 10 → 14', () => {
+    expect([21, 15, 11, 10].map(maxPointsFor)).toEqual([30, 21, 16, 14]);
+  });
+
+  it("uses a match's own target when it has one", () => {
+    const t = tournament();
+    expect(rulesFor(t, { pointsToWin: null, maxPoints: null })).toEqual({ pointsToWin: 21, maxPoints: 30 });
+    expect(rulesFor(t, { pointsToWin: 15, maxPoints: null })).toEqual({ pointsToWin: 15, maxPoints: 21 });
+    expect(rulesFor(t, { pointsToWin: 10, maxPoints: 14 })).toEqual({ pointsToWin: 10, maxPoints: 14 });
+  });
+
+  it('ends a game to 10 at 10–8, goes to deuce at 9–9 and stops at the cap', () => {
+    expect(gameState(10, 8, 10, 14)).toMatchObject({ over: true, winner: 'A' });
+    expect(gameState(10, 9, 10, 14)).toMatchObject({ over: false, gamePoint: ['A'] });
+    expect(gameState(9, 9, 10, 14)).toMatchObject({ deuce: true });
+    expect(gameState(14, 13, 10, 14)).toMatchObject({ over: true, winner: 'A' });
+    expect(validFinalScore(15, 12, 15, 21)).toBe(true);
+    expect(validFinalScore(10, 4, 10, 14)).toBe(true);
+    expect(validFinalScore(15, 12)).toBe(false); // not a game to 21
+  });
+});
+
+describe('finished tournaments count in the stats', () => {
+  const t = {
+    ...tournament([
+      { kind: 'doubles', a: ['Vikram', 'Sridhar'], b: ['Yuva', 'Shashwin'], status: 'completed', scoreA: 21, scoreB: 17 },
+      { kind: 'singles', a: ['Anu'], b: ['Vino'], status: 'completed', scoreA: 12, scoreB: 15, pointsToWin: 15, maxPoints: 21 },
+      { kind: 'doubles', a: ['Sridhar', 'Anu'], b: ['Hardesh', 'Yuva'], status: 'live', scoreA: 4, scoreB: 2 },
+      { kind: 'singles', a: ['Vikram'], b: ['Hardesh'] },
+    ]),
+    status: 'completed' as const,
+  };
+
+  it('turns the finished matches into a history entry (singles and cut games included)', () => {
+    const h = tournamentHistory(t)!;
+    expect(h).toMatchObject({ kind: 'tournament', date: t.date, title: 'Cup', pointsToWin: 21 });
+    expect(h.m).toEqual([
+      { n: 1, a: ['Vikram', 'Sridhar'], b: ['Yuva', 'Shashwin'], sa: 21, sb: 17 },
+      { n: 2, a: ['Anu'], b: ['Vino'], sa: 12, sb: 15, p: 15 },
+    ]);
+    expect(h.players.sort()).toEqual(['Anu', 'Shashwin', 'Sridhar', 'Vikram', 'Vino', 'Yuva']);
+  });
+
+  it('counts nothing until the tournament is finished', () => {
+    expect(tournamentHistory({ ...t, status: 'live' })).toBeNull();
+    expect(tournamentHistory({ ...tournament(), status: 'completed' })).toBeNull();
+  });
+});
+

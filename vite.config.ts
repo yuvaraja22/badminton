@@ -40,6 +40,9 @@ export default defineConfig({
         id: '/',
         scope: '/',
         start_url: '/',
+        // Shared links (e.g. a tournament) open in the installed app where the browser supports it.
+        handle_links: 'preferred',
+        launch_handler: { client_mode: ['navigate-existing', 'auto'] },
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

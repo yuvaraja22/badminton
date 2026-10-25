@@ -175,13 +175,13 @@ function AdminsCard() {
 }
 
 function DataCard() {
-  const { history, players } = useData();
+  const { sessionHistory: history, players, tournaments } = useData();
   const [busy, setBusy] = useState(false);
   const bytes = new Blob([JSON.stringify(history)]).size;
   const usedPct = Math.round((bytes / (1024 * 1024)) * 100);
 
   const backup = () => {
-    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), players, history }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), players, history, tournaments: tournaments ?? [] }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

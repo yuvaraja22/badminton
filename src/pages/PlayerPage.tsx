@@ -5,6 +5,7 @@ import { ChevronLeft, Pencil, Share2, Trophy } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { playerProfile } from '../lib/engine/alltime';
 import { partnerOf, sideOf, teamOf, otherSide, winnerSide } from '../lib/engine/games';
+import { entryPath } from '../lib/engine/alltime';
 import type { RelationLine } from '../lib/engine/stats';
 import { oneDecimal, pct, pctRound, shortDate, signed } from '../lib/format';
 import { levelName } from '../lib/levels';
@@ -15,7 +16,6 @@ import { PlayerHero } from '../components/players/PlayerHero';
 import { Avatar } from '../components/ui/Avatar';
 import { ProfileDetails } from '../components/players/ProfileDetails';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
-import { PlayerTournaments } from '../components/tournament/PlayerTournaments';
 import { WinRateChart } from '../components/stats/WinRateChart';
 import { Badge, DiffPill } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -216,13 +216,14 @@ export default function PlayerPage() {
           </div>
 
           <Card>
-            <CardHeader title="Sessions" />
+            <CardHeader title={sessions.some((s) => s.kind === 'tournament') ? 'Sessions & tournaments' : 'Sessions'} />
             <ul className="tabular divide-y divide-line pt-2 text-sm">
               {sessions.map((s) => (
                 <li key={s.id}>
-                  <Link to={`/sessions/${s.id}?tab=report`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
+                  <Link to={entryPath(s.id, s.kind)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
                     <span className="w-24 shrink-0 text-muted">{shortDate(s.date)}</span>
                     <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                    {s.kind === 'tournament' && <Badge tone="info">Tournament</Badge>}
                     {s.mvp && <Trophy size={15} className="shrink-0 text-warn" aria-label="MVP" />}
                     <span className="shrink-0 font-semibold">
                       {s.won}-{s.lost}
@@ -243,7 +244,7 @@ export default function PlayerPage() {
                 const side = sideOf(g, player.id)!;
                 const won = winnerSide(g) === side;
                 const [f, a] = side === 'A' ? [g.scoreA, g.scoreB] : [g.scoreB, g.scoreA];
-                const partner = partnerOf(g, player.id)!;
+                const partner = partnerOf(g, player.id);
                 const opp = teamOf(g, otherSide(side));
                 return (
                   <li key={`${g.sessionId}-${g.number}`} className="flex items-center gap-3 px-4 py-2.5">
@@ -252,7 +253,13 @@ export default function PlayerPage() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">
-                        with <strong>{nameOf(partner)}</strong> vs {nameOf(opp[0])} &amp; {nameOf(opp[1])}
+                        {partner ? (
+                          <>
+                            with <strong>{nameOf(partner)}</strong> vs {opp.map(nameOf).join(' & ')}
+                          </>
+                        ) : (
+                          <>Singles vs {opp.map(nameOf).join(' & ')}</>
+                        )}
                       </span>
                       <span className="text-xs text-muted">
                         {shortDate(g.date)} · M{g.number}
@@ -268,7 +275,6 @@ export default function PlayerPage() {
           </Card>
         </>
       )}
-      <PlayerTournaments playerId={player.id} />
       <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} mode={isAdmin ? 'admin' : 'self'} />
     </div>
   );

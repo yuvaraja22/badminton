@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Swords, Trophy } from 'lucide-react';
 import { useData } from '../lib/data/context';
-import { allTimeStats } from '../lib/engine/alltime';
+import { allTimeStats, entryPath } from '../lib/engine/alltime';
 import { PROVISIONAL_GAMES, ratingStandings } from '../lib/engine/rating';
 import { isCounted, sideOf } from '../lib/engine/games';
 import { headToHead } from '../lib/engine/stats';
@@ -19,7 +19,7 @@ import { Segmented } from '../components/ui/Segmented';
 type Period = '30d' | 'all';
 
 function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
-  const { players, nameOf } = useData();
+  const { players, nameOf, history } = useData();
   const [p1, setP1] = useState(players[0]?.id ?? '');
   const [p2, setP2] = useState(players[1]?.id ?? '');
   const h = useMemo(() => (p1 && p2 && p1 !== p2 ? headToHead(games, p1, p2) : null), [games, p1, p2]);
@@ -78,7 +78,7 @@ function HeadToHead({ games }: { games: Parameters<typeof headToHead>[0] }) {
                     const [f, a] = s1 === 'A' ? [g.scoreA, g.scoreB] : [g.scoreB, g.scoreA];
                     return (
                       <li key={`${g.sessionId}-${g.number}`} className="flex items-center justify-between gap-2 py-2">
-                        <Link to={`/sessions/${g.sessionId}?tab=report`} className="text-muted hover:underline">
+                        <Link to={entryPath(g.sessionId, history[g.sessionId]?.kind ?? 'session')} className="text-muted hover:underline">
                           {shortDate(g.date)} · M{g.number}
                         </Link>
                         <span>

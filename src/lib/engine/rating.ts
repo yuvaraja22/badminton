@@ -1,6 +1,6 @@
 import { predictWin, rate, rating as newRating, type Rating } from 'openskill';
 import { MAX_LEVEL, MIN_LEVEL } from '../levels';
-import type { Attendee, HistorySession, Player, PlayerId, Team } from '../types';
+import type { Attendee, HistorySession, Player, PlayerId } from '../types';
 import { historyGames, isCounted, sortedHistory } from './games';
 
 /**
@@ -146,7 +146,7 @@ export function computeRatings(history: Record<string, HistorySession>, players:
     }
 
     for (const g of games) {
-      const team = (ids: Team) => ids.map((id) => tracks.get(id)!.r);
+      const team = (ids: readonly PlayerId[]) => ids.map((id) => tracks.get(id)!.r);
       const a = team(g.teamA);
       const b = team(g.teamB);
       const scoreA = g.scoreA!;
@@ -154,8 +154,8 @@ export function computeRatings(history: Record<string, HistorySession>, players:
       predictions.push({ sessionId, number: g.number, pA: predictWin([a, b])[0], aWon: scoreA > scoreB });
 
       const [na, nb] = rate([a, b], { score: [scoreA, scoreB] });
-      const w = marginWeight(scoreA, scoreB, h.pointsToWin);
-      const apply = (ids: Team, before: Rating[], after: Rating[]) =>
+      const w = marginWeight(scoreA, scoreB, g.pointsToWin ?? h.pointsToWin);
+      const apply = (ids: readonly PlayerId[], before: Rating[], after: Rating[]) =>
         ids.forEach((id, i) => {
           const t = tracks.get(id)!;
           t.r = { mu: before[i].mu + w * (after[i].mu - before[i].mu), sigma: after[i].sigma };
@@ -227,7 +227,7 @@ export function sessionSkills(
  * Chance that team A beats team B, from the same skills the planner balances by (see sessionSkills),
  * with each player's rating uncertainty (or the starting uncertainty if they have no rated games).
  */
-export function winChance(teamA: Team, teamB: Team, skills: Record<PlayerId, number>, ratings: Map<PlayerId, PlayerRating>): number {
+export function winChance(teamA: readonly PlayerId[], teamB: readonly PlayerId[], skills: Record<PlayerId, number>, ratings: Map<PlayerId, PlayerRating>): number {
   const player = (id: PlayerId): Rating => ({ mu: levelToMu(skills[id] ?? 3), sigma: ratings.get(id)?.sigma ?? SEED_SIGMA });
   return predictWin([teamA.map(player), teamB.map(player)])[0];
 }

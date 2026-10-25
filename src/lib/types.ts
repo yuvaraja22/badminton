@@ -109,15 +109,20 @@ export interface Session {
 /** Compact copy of a completed session, stored in meta/history so all-time stats cost one read. */
 export interface HistoryMatch {
   n: number;
-  a: Team;
-  b: Team;
+  /** Each side's players: two for doubles, one for singles (tournaments). */
+  a: PlayerId[];
+  b: PlayerId[];
   sa: number | null;
   sb: number | null;
   /** true when the match was stopped early. */
   u?: boolean;
+  /** Points to win this game, when it differs from the session's (e.g. a tournament match cut to 15). */
+  p?: number;
 }
 
 export interface HistorySession {
+  /** Absent for sessions; 'tournament' for a finished team tournament counted in the stats. */
+  kind?: 'tournament';
   date: string;
   title: string;
   pointsToWin: number;
@@ -142,11 +147,14 @@ export interface GameRecord {
   sessionId: string;
   date: string;
   number: number;
-  teamA: Team;
-  teamB: Team;
+  /** Two players for doubles, one for singles. */
+  teamA: PlayerId[];
+  teamB: PlayerId[];
   scoreA: number | null;
   scoreB: number | null;
   status: MatchStatus;
+  /** Points to win this game when it differs from its session's. */
+  pointsToWin?: number;
 }
 
 // ---------------------------------------------------------------- team tournaments
@@ -189,6 +197,9 @@ export interface TournamentMatch {
   log: string;
   /** Who scored it last and when: a soft lock so two phones don't score the same match. */
   scorer: (ScorerInfo & { at: number }) | null;
+  /** This game's target when it was changed (e.g. 15 or 10); null means the tournament's 21. */
+  pointsToWin: number | null;
+  maxPoints: number | null;
   startedAt: number | null;
   completedAt: number | null;
 }

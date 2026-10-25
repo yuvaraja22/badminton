@@ -1,5 +1,5 @@
 import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import { matchWinner, playerTeam, resultLine, teamScore, tournamentMatches } from '../../lib/engine/tournament';
+import { matchWinner, playerRecords, playerTeam, resultLine, rulesFor, teamScore, tournamentMatches } from '../../lib/engine/tournament';
 import { formatTime, longDate, matchCode } from '../../lib/format';
 import { teamFill, teamName } from '../../lib/teamColors';
 import type { PlayerId, TeamKey, Tournament, TournamentMatch } from '../../lib/types';
@@ -39,7 +39,7 @@ const s = StyleSheet.create({
   footer: { position: 'absolute', bottom: 18, left: 32, right: 32, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: GREY },
 });
 
-const COL = { code: 34, time: 50, kind: 46, score: 54 };
+const COL = { code: 34, time: 50, kind: 64, score: 54 };
 
 function Side({ t, team, ids, nameOf, winner }: { t: Tournament; team: TeamKey; ids: PlayerId[]; nameOf: (id: PlayerId) => string; winner: boolean }) {
   return (
@@ -116,7 +116,10 @@ export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: 
               <View key={m.id} style={s.tr} wrap={false}>
                 <Text style={{ width: COL.code, fontFamily: B }}>{matchCode(m.order)}</Text>
                 <Text style={{ width: COL.time }}>{m.time ? formatTime(m.time) : '–'}</Text>
-                <Text style={{ width: COL.kind, color: GREY }}>{m.kind === 'doubles' ? 'Doubles' : 'Singles'}</Text>
+                <Text style={{ width: COL.kind, color: GREY }}>
+                  {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
+                  {rulesFor(t, m).pointsToWin !== t.pointsToWin ? ` · to ${rulesFor(t, m).pointsToWin}` : ''}
+                </Text>
                 <Side t={t} team="a" ids={m.a} nameOf={nameOf} winner={w === 'a'} />
                 <Side t={t} team="b" ids={m.b} nameOf={nameOf} winner={w === 'b'} />
                 <Result m={m} />
@@ -129,6 +132,41 @@ export function TournamentDocument({ t, nameOf }: { t: Tournament; nameOf: (id: 
             </View>
           )}
         </View>
+
+        {score.played > 0 && (
+          <>
+            <Text style={s.section}>Players</Text>
+            <View style={s.table}>
+              <View style={s.th}>
+                <Text style={[s.thText, { flex: 1 }]}>Player</Text>
+                <Text style={[s.thText, { width: 60, textAlign: 'center' }]}>Played</Text>
+                <Text style={[s.thText, { width: 60, textAlign: 'center' }]}>W–L</Text>
+                <Text style={[s.thText, { width: 70, textAlign: 'center' }]}>Points</Text>
+                <Text style={[s.thText, { width: 50, textAlign: 'right' }]}>+/-</Text>
+              </View>
+              {playerRecords(t)
+                .filter((l) => l.played > 0)
+                .map((l) => (
+                  <View key={l.playerId} style={s.tr} wrap={false}>
+                    <View style={[s.side, { flex: 1 }]}>
+                      {l.team !== 'b' && <View style={[s.dot, { backgroundColor: teamFill(t, 'a') }]} />}
+                      {l.team !== 'a' && <View style={[s.dot, { backgroundColor: teamFill(t, 'b') }]} />}
+                      <Text style={{ fontFamily: B }}>{nameOf(l.playerId)}</Text>
+                      {l.team === 'both' && <Text style={{ color: GREY }}> (both teams)</Text>}
+                    </View>
+                    <Text style={{ width: 60, textAlign: 'center' }}>{l.played}</Text>
+                    <Text style={{ width: 60, textAlign: 'center', fontFamily: B }}>
+                      {l.won}–{l.lost}
+                    </Text>
+                    <Text style={{ width: 70, textAlign: 'center' }}>
+                      {l.pointsFor}–{l.pointsAgainst}
+                    </Text>
+                    <Text style={{ width: 50, textAlign: 'right' }}>{l.pointsFor - l.pointsAgainst > 0 ? `+${l.pointsFor - l.pointsAgainst}` : l.pointsFor - l.pointsAgainst}</Text>
+                  </View>
+                ))}
+            </View>
+          </>
+        )}
 
         <View style={s.footer} fixed>
           <Text>Badminton Stats · times are tentative</Text>

@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
-import { Check, UserPlus } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router';
+import { Check, Pencil, UserPlus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useData } from '../../lib/data/context';
-import { createPlayer, setTeamDetails, setTeamPlayers } from '../../lib/data/mutations';
-import { matchesFor, playerTeam } from '../../lib/engine/tournament';
-import { listJoin, matchCode } from '../../lib/format';
+import { createPlayer, saveTeams } from '../../lib/data/mutations';
+import { playerTeam, tournamentMatches } from '../../lib/engine/tournament';
+import { matchCode } from '../../lib/format';
 import { TEAM_COLOR_KEYS, TEAM_COLORS, confusablePair, teamFill, teamName } from '../../lib/teamColors';
 import { toast } from '../../lib/toast';
-import type { PlayerId, TeamKey, Tournament } from '../../lib/types';
+import type { PlayerId, TeamColor, TeamKey, Tournament, TournamentTeam } from '../../lib/types';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { Card, CardHeader, Notice } from '../ui/Card';
@@ -16,45 +16,35 @@ import { Field, Input } from '../ui/Field';
 import { TeamDot } from './TeamBits';
 
 type Spot = TeamKey | 'both' | 'out';
+type Draft = Record<TeamKey, TournamentTeam>;
+const KEYS: TeamKey[] = ['a', 'b'];
 
-function TeamSettings({ t, team }: { t: Tournament; team: TeamKey }) {
-  const [name, setName] = useState(t.teams[team].name ?? '');
+function TeamSettings({ preview, team, onName, onColor }: { preview: Tournament; team: TeamKey; onName: (v: string) => void; onColor: (c: TeamColor) => void }) {
   const other: TeamKey = team === 'a' ? 'b' : 'a';
-  const save = () => {
-    const value = name.trim() || null;
-    if (value !== t.teams[team].name) setTeamDetails(t.id, team, { name: value });
-  };
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 py-3 font-bold text-white" style={{ background: teamFill(t, team) }}>
-        {teamName(t, team)}
+      <div className="px-4 py-3 font-bold text-white" style={{ background: teamFill(preview, team) }}>
+        {teamName(preview, team)}
       </div>
       <div className="space-y-3 p-4">
         <Field label="Team name (optional)">
-          <Input
-            value={name}
-            maxLength={30}
-            placeholder={team === 'a' ? 'Team A' : 'Team B'}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => e.key === 'Enter' && save()}
-          />
+          <Input value={preview.teams[team].name ?? ''} maxLength={30} placeholder={team === 'a' ? 'Team A' : 'Team B'} onChange={(e) => onName(e.target.value)} />
         </Field>
         <div>
           <span className="mb-1.5 block text-sm font-medium">Colour</span>
           <div className="flex flex-wrap gap-2">
             {TEAM_COLOR_KEYS.map((c) => {
-              const on = t.teams[team].color === c;
-              const taken = t.teams[other].color === c;
+              const on = preview.teams[team].color === c;
+              const taken = preview.teams[other].color === c;
               return (
                 <button
                   key={c}
                   type="button"
                   disabled={taken}
                   aria-pressed={on}
-                  aria-label={`${TEAM_COLORS[c].label}${taken ? `, used by ${teamName(t, other)}` : ''}`}
+                  aria-label={`${TEAM_COLORS[c].label}${taken ? `, used by ${teamName(preview, other)}` : ''}`}
                   title={TEAM_COLORS[c].label}
-                  onClick={() => setTeamDetails(t.id, team, { color: c })}
+                  onClick={() => onColor(c)}
                   className={cn(
                     'inline-flex size-9 items-center justify-center rounded-full text-white ring-offset-2 ring-offset-surface transition disabled:opacity-20',
                     on && 'ring-2 ring-ink',
@@ -102,31 +92,36 @@ function SpotPicker({ t, value, onChange, name }: { t: Tournament; value: Spot; 
   );
 }
 
-function PlayersCard({ t }: { t: Tournament }) {
+/**
+ * Admin form: team names, colours and who plays for whom. Nothing is saved until Save teams (the first
+ * time) or Update teams, so it is clear when the teams are done.
+ */
+function TeamsForm({ t, first, onSaved, onCancel }: { t: Tournament; first: boolean; onSaved: () => void; onCancel: () => void }) {
   const { players, nameOf } = useData();
+  const [draft, setDraft] = useState<Draft>(() => ({ a: { ...t.teams.a }, b: { ...t.teams.b } }));
   const [newName, setNewName] = useState('');
-  const listed = new Set([...t.teams.a.players, ...t.teams.b.players]);
-  const rows = players.filter((p) => p.active || listed.has(p.id));
-  const both = t.teams.a.players.filter((id) => t.teams.b.players.includes(id)).length;
+  const [error, setError] = useState<string | null>(null);
+  const preview: Tournament = { ...t, teams: draft };
 
-  const assign = (id: PlayerId, spot: Spot) => {
-    const current = playerTeam(t, id) ?? 'out';
-    if (current === spot) return;
-    // Taking someone off a team they already play for would break those matches.
-    for (const team of ['a', 'b'] as const) {
-      const leaving = (current === team || current === 'both') && spot !== team && spot !== 'both';
-      const clash = leaving ? matchesFor(t, id, team) : [];
-      if (clash.length) {
-        toast(`${nameOf(id)} plays for ${teamName(t, team)} in ${listJoin(clash.map((m) => matchCode(m.order)))}. Change ${clash.length === 1 ? 'that match' : 'those matches'} first.`, 'error');
-        return;
-      }
-    }
-    const a = t.teams.a.players.filter((x) => x !== id);
-    const b = t.teams.b.players.filter((x) => x !== id);
-    if (spot === 'a' || spot === 'both') a.push(id);
-    if (spot === 'b' || spot === 'both') b.push(id);
-    setTeamPlayers(t.id, a, b);
+  const change = (team: TeamKey, patch: Partial<TournamentTeam>) => {
+    setError(null);
+    setDraft((d) => ({ ...d, [team]: { ...d[team], ...patch } }));
   };
+  const spotOf = (id: PlayerId): Spot => playerTeam(preview, id) ?? 'out';
+  const assign = (id: PlayerId, spot: Spot) => {
+    setError(null);
+    setDraft((d) => {
+      const a = d.a.players.filter((x) => x !== id);
+      const b = d.b.players.filter((x) => x !== id);
+      if (spot === 'a' || spot === 'both') a.push(id);
+      if (spot === 'b' || spot === 'both') b.push(id);
+      return { a: { ...d.a, players: a }, b: { ...d.b, players: b } };
+    });
+  };
+
+  const listed = new Set([...t.teams.a.players, ...t.teams.b.players, ...draft.a.players, ...draft.b.players]);
+  const rows = players.filter((p) => p.active || listed.has(p.id));
+  const both = draft.a.players.filter((id) => draft.b.players.includes(id)).length;
 
   const add = () => {
     const name = newName.trim();
@@ -136,32 +131,73 @@ function PlayersCard({ t }: { t: Tournament }) {
     setNewName('');
   };
 
+  const save = () => {
+    if (KEYS.some((k) => !draft[k].players.length)) return setError('Each team needs at least one player.');
+    // Someone already in matches for a team has to stay on it (or those matches change first).
+    for (const m of tournamentMatches(t)) {
+      for (const k of KEYS) {
+        const gone = m[k].find((id) => !draft[k].players.includes(id));
+        if (gone) return setError(`${nameOf(gone)} plays for ${teamName(t, k)} in ${matchCode(m.order)}. Keep them on the team, or change that match first.`);
+      }
+    }
+    saveTeams(t.id, {
+      a: { ...draft.a, name: draft.a.name?.trim() || null },
+      b: { ...draft.b, name: draft.b.name?.trim() || null },
+    });
+    toast(first ? 'Teams saved' : 'Teams updated', 'success');
+    onSaved();
+  };
+
   return (
-    <Card>
-      <CardHeader
-        title="Players"
-        subtitle={`${teamName(t, 'a')}: ${t.teams.a.players.length} · ${teamName(t, 'b')}: ${t.teams.b.players.length}${both ? ` (${both} on both)` : ''}. A player on Both can play for either team; each match says which.`}
-      />
-      <ul className="divide-y divide-line px-2 pt-2">
-        {rows.map((p) => (
-          <li key={p.id} className="flex items-center gap-3 px-2 py-2">
-            <Avatar name={p.name} photo={p.photo} size={32} />
-            <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-            <SpotPicker t={t} name={p.name} value={playerTeam(t, p.id) ?? 'out'} onChange={(s) => assign(p.id, s)} />
-          </li>
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {KEYS.map((k) => (
+          <TeamSettings key={k} preview={preview} team={k} onName={(v) => change(k, { name: v })} onColor={(c) => change(k, { color: c })} />
         ))}
-      </ul>
-      <div className="flex gap-2 border-t border-line p-4">
-        <Input value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="New player's name" aria-label="New player's name" />
-        <Button variant="secondary" onClick={add} disabled={!newName.trim()}>
-          <UserPlus size={16} /> Add
+      </div>
+      {confusablePair(draft.a.color, draft.b.color) && (
+        <Notice tone="warn">
+          {TEAM_COLORS[draft.a.color].label} and {TEAM_COLORS[draft.b.color].label.toLowerCase()} are hard to tell apart for colour-blind players. Blue and orange
+          work for everyone.
+        </Notice>
+      )}
+      <Card>
+        <CardHeader
+          title="Players"
+          subtitle={`${teamName(preview, 'a')}: ${draft.a.players.length} · ${teamName(preview, 'b')}: ${draft.b.players.length}${both ? ` (${both} on both)` : ''}. A player on Both can play for either team; each match says which.`}
+        />
+        <ul className="divide-y divide-line px-2 pt-2">
+          {rows.map((p) => (
+            <li key={p.id} className="flex items-center gap-3 px-2 py-2">
+              <Avatar name={p.name} photo={p.photo} size={32} />
+              <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
+              <SpotPicker t={preview} name={p.name} value={spotOf(p.id)} onChange={(s) => assign(p.id, s)} />
+            </li>
+          ))}
+        </ul>
+        <div className="flex gap-2 border-t border-line p-4">
+          <Input value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="New player's name" aria-label="New player's name" />
+          <Button variant="secondary" onClick={add} disabled={!newName.trim()}>
+            <UserPlus size={16} /> Add
+          </Button>
+        </div>
+      </Card>
+      {error && <Notice tone="bad">{error}</Notice>}
+      <div className="flex gap-2">
+        {!first && (
+          <Button variant="secondary" size="lg" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button size="lg" className="flex-1" onClick={save}>
+          <Check size={18} /> {first ? 'Save teams' : 'Update teams'}
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }
 
-/** Read-only team lists for everyone else. */
+/** Read-only team lists: what everyone sees, and admins between edits. */
 function TeamList({ t, team }: { t: Tournament; team: TeamKey }) {
   const { nameOf, playersById, pathOf } = useData();
   return (
@@ -186,27 +222,35 @@ function TeamList({ t, team }: { t: Tournament; team: TeamKey }) {
 }
 
 export function TeamsTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean }) {
-  if (!isAdmin) {
+  const [, setParams] = useSearchParams();
+  const first = !t.teams.a.players.length && !t.teams.b.players.length;
+  const [editing, setEditing] = useState(first);
+
+  if (isAdmin && editing) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TeamList t={t} team="a" />
-        <TeamList t={t} team="b" />
-      </div>
+      <TeamsForm
+        t={t}
+        first={first}
+        onCancel={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          // Next step after the first save: the matches.
+          if (first) setParams({ tab: 'schedule' }, { replace: true });
+        }}
+      />
     );
   }
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <TeamSettings t={t} team="a" />
-        <TeamSettings t={t} team="b" />
+        <TeamList t={t} team="a" />
+        <TeamList t={t} team="b" />
       </div>
-      {confusablePair(t.teams.a.color, t.teams.b.color) && (
-        <Notice tone="warn">
-          {TEAM_COLORS[t.teams.a.color].label} and {TEAM_COLORS[t.teams.b.color].label.toLowerCase()} are hard to tell apart for colour-blind players. Blue and
-          orange work for everyone.
-        </Notice>
+      {isAdmin && (
+        <Button variant="secondary" block onClick={() => setEditing(true)}>
+          <Pencil size={16} /> Edit teams
+        </Button>
       )}
-      <PlayersCard t={t} />
     </div>
   );
 }

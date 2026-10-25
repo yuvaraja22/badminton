@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { computeRatings } from '../engine/rating';
+import { tournamentHistory } from '../engine/tournament';
 import { db } from '../firebase';
 import { playerPath } from '../slug';
 import type { HistorySession, PlannedSession, Player, Session, Tournament } from '../types';
@@ -57,8 +58,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => unsubs.forEach((u) => u());
   }, []);
 
+  // Finished tournaments count like sessions: one history for every stat and the ratings.
+  const allHistory = useMemo(() => {
+    const out = { ...(history ?? {}) };
+    for (const t of tournaments ?? []) {
+      const h = tournamentHistory(t);
+      if (h) out[t.id] = h;
+    }
+    return out;
+  }, [history, tournaments]);
+
   // Replaying every game is cheap (well under a millisecond per session) but only redo it when the inputs change.
-  const ratings = useMemo(() => computeRatings(history ?? {}, players ?? []).ratings, [history, players]);
+  const ratings = useMemo(() => computeRatings(allHistory, players ?? []).ratings, [allHistory, players]);
 
   const value = useMemo<DataValue>(() => {
     const list = [...(players ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -69,7 +80,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       playersById: byId,
       nameOf: (id) => byId.get(id)?.name ?? 'Unknown',
       pathOf: (id) => paths.get(id) ?? `/players/${id}`,
-      history: history ?? {},
+      history: allHistory,
+      sessionHistory: history ?? {},
       ratings,
       config,
       liveSessions,
@@ -77,7 +89,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tournaments,
       ready: players !== null && history !== null,
     };
-  }, [players, history, ratings, config, liveSessions, planned, tournaments]);
+  }, [players, history, allHistory, ratings, config, liveSessions, planned, tournaments]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

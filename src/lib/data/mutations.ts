@@ -36,7 +36,7 @@ import type {
   TournamentTeam,
 } from '../types';
 import { sortedMatches } from '../engine/games';
-import { addMinutes, fillTimes, minutesBetween, scoresOf, tournamentMatches } from '../engine/tournament';
+import { addMinutes, fillTimes, maxPointsFor, minutesBetween, scoresOf, tournamentMatches } from '../engine/tournament';
 import { DEFAULT_TEAM_COLORS } from '../teamColors';
 import { sessionData, toHistory, toSession } from './convert';
 
@@ -444,13 +444,9 @@ export function deleteTournament(id: string) {
   run(deleteDoc(doc(tournamentsCol, id)), 'Deleting the tournament');
 }
 
-export function setTeamDetails(id: string, key: TeamKey, patch: Partial<Pick<TournamentTeam, 'name' | 'color'>>) {
-  saveTournament(id, under(`teams.${key}`, patch), 'Saving the team');
-}
-
-/** Both teams' player lists in one write (the common player is in both). */
-export function setTeamPlayers(id: string, a: PlayerId[], b: PlayerId[]) {
-  saveTournament(id, { 'teams.a.players': a, 'teams.b.players': b }, 'Saving the teams');
+/** Both teams (names, colours, players; the common player is in both lists) in one write. */
+export function saveTeams(id: string, teams: Record<TeamKey, TournamentTeam>) {
+  saveTournament(id, { teams }, 'Saving the teams');
 }
 
 export function addTournamentMatch(t: Tournament, input: { kind: MatchKind; a: PlayerId[]; b: PlayerId[]; time: string | null }): string {
@@ -464,6 +460,8 @@ export function addTournamentMatch(t: Tournament, input: { kind: MatchKind; a: P
     scoreB: 0,
     log: '',
     scorer: null,
+    pointsToWin: null,
+    maxPoints: null,
     startedAt: null,
     completedAt: null,
   };
@@ -554,13 +552,32 @@ export function resumeTournamentMatch(t: Tournament, matchId: string, scorer: Sc
   saveTournament(t.id, under(`matches.${matchId}`, { status: 'live', completedAt: null, log, scorer: { ...scorer, at: Date.now() } }), 'Reopening the match');
 }
 
-/** Type in a final score: a match scored on paper, or a correction. */
-export function setTournamentMatchScore(t: Tournament, matchId: string, scoreA: number, scoreB: number) {
+/** A match's target and cap fields: cleared (back to the tournament's 21) or e.g. 15 → 21, 10 → 14. */
+function targetFields(t: Tournament, pointsToWin: number): { pointsToWin: number | null; maxPoints: number | null } {
+  return pointsToWin === t.pointsToWin ? { pointsToWin: null, maxPoints: null } : { pointsToWin, maxPoints: maxPointsFor(pointsToWin) };
+}
+
+/** Play this match to a different target (e.g. cut to 15 or 10 when time is short). */
+export function setMatchTarget(t: Tournament, matchId: string, pointsToWin: number) {
+  saveTournament(t.id, under(`matches.${matchId}`, targetFields(t, pointsToWin)), 'Changing the target');
+}
+
+/** Type in a final score (a match scored on paper, or a correction), and the target it was played to. */
+export function setTournamentMatchScore(t: Tournament, matchId: string, scoreA: number, scoreB: number, pointsToWin = t.pointsToWin) {
   const now = Date.now();
   saveTournament(
     t.id,
     {
-      ...under(`matches.${matchId}`, { status: 'completed', scoreA, scoreB, log: '', scorer: null, startedAt: t.matches[matchId]?.startedAt ?? now, completedAt: now }),
+      ...under(`matches.${matchId}`, {
+        status: 'completed',
+        scoreA,
+        scoreB,
+        log: '',
+        scorer: null,
+        startedAt: t.matches[matchId]?.startedAt ?? now,
+        completedAt: now,
+        ...targetFields(t, pointsToWin),
+      }),
       ...(t.status === 'upcoming' ? { status: 'live' } : {}),
     },
     'Saving the score',

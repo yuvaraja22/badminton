@@ -58,6 +58,8 @@ function toTournamentMatch(id: string, d: DocumentData, order: number): Tourname
     scoreB: num(d.scoreB, 0),
     log: typeof d.log === 'string' ? d.log : '',
     scorer: typeof d.scorer?.name === 'string' ? { id: typeof d.scorer.id === 'string' ? d.scorer.id : '', name: d.scorer.name, at: num(d.scorer.at, 0) } : null,
+    pointsToWin: typeof d.pointsToWin === 'number' && d.pointsToWin > 0 ? d.pointsToWin : null,
+    maxPoints: typeof d.maxPoints === 'number' && d.maxPoints > 0 ? d.maxPoints : null,
     startedAt: typeof d.startedAt === 'number' ? d.startedAt : null,
     completedAt: typeof d.completedAt === 'number' ? d.completedAt : null,
   };
@@ -162,6 +164,7 @@ export function toHistoryMap(d: DocumentData | undefined): Record<string, Histor
   const out: Record<string, HistorySession> = {};
   for (const [id, h] of Object.entries((d?.sessions ?? {}) as Record<string, DocumentData>)) {
     out[id] = {
+      ...(h.kind === 'tournament' ? { kind: 'tournament' as const } : {}),
       date: String(h.date ?? ''),
       title: String(h.title ?? ''),
       pointsToWin: Number(h.pointsToWin ?? 21),

@@ -1,22 +1,50 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeftRight, ChevronLeft, Flag, Play, RotateCcw, Undo2 } from 'lucide-react';
+import { ArrowLeftRight, ChevronLeft, Flag, Play, RotateCcw, Target, Undo2 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth, useData } from '../lib/data/context';
-import { claimTournamentScorer, finishTournamentMatch, resumeTournamentMatch, scoreTournamentMatch, startTournamentMatch } from '../lib/data/mutations';
+import { claimTournamentScorer, finishTournamentMatch, resumeTournamentMatch, scoreTournamentMatch, setMatchTarget, startTournamentMatch } from '../lib/data/mutations';
 import { useScorer } from '../lib/data/useScorer';
-import { addPoint, gameState, liveMatch, nextMatch, rallyState, undoPoint, type Side } from '../lib/engine/tournament';
+import { addPoint, gameState, liveMatch, maxPointsFor, nextMatch, rallyState, rulesFor, undoPoint, type Side } from '../lib/engine/tournament';
 import { formatTime, matchCode } from '../lib/format';
 import { teamFill, teamName } from '../lib/teamColors';
-import type { TeamKey } from '../lib/types';
+import type { TeamKey, Tournament, TournamentMatch } from '../lib/types';
 import { Badge, LiveDot } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Empty, Spinner } from '../components/ui/Card';
+import { Empty, Notice, Spinner } from '../components/ui/Card';
+import { Dialog } from '../components/ui/Dialog';
+import { TargetPicker } from '../components/tournament/TargetPicker';
 import { HalfCourtLines } from '../components/session/CourtView';
 
 const sideOf = (team: TeamKey): Side => (team === 'a' ? 'A' : 'B');
 /** Someone else's last point within this long means they are still scoring. */
 const SCORER_FRESH_MS = 5 * 60_000;
+
+/** Play the match to a different target, e.g. 15 or 10 when time is short. */
+function TargetForm({ t, m, onDone }: { t: Tournament; m: TournamentMatch; onDone: () => void }) {
+  const [target, setTarget] = useState(rulesFor(t, m).pointsToWin);
+  const after = gameState(m.scoreA, m.scoreB, target, maxPointsFor(target));
+  const winner: TeamKey | null = after.winner ? (after.winner === 'A' ? 'a' : 'b') : null;
+  return (
+    <div className="space-y-4">
+      <TargetPicker value={target} onChange={setTarget} />
+      {m.status === 'live' && winner && (
+        <Notice tone="warn">
+          At {m.scoreA}–{m.scoreB} that ends the game: {teamName(t, winner)} win.
+        </Notice>
+      )}
+      <Button
+        block
+        onClick={() => {
+          setMatchTarget(t, m.id, target);
+          onDone();
+        }}
+      >
+        Play to {target}
+      </Button>
+    </div>
+  );
+}
 
 /**
  * Live scorer: tap a team's half to give them the point. Admins score; everyone else sees the same
@@ -30,6 +58,7 @@ export default function TournamentScorerPage() {
   const navigate = useNavigate();
   const [swapped, setSwapped] = useState(false);
   const [tookOver, setTookOver] = useState(false);
+  const [targetOpen, setTargetOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const lastTap = useRef(0);
 
@@ -83,7 +112,8 @@ export default function TournamentScorerPage() {
     );
   }
 
-  const state = m.log ? rallyState(m.log, t.pointsToWin, t.maxPoints) : gameState(m.scoreA, m.scoreB, t.pointsToWin, t.maxPoints);
+  const rules = rulesFor(t, m);
+  const state = m.log ? rallyState(m.log, rules.pointsToWin, rules.maxPoints) : gameState(m.scoreA, m.scoreB, rules.pointsToWin, rules.maxPoints);
   const onCourt = liveMatch(t);
   const courtBusy = onCourt !== null && onCourt.id !== m.id;
   const upNext = nextMatch(t);
@@ -95,7 +125,7 @@ export default function TournamentScorerPage() {
     if (at - lastTap.current < 350) return; // an accidental double tap
     lastTap.current = at;
     navigator.vibrate?.(12);
-    scoreTournamentMatch(t, m.id, addPoint(m.log, sideOf(team), t.pointsToWin, t.maxPoints), me);
+    scoreTournamentMatch(t, m.id, addPoint(m.log, sideOf(team), rules.pointsToWin, rules.maxPoints), me);
   };
 
   let status: string;
@@ -104,7 +134,7 @@ export default function TournamentScorerPage() {
   else if (state.gamePoint.length === 2) status = 'Golden point: the next point wins';
   else if (state.gamePoint.length === 1) status = `Game point · ${teamName(t, state.gamePoint[0] === 'A' ? 'a' : 'b')}`;
   else if (state.deuce) status = 'Deuce';
-  else status = `First to ${t.pointsToWin}, win by 2 (max ${t.maxPoints})`;
+  else status = `First to ${rules.pointsToWin}, win by 2 (max ${rules.maxPoints})`;
 
   const half = (team: TeamKey, first: boolean) => {
     const score = team === 'a' ? state.a : state.b;
@@ -219,6 +249,11 @@ export default function TournamentScorerPage() {
             )}
           </>
         )}
+        {isAdmin && m.status !== 'completed' && !state.over && (
+          <Button variant="secondary" size="lg" onClick={() => setTargetOpen(true)} aria-label={`Game to ${rules.pointsToWin}. Change the target`}>
+            <Target size={18} /> {rules.pointsToWin}
+          </Button>
+        )}
         {isAdmin && m.status === 'scheduled' && (
           <Button size="lg" className="flex-1" disabled={courtBusy} onClick={() => startTournamentMatch(t, m.id, me)}>
             <Play size={18} /> {courtBusy ? `${matchCode(onCourt!.order)} is on court` : 'Start match'}
@@ -240,6 +275,10 @@ export default function TournamentScorerPage() {
           <ArrowLeftRight size={18} /> {isAdmin ? '' : 'Swap sides'}
         </Button>
       </footer>
+
+      <Dialog open={targetOpen} onClose={() => setTargetOpen(false)} title="Game to">
+        {targetOpen && <TargetForm t={t} m={m} onDone={() => setTargetOpen(false)} />}
+      </Dialog>
     </div>
   );
 }

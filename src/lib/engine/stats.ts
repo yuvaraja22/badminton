@@ -117,6 +117,7 @@ export function computePartnerships(games: GameRecord[], nameOf: NameOf): PairLi
     const w = winnerSide(g);
     for (const side of ['A', 'B'] as const) {
       const team = teamOf(g, side);
+      if (team.length !== 2) continue; // singles have no partnership
       const key = pairKey(team[0], team[1]);
       let entry = tallies.get(key);
       if (!entry) {
@@ -158,7 +159,8 @@ export function partnersOf(games: GameRecord[], pid: PlayerId): RelationLine[] {
     if (!isCounted(g)) continue;
     const side = sideOf(g, pid);
     if (!side) continue;
-    const partner = partnerOf(g, pid)!;
+    const partner = partnerOf(g, pid);
+    if (!partner) continue; // singles
     const [pf, pa] = scoreFor(g, side);
     if (!map.has(partner)) map.set(partner, emptyTally());
     addResult(map.get(partner)!, winnerSide(g) === side, pf, pa);

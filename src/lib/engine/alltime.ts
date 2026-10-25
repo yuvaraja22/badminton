@@ -12,8 +12,17 @@ import {
   type RelationLine,
 } from './stats';
 
+/** A session, or a finished team tournament counted in the stats. */
+export type EntryKind = 'session' | 'tournament';
+
+/** Where an entry's results live: the session report or the tournament page. */
+export function entryPath(id: string, kind: EntryKind): string {
+  return kind === 'tournament' ? `/tournaments/${id}?tab=results` : `/sessions/${id}?tab=report`;
+}
+
 export interface SessionSummary {
   id: string;
+  kind: EntryKind;
   date: string;
   title: string;
   matchCount: number;
@@ -29,6 +38,7 @@ function summarizeSession(id: string, h: HistorySession, nameOf: NameOf): Sessio
   const top = standings[0];
   return {
     id,
+    kind: h.kind ?? 'session',
     date: h.date,
     title: h.title,
     matchCount: games.filter(isCounted).length,
@@ -88,6 +98,7 @@ export function allTimeStats(
 
 export interface PlayerSessionLine {
   id: string;
+  kind: EntryKind;
   date: string;
   title: string;
   won: number;
@@ -122,6 +133,7 @@ export function playerProfile(history: Record<string, HistorySession>, nameOf: N
     const l = summary.standings[idx];
     sessions.push({
       id,
+      kind: h.kind ?? 'session',
       date: h.date,
       title: h.title,
       won: l.won,

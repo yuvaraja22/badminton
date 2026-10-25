@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight, LogIn, Pencil, Trophy, UserRound } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
-import { allTimeStats, playerProfile } from '../lib/engine/alltime';
+import { allTimeStats, entryPath, playerProfile } from '../lib/engine/alltime';
 import type { RelationLine } from '../lib/engine/stats';
 import { isoDaysAgo, pct, shortDate, signed } from '../lib/format';
 import { usingEmulators } from '../lib/firebase';
@@ -17,7 +17,6 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, Empty, Spinner } from '../components/ui/Card';
 import { Stat } from '../components/ui/Stat';
 import { RatingHistoryCard } from '../components/stats/RatingChart';
-import { PlayerTournaments } from '../components/tournament/PlayerTournaments';
 
 /** Personal dashboard for a signed-in player linked to a profile. */
 export default function MePage() {
@@ -143,13 +142,14 @@ export default function MePage() {
 
       {profile.sessions.length > 0 && (
         <Card>
-          <CardHeader title="Your recent sessions" />
+          <CardHeader title="Your recent sessions and tournaments" />
           <ul className="tabular divide-y divide-line pt-2 text-sm">
             {profile.sessions.slice(0, 5).map((s) => (
               <li key={s.id}>
-                <Link to={`/sessions/${s.id}?tab=report`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
+                <Link to={entryPath(s.id, s.kind)} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2">
                   <span className="w-24 shrink-0 text-muted">{shortDate(s.date)}</span>
                   <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                  {s.kind === 'tournament' && <Badge tone="info">Tournament</Badge>}
                   {s.mvp && <Trophy size={15} className="shrink-0 text-warn" aria-label="MVP" />}
                   <span className="shrink-0 font-semibold">
                     {s.won}-{s.lost}
@@ -163,8 +163,6 @@ export default function MePage() {
           </ul>
         </Card>
       )}
-
-      <PlayerTournaments playerId={player.id} title="Your tournaments" />
 
       <PlayerDialog open={editing} onClose={() => setEditing(false)} player={player} mode={isAdmin ? 'admin' : 'self'} />
     </div>

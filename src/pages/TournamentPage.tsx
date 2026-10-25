@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { ChevronLeft, ChevronRight, CircleStop, Download, MoreVertical, Pencil, RotateCcw, Share2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleStop, Download, Link2, MoreVertical, Pencil, RotateCcw, Share2, Trash2 } from 'lucide-react';
 import { useAuth, useData } from '../lib/data/context';
 import { deleteTournament, updateTournament } from '../lib/data/mutations';
 import { liveMatch, resultLine, teamScore } from '../lib/engine/tournament';
 import { longDate, matchCode } from '../lib/format';
+import { shareLink } from '../lib/share';
 import { toast } from '../lib/toast';
 import type { Tournament } from '../lib/types';
 import { exportTournamentPdf } from '../components/tournament/exportTournamentPdf';
@@ -141,13 +142,24 @@ export default function TournamentPage() {
         </Link>
       )}
 
-      <div className="mb-4 flex gap-2">
-        <Button className="flex-1" onClick={() => exportPdf('share')} disabled={busy !== null}>
-          <Share2 size={16} /> {busy === 'share' ? 'Preparing…' : score.played ? 'Share results PDF' : 'Share schedule PDF'}
+      <div className="mb-4 space-y-2">
+        {/* The link opens this page in the app: the installed app on Android, the browser on iPhone. */}
+        <Button
+          block
+          onClick={() =>
+            shareLink({ title: t.name, text: `${t.name}: schedule, live scores and results`, url: `${window.location.origin}/tournaments/${t.id}` })
+          }
+        >
+          <Link2 size={16} /> Share link
         </Button>
-        <Button variant="secondary" onClick={() => exportPdf('download')} disabled={busy !== null} aria-label="Download PDF">
-          <Download size={16} /> {busy === 'download' ? 'Preparing…' : 'Download'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={() => exportPdf('share')} disabled={busy !== null}>
+            <Share2 size={16} /> {busy === 'share' ? 'Preparing…' : 'Share PDF'}
+          </Button>
+          <Button variant="secondary" className="flex-1" onClick={() => exportPdf('download')} disabled={busy !== null} aria-label={score.played ? 'Download results PDF' : 'Download schedule PDF'}>
+            <Download size={16} /> {busy === 'download' ? 'Preparing…' : 'Download'}
+          </Button>
+        </div>
       </div>
 
       <Segmented value={tab} onChange={(v) => setParams({ tab: v }, { replace: true })} options={tabs} className="mb-4" />

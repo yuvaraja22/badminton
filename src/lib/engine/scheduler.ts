@@ -386,11 +386,12 @@ export function planQueue(input: SchedulerInput, count = 4): QueuePlan {
 }
 
 /** Partner counts from recent sessions, used to vary pairs from week to week. */
-export function recentPartnerCounts(sessions: { m: { a: Team; b: Team }[] }[]): Record<string, number> {
+export function recentPartnerCounts(sessions: { m: { a: readonly PlayerId[]; b: readonly PlayerId[] }[] }[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const s of sessions) {
     for (const m of s.m) {
       for (const team of [m.a, m.b]) {
+        if (team.length !== 2) continue;
         const k = pairKey(team[0], team[1]);
         out[k] = (out[k] ?? 0) + 1;
       }

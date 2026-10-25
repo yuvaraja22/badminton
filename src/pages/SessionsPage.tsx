@@ -11,10 +11,10 @@ import { Select } from '../components/ui/Field';
 import { DateStub } from '../components/ui/DateStub';
 
 export default function SessionsPage() {
-  const { history, nameOf, liveSessions, players, ready } = useData();
+  const { sessionHistory, nameOf, liveSessions, players, ready } = useData();
   const { isAdmin } = useAuth();
   const [playerId, setPlayerId] = useState('');
-  const summaries = useMemo(() => summarizeHistory(history, nameOf), [history, nameOf]);
+  const summaries = useMemo(() => summarizeHistory(sessionHistory, nameOf), [sessionHistory, nameOf]);
 
   if (!ready) return <Spinner />;
 

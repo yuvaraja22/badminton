@@ -1,4 +1,4 @@
-import type { PlayerId, Team } from '../types';
+import type { PlayerId } from '../types';
 import type { NameOf } from './stats';
 
 /** Result description by winning margin, matching the wording of the original reports. */
@@ -14,8 +14,8 @@ export function marginLabel(winnerScore: number, loserScore: number, pointsToWin
 }
 
 /** Team names in the order they were recorded, e.g. "Sridhar & Hardesh". */
-export function teamNames(team: Team, nameOf: NameOf): string {
-  return `${nameOf(team[0])} & ${nameOf(team[1])}`;
+export function teamNames(team: readonly PlayerId[], nameOf: NameOf): string {
+  return team.map(nameOf).join(' & ');
 }
 
 /** Pair names in alphabetical order, e.g. "Anu & Vikram". */

@@ -22,12 +22,14 @@ Runs for free on **Vercel (Hobby)** with **Firebase Firestore + Auth (Spark plan
   (e.g. "Slight edge: Team 1 · 61% – 39%") for the match on court, up next and in the queue. The words follow the
   percentages: up to 57% is an even match, 70% or more means one team is stronger.
 - **Team tournaments.** Two teams (optional names, team colours), players on Team A, Team B or both (a common player
-  plays for whichever side each match says), and a hand-made schedule of doubles and singles with tentative times
-  (auto-filled from a start time, then editable). Share the schedule as a PDF before it starts and the results after.
-  The **live scorer** is full screen: tap a team's half for a point, **Undo**, swap sides; it calls game point, deuce
-  and change of ends, and everyone watching sees the score as it happens. One game to 21 per match (win by 2, max 30);
-  most matches won takes the tournament, total points break a tie. Results stay out of the session stats and ratings;
-  player profiles list their tournaments.
+  plays for whichever side each match says) — set up with **Save teams**, then **Edit teams** / **Update teams** — and a
+  hand-made schedule of doubles and singles with tentative times (auto-filled from a start time, then editable).
+  **Share link** opens the tournament in the app; the PDF is the schedule before it starts and the full results
+  (matches and players) after. The **live scorer** is full screen: tap a team's half for a point, **Undo**, swap sides;
+  it calls game point, deuce and change of ends, and everyone watching sees the score as it happens. Games are to 21
+  (win by 2, max 30); the scorer can switch a match to any target, e.g. 15 (max 21) or 10 (max 14). Most matches won
+  takes the tournament, total points break a tie. Once finished, its matches count in the stats exactly like
+  sessions — profiles, leaderboard, partnerships, ratings — singles included.
 - **Roles.** Anyone with the link can view. **Admins** (Google sign-in) run sessions and manage players.
 - **Player accounts.** An admin links a player to their Google email (player → Edit → Linked Google account). That
   player can then edit their own photo, name, bio and playing style, RSVP to the next session and see a personal **Me** tab.

@@ -21,10 +21,12 @@ import {
   checkMatch,
   liveMatch,
   matchWinner,
+  maxPointsFor,
   minutesBetween,
   nextTime,
   playerRecords,
   playerTeam,
+  rulesFor,
   sideSize,
   tournamentMatches,
   validFinalScore,
@@ -40,6 +42,7 @@ import { Dialog } from '../ui/Dialog';
 import { Field, Input, Select, Toggle } from '../ui/Field';
 import { Menu, type MenuItem } from '../ui/Menu';
 import { Segmented } from '../ui/Segmented';
+import { TargetPicker } from './TargetPicker';
 import { SideNames, TeamDot } from './TeamBits';
 
 const nextOrder = (t: Tournament) => Math.max(0, ...Object.values(t.matches).map((m) => m.order)) + 1;
@@ -235,10 +238,11 @@ function MatchTimeForm({ t, m, onDone }: { t: Tournament; m: TournamentMatch; on
 function ScoreForm({ t, m, onDone }: { t: Tournament; m: TournamentMatch; onDone: () => void }) {
   const [a, setA] = useState(m.status === 'scheduled' ? '' : String(m.scoreA));
   const [b, setB] = useState(m.status === 'scheduled' ? '' : String(m.scoreB));
+  const [target, setTarget] = useState(rulesFor(t, m).pointsToWin);
   const [na, nb] = [Number(a), Number(b)];
   const filled = a !== '' && b !== '' && [na, nb].every((x) => Number.isInteger(x) && x >= 0 && x <= 99);
   const tied = filled && na === nb;
-  const unusual = filled && !tied && !validFinalScore(na, nb, t.pointsToWin, t.maxPoints);
+  const unusual = filled && !tied && !validFinalScore(na, nb, target, maxPointsFor(target));
   const box = (team: TeamKey, value: string, set: (v: string) => void) => (
     <Field
       label={
@@ -256,17 +260,21 @@ function ScoreForm({ t, m, onDone }: { t: Tournament; m: TournamentMatch; onDone
         {box('a', a, setA)}
         {box('b', b, setB)}
       </div>
+      <div>
+        <span className="mb-1.5 block text-sm font-medium">Game to</span>
+        <TargetPicker value={target} onChange={setTarget} />
+      </div>
       {tied && <Notice tone="bad">A match needs a winner.</Notice>}
       {unusual && (
         <Notice tone="warn">
-          That isn't a finished game to {t.pointsToWin} (win by 2, max {t.maxPoints}). It will be saved as entered.
+          That isn't a finished game to {target} (win by 2, max {maxPointsFor(target)}). It will be saved as entered.
         </Notice>
       )}
       <Button
         block
         disabled={!filled || tied}
         onClick={() => {
-          setTournamentMatchScore(t, m.id, na, nb);
+          setTournamentMatchScore(t, m.id, na, nb, target);
           onDone();
         }}
       >
@@ -382,6 +390,7 @@ export function ScheduleTab({ t, isAdmin }: { t: Tournament; isAdmin: boolean })
                     <span className="font-score text-lg leading-none font-black tracking-wide">{matchCode(m.order)}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-muted">
                       {m.time ? formatTime(m.time) : 'No time'} · {m.kind === 'doubles' ? 'Doubles' : 'Singles'}
+                      {rulesFor(t, m).pointsToWin !== t.pointsToWin && ` · to ${rulesFor(t, m).pointsToWin}`}
                     </span>
                     {m.status === 'completed' && (
                       <span className="font-score tabular text-xl leading-none font-black">

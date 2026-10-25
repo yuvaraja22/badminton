@@ -9,8 +9,10 @@ export interface DataValue {
   nameOf: (id: PlayerId) => string;
   /** Profile URL, e.g. /players/vikram */
   pathOf: (id: PlayerId) => string;
-  /** Compact copies of all completed sessions (meta/history). */
+  /** Every completed session (meta/history) plus every finished tournament: what all stats are built from. */
   history: Record<string, HistorySession>;
+  /** Sessions only (meta/history): the Sessions list, the latest report, the planner's partner variety. */
+  sessionHistory: Record<string, HistorySession>;
   /** OpenSkill ratings replayed from the history. */
   ratings: RatingTable['ratings'];
   config: AppConfig;

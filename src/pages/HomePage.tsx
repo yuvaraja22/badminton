@@ -89,9 +89,10 @@ function StartCard() {
 }
 
 export default function HomePage() {
-  const { liveSessions, history, nameOf, ready, players, playersById, tournaments } = useData();
+  const { liveSessions, history, sessionHistory, nameOf, ready, players, playersById, tournaments } = useData();
   const { isAdmin } = useAuth();
-  const summaries = useMemo(() => summarizeHistory(history, nameOf), [history, nameOf]);
+  // The latest report is the latest session; the leaders include finished tournaments too.
+  const summaries = useMemo(() => summarizeHistory(sessionHistory, nameOf), [sessionHistory, nameOf]);
   // Home shows the last 30 days; all-time is one tap away on the leaderboard.
   const top = useMemo(
     () => allTimeStats(history, nameOf, { from: isoDaysAgo(30) }).standings.filter((l) => l.qualified).slice(0, 5),

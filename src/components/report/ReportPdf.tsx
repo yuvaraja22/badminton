@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Document, Font, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { SessionReport } from '../../lib/engine/report';
 import { oneDecimal, pct, pctRound, signed } from '../../lib/format';
@@ -203,8 +204,8 @@ export function ReportDocument({ report, takeaways }: { report: SessionReport; t
   );
 }
 
-/** The report's pages, also added to the end of a tournament's PDF. */
-export function ReportPages({ report, takeaways }: { report: SessionReport; takeaways: string[] }) {
+/** The report's pages, also the second half of a tournament's PDF (which adds each match's score flow to the log). */
+export function ReportPages({ report, takeaways, logExtra }: { report: SessionReport; takeaways: string[]; logExtra?: (n: number) => ReactNode }) {
   const { mvp, bestPair, tightest } = report;
   const totalLines = [`${report.totalPoints} total points scored`, `${report.playerCount} players`];
   if (report.unfinishedCount) totalLines.push(`(+${report.unfinishedCount} match${report.unfinishedCount === 1 ? '' : 'es'} left unfinished)`);
@@ -254,19 +255,23 @@ export function ReportPages({ report, takeaways }: { report: SessionReport; take
           </View>
           {report.log.map((r) => {
             const done = r.status === 'completed';
+            const extra = logExtra?.(r.number);
             return (
-              <View key={r.number} style={[s.tr, { paddingVertical: 7 }, done ? {} : { backgroundColor: '#f6f3ea' }]} wrap={false}>
-                <Text style={[s.bold, { width: LOG.match }]}>{r.code}</Text>
-                <Text style={[{ width: LOG.t1 }, r.winner === 'A' ? s.bold : {}]}>{r.team1}</Text>
-                <Text style={[s.bold, center, { width: LOG.score, color: done ? INK : '#7b8781' }]}>
-                  {r.scoreA ?? '-'} : {r.scoreB ?? '-'}
-                  {r.status === 'unfinished' ? '*' : ''}
-                </Text>
-                <Text style={[{ width: LOG.t2 }, r.winner === 'B' ? s.bold : {}]}>{r.team2}</Text>
-                <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#1b6f3f' : '#7b8781' }]}>
-                  {r.winnerLabel ?? '—'}
-                </Text>
-                <Text style={{ width: LOG.ctx, fontSize: 8.5 }}>{r.context}</Text>
+              <View key={r.number} style={[s.tr, { paddingVertical: 7, flexDirection: 'column', alignItems: 'stretch' }, done ? {} : { backgroundColor: '#f6f3ea' }]} wrap={false}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[s.bold, { width: LOG.match }]}>{r.code}</Text>
+                  <Text style={[{ width: LOG.t1 }, r.winner === 'A' ? s.bold : {}]}>{r.team1}</Text>
+                  <Text style={[s.bold, center, { width: LOG.score, color: done ? INK : '#7b8781' }]}>
+                    {r.scoreA ?? '-'} : {r.scoreB ?? '-'}
+                    {r.status === 'unfinished' ? '*' : ''}
+                  </Text>
+                  <Text style={[{ width: LOG.t2 }, r.winner === 'B' ? s.bold : {}]}>{r.team2}</Text>
+                  <Text style={[s.bold, { width: LOG.winner, color: r.winner ? '#1b6f3f' : '#7b8781' }]}>
+                    {r.winnerLabel ?? '—'}
+                  </Text>
+                  <Text style={{ width: LOG.ctx, fontSize: 8.5 }}>{r.context}</Text>
+                </View>
+                {extra && <View style={{ marginTop: 5, marginLeft: LOG.match }}>{extra}</View>}
               </View>
             );
           })}

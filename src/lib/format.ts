@@ -32,10 +32,6 @@ function parseISODate(date: string): Date {
   return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
 }
 
-function weekdayName(date: string): string {
-  return parseISODate(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
-}
-
 /** "Sunday, October 11, 2026" */
 export function longDate(date: string): string {
   return parseISODate(date).toLocaleDateString('en-US', {
@@ -130,8 +126,9 @@ export function isoDaysAgo(days: number): string {
   return toISO(d);
 }
 
+/** "Badminton · Mon, Oct 26": the group's name with the day and date, so sessions are easy to tell apart. */
 export function defaultSessionTitle(date: string, groupName: string): string {
-  return `${weekdayName(date)} ${groupName}`.trim();
+  return `${groupName.trim()} · ${shortDate(date)}`;
 }
 
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];

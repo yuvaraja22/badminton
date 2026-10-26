@@ -182,13 +182,13 @@ export interface HistorySession {
 }
 
 export interface AppConfig {
-  /** Appended to the weekday for session titles, e.g. "Sunday Badminton Tournament". */
+  /** Starts each session's title, followed by its date, e.g. "Badminton · Sun, Oct 11". */
   groupName: string;
   pointsToWin: number;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
-  groupName: 'Badminton Tournament',
+  groupName: 'Badminton',
   pointsToWin: 21,
 };
 

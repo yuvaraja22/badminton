@@ -191,9 +191,13 @@ export function toSession(id: string, d: DocumentData): Session {
   };
 }
 
+// The old default; a session isn't a tournament, so a group still on it gets the new default.
+const OLD_GROUP_NAME = 'Badminton Tournament';
+
 export function toConfig(d: DocumentData | undefined): AppConfig {
+  const name = typeof d?.groupName === 'string' ? d.groupName.trim() : '';
   return {
-    groupName: typeof d?.groupName === 'string' && d.groupName.trim() ? d.groupName : DEFAULT_CONFIG.groupName,
+    groupName: name && name !== OLD_GROUP_NAME ? name : DEFAULT_CONFIG.groupName,
     pointsToWin: Number(d?.pointsToWin ?? DEFAULT_CONFIG.pointsToWin),
   };
 }

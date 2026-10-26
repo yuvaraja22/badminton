@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { CalendarPlus, Check, Minus, MoreVertical, Pencil, Play, Plus, Repeat, Share2, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Check, Hourglass, Minus, MoreVertical, Pencil, Play, Plus, Repeat, Share2, Trash2, X } from 'lucide-react';
 import { useAuth, useData } from '../../lib/data/context';
 import {
   cancelPlannedSession,
@@ -18,7 +18,7 @@ import { addDaysISO, dateParts, dayDate, formatTime, longDate, nextWeekendISO, s
 import { usingEmulators } from '../../lib/firebase';
 import { cn } from '../../lib/cn';
 import { shareLink } from '../../lib/share';
-import { MAX_GUESTS, type PlannedSession } from '../../lib/types';
+import { MAX_GUESTS, type PlannedSession, type PlayerId, type RsvpStatus } from '../../lib/types';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { Card, Notice } from '../ui/Card';
@@ -112,16 +112,64 @@ function GuestStepper({ value, onChange }: { value: number; onChange: (n: number
   );
 }
 
+/**
+ * The player's own answer. Not answered yet: I'm in / Can't make it. Answered: one line saying so, with
+ * Change. Bringing guests is asked right after saying I'm in, not every time the card is opened.
+ */
+function MyAnswer({ next, playerId, waitPlace }: { next: PlannedSession; playerId: PlayerId; waitPlace: number }) {
+  const [changing, setChanging] = useState(false);
+  const [askGuests, setAskGuests] = useState(false);
+  const mine = next.rsvps[playerId] ?? null;
+  const status = mine?.status ?? null;
+  const guests = mine?.guests ?? 0;
+
+  const answer = (choice: RsvpStatus) => {
+    if (choice !== status) setRsvp(next.id, playerId, choice, 0, mine);
+    setChanging(false);
+    setAskGuests(choice === 'in');
+  };
+
+  if (!status || changing) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant={status === 'in' ? 'good' : 'secondary'} onClick={() => answer('in')} aria-pressed={status === 'in'}>
+          <Check size={16} /> I'm in
+        </Button>
+        <Button variant="secondary" className={cn(status === 'out' && 'border-bad/50 bg-bad-bg text-bad')} onClick={() => answer('out')} aria-pressed={status === 'out'}>
+          <X size={16} /> Can't make it
+        </Button>
+      </div>
+    );
+  }
+
+  const waiting = waitPlace >= 0;
+  const tone = status === 'out' ? 'border-line bg-surface-2/60' : waiting ? 'border-warn/25 bg-warn-bg text-warn' : 'border-good/25 bg-good-bg text-good';
+  return (
+    <div className="space-y-2">
+      <div className={cn('flex items-center gap-2 rounded-2xl border py-1.5 pr-1.5 pl-3.5 text-sm', tone)}>
+        {status === 'out' ? <X size={16} className="shrink-0" /> : waiting ? <Hourglass size={16} className="shrink-0" /> : <Check size={16} className="shrink-0" />}
+        <span className="min-w-0 flex-1 font-semibold">
+          {status === 'out' ? "You can't make it" : waiting ? `You're #${waitPlace + 1} on the waitlist` : "You're in"}
+          {status === 'in' && guests > 0 && !askGuests && <span className="font-normal">{` · +${guests} guest${guests === 1 ? '' : 's'}`}</span>}
+        </span>
+        <Button variant="ghost" size="sm" className="shrink-0 text-ink" onClick={() => setChanging(true)}>
+          Change
+        </Button>
+      </div>
+      {waiting && <p className="text-xs text-muted">You'll move up automatically if someone drops out.</p>}
+      {status === 'in' && askGuests && <GuestStepper value={guests} onChange={(g) => setRsvp(next.id, playerId, 'in', g, mine)} />}
+    </div>
+  );
+}
+
 /** One planned session or tournament: who's in, the waitlist, an RSVP for linked players and admin controls. */
-function PlannedCard({ next, compact }: { next: PlannedSession; compact?: boolean }) {
+export function PlannedCard({ next, compact }: { next: PlannedSession; compact?: boolean }) {
   const { nameOf, playersById } = useData();
   const { isAdmin, playerId, user, signIn } = useAuth();
   const navigate = useNavigate();
   const [dialog, setDialog] = useState<'edit' | 'cancel' | null>(null);
 
   const lists = rsvpLists(next, (id) => playersById.has(id));
-  const mine = playerId ? (next.rsvps[playerId] ?? null) : null;
-  const myStatus = mine?.status ?? null;
   const tournament = next.kind === 'tournament';
   const what = tournament ? 'tournament' : 'session';
   const waitPlace = playerId ? lists.waitlist.indexOf(playerId) : -1;
@@ -143,7 +191,8 @@ function PlannedCard({ next, compact }: { next: PlannedSession; compact?: boolea
     shareLink({
       title: tournament ? (next.name ?? 'Badminton tournament') : 'Badminton',
       text: `${tournament ? `${next.name}: ` : 'Badminton: '}${when}. ${count}. Say if you're in:`,
-      url: window.location.origin,
+      // Opens this plan itself (and, once it has started, the session or tournament it became).
+      url: `${window.location.origin}/next/${next.id}`,
     });
   };
 
@@ -221,27 +270,7 @@ function PlannedCard({ next, compact }: { next: PlannedSession; compact?: boolea
         {lists.out.length > 0 && <p className="text-xs text-muted">Can't make it: {lists.out.map(nameOf).join(', ')}</p>}
 
         {playerId && playersById.has(playerId) ? (
-          <div className="space-y-2">
-            {waitPlace >= 0 && (
-              <Notice tone="warn">
-                You're #{waitPlace + 1} on the waitlist. You'll move up automatically if someone drops out.
-              </Notice>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant={myStatus === 'in' ? 'good' : 'secondary'} onClick={() => setRsvp(next.id, playerId, myStatus === 'in' ? null : 'in', 0, mine)} aria-pressed={myStatus === 'in'}>
-                <Check size={16} /> I'm in
-              </Button>
-              <Button
-                variant="secondary"
-                className={cn(myStatus === 'out' && 'border-bad/50 bg-bad-bg text-bad')}
-                onClick={() => setRsvp(next.id, playerId, myStatus === 'out' ? null : 'out', 0, mine)}
-                aria-pressed={myStatus === 'out'}
-              >
-                <X size={16} /> Can't make it
-              </Button>
-            </div>
-            {myStatus === 'in' && <GuestStepper value={mine?.guests ?? 0} onChange={(g) => setRsvp(next.id, playerId, 'in', g, mine)} />}
-          </div>
+          <MyAnswer next={next} playerId={playerId} waitPlace={waitPlace} />
         ) : !user ? (
           <Button variant="secondary" size="sm" onClick={() => signIn(usingEmulators ? 'admin@example.com' : undefined)}>
             Sign in to RSVP

@@ -6,6 +6,7 @@ import { useAuth, useData } from '../../lib/data/context';
 import { useLinkClaims } from '../../lib/data/useClaims';
 import { usingEmulators } from '../../lib/firebase';
 import { useThemePref } from '../../lib/theme';
+import { OpenInAppTip } from '../InstallCard';
 import { Logo } from '../Logo';
 import { SyncPill } from '../SyncPill';
 import { Button } from '../ui/Button';
@@ -159,6 +160,7 @@ export function AppShell() {
 
       <main className="mx-auto max-w-5xl px-4 pt-5 pb-[calc(7.5rem+env(safe-area-inset-bottom))]">
         <ConnectionBanner />
+        <OpenInAppTip />
         <Suspense fallback={<Spinner />}>
           <Outlet />
         </Suspense>

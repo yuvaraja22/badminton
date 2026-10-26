@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 /**
  * "Install app" support. Chromium browsers (Android Chrome, desktop Chrome/Edge) fire
@@ -71,4 +71,25 @@ export function useInstall() {
     installed: installedNow || runningInstalled(),
     platform: installPlatform(),
   };
+}
+
+/**
+ * In Chrome on Android with the app also installed (Chrome tells from the manifest's related_applications).
+ * Links from WhatsApp and the like open here, in the browser, unless the phone is set to open them in the app.
+ */
+export function useInstalledElsewhere(): boolean {
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    const nav = navigator as Navigator & { getInstalledRelatedApps?: () => Promise<unknown[]> };
+    if (installPlatform() !== 'android' || runningInstalled() || !nav.getInstalledRelatedApps) return;
+    let live = true;
+    nav
+      .getInstalledRelatedApps()
+      .then((apps) => live && setInstalled(apps.length > 0))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  return installed;
 }

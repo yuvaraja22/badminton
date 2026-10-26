@@ -43,6 +43,8 @@ export default defineConfig({
         // Shared links (e.g. a tournament) open in the installed app where the browser supports it.
         handle_links: 'preferred',
         launch_handler: { client_mode: ['navigate-existing', 'auto'] },
+        // Lets a browser tab ask whether the app is installed (Android Chrome), to suggest opening it there.
+        related_applications: [{ platform: 'webapp', url: '/manifest.webmanifest' }],
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

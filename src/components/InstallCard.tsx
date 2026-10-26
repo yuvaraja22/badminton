@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Download, Laptop, MoreVertical, Share, Smartphone, SquarePlus } from 'lucide-react';
-import { promptInstall, useInstall, type InstallPlatform } from '../lib/install';
+import { promptInstall, useInstall, useInstalledElsewhere, type InstallPlatform } from '../lib/install';
 import { toast } from '../lib/toast';
 import { Button } from './ui/Button';
 import { Card, Notice } from './ui/Card';
@@ -87,8 +87,9 @@ function Steps({ platform }: { platform: InstallPlatform }) {
 /** Home-page card that installs the app (native prompt where the browser offers one, steps otherwise). */
 export function InstallCard() {
   const { canPrompt, installed, platform } = useInstall();
+  const elsewhere = useInstalledElsewhere();
   const [help, setHelp] = useState(false);
-  if (installed) return null;
+  if (installed || elsewhere) return null;
 
   const phone = platform === 'ios' || platform === 'android';
   const install = async () => {
@@ -134,5 +135,51 @@ export function InstallCard() {
         </div>
       </Dialog>
     </Card>
+  );
+}
+
+const TIP_SEEN = 'open-in-app-tip';
+
+/**
+ * A link opened in Chrome although the app is installed (Android): how to carry on in the app, and the
+ * phone setting that opens links there every time. Shown until dismissed.
+ */
+export function OpenInAppTip() {
+  const elsewhere = useInstalledElsewhere();
+  const [seen, setSeen] = useState(() => {
+    try {
+      return localStorage.getItem(TIP_SEEN) === '1';
+    } catch {
+      return false;
+    }
+  });
+  if (!elsewhere || seen) return null;
+  const dismiss = () => {
+    setSeen(true);
+    try {
+      localStorage.setItem(TIP_SEEN, '1');
+    } catch {
+      // Private browsing: it shows again next time.
+    }
+  };
+  return (
+    <Notice className="mb-4">
+      <p className="font-semibold">You have the app: open this in it</p>
+      <p className="mt-1">
+        Tap
+        <Icon>
+          <MoreVertical size={14} />
+        </Icon>
+        at the top right, then <strong>Open in Badminton</strong>.
+      </p>
+      <p className="mt-1 text-muted">
+        So links open in the app every time: long-press the app's icon → App info → Open by default (Samsung: Set as default) → turn on <strong>Open supported links</strong>.
+      </p>
+      <div className="mt-1 flex justify-end">
+        <Button variant="ghost" size="sm" onClick={dismiss}>
+          Got it
+        </Button>
+      </div>
+    </Notice>
   );
 }

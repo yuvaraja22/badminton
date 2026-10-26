@@ -8,6 +8,7 @@ import { Empty } from './components/ui/Card';
 import HomePage from './pages/HomePage';
 import SessionsPage from './pages/SessionsPage';
 import SessionPage from './pages/SessionPage';
+import PlanPage from './pages/PlanPage';
 
 // Heavier, less-visited pages load on demand (charts, admin tools).
 const NewSessionPage = lazy(() => import('./pages/NewSessionPage'));
@@ -51,6 +52,8 @@ const router = createBrowserRouter([
     errorElement: <RouteError />,
     children: [
       { index: true, element: <HomePage /> },
+      // A planned session or tournament: where an invite link lands.
+      { path: 'next/:id', element: <PlanPage /> },
       { path: 'sessions', element: <SessionsPage /> },
       { path: 'sessions/new', element: <NewSessionPage /> },
       { path: 'sessions/:id', element: <SessionPage /> },

@@ -5,7 +5,7 @@ import { useAuth, useData } from '../lib/data/context';
 import { deleteTournament, updateTournament } from '../lib/data/mutations';
 import { liveMatch, resultLine, teamScore } from '../lib/engine/tournament';
 import { longDate, matchCode } from '../lib/format';
-import { shareLink } from '../lib/share';
+import { shareLink, type ShareMessage } from '../lib/share';
 import { toast } from '../lib/toast';
 import type { Tournament } from '../lib/types';
 import { exportTournamentPdf } from '../components/tournament/exportTournamentPdf';
@@ -80,10 +80,13 @@ export default function TournamentPage() {
   const live = liveMatch(t);
   const score = teamScore(t);
 
+  // Goes with the link and with the PDF.
+  const message: ShareMessage = { title: t.name, text: `${t.name}: schedule, live scores and results`, url: `${window.location.origin}/tournaments/${t.id}` };
+
   const exportPdf = async (mode: 'share' | 'download') => {
     setBusy(mode);
     try {
-      const result = await exportTournamentPdf(t, nameOf, mode);
+      const result = await exportTournamentPdf(t, nameOf, message, mode);
       if (result === 'downloaded') toast('PDF downloaded', 'success');
     } catch (e) {
       toast(`Couldn't create the PDF: ${(e as Error).message}`, 'error');
@@ -114,13 +117,8 @@ export default function TournamentPage() {
               </>
             }
             items={[
-              {
-                // The link opens this page in the app: the installed app on Android, the browser on iPhone.
-                label: 'Share link',
-                icon: <Link2 size={16} />,
-                onClick: () =>
-                  shareLink({ title: t.name, text: `${t.name}: schedule, live scores and results`, url: `${window.location.origin}/tournaments/${t.id}` }),
-              },
+              // The link opens this page in the app: the installed app on Android, the browser on iPhone.
+              { label: 'Share link', icon: <Link2 size={16} />, onClick: () => shareLink(message) },
               { label: score.played ? 'Share results PDF' : 'Share schedule PDF', icon: <FileText size={16} />, onClick: () => !busy && exportPdf('share') },
               { label: score.played ? 'Download results PDF' : 'Download schedule PDF', icon: <Download size={16} />, onClick: () => !busy && exportPdf('download') },
             ]}

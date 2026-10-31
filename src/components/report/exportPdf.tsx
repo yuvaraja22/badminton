@@ -1,4 +1,6 @@
 import type { SessionReport } from '../../lib/engine/report';
+import { installPlatform, runningInstalled } from '../../lib/install';
+import { shareLink, type ShareMessage } from '../../lib/share';
 import { toast } from '../../lib/toast';
 import type { ReportRally } from './ReportPdf';
 
@@ -23,12 +25,13 @@ export async function exportReportPdf(
   report: SessionReport,
   takeaways: string[],
   fileName: string,
+  message: ShareMessage,
   mode: 'share' | 'download',
   rally?: ReportRally | null,
 ): Promise<PdfResult> {
   const [{ pdf }, { ReportDocument }] = await Promise.all([import('@react-pdf/renderer'), import('./ReportPdf')]);
   const blob = await pdf(<ReportDocument report={report} takeaways={takeaways} rally={rally} />).toBlob();
-  return sharePdf(blob, fileName, report.title, mode);
+  return sharePdf(blob, fileName, message, mode);
 }
 
 function download(blob: Blob, fileName: string) {
@@ -42,14 +45,30 @@ function download(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-/** Share a finished PDF (the phone's share sheet, e.g. to WhatsApp) or download it. */
-export async function sharePdf(blob: Blob, fileName: string, title: string, mode: 'share' | 'download'): Promise<PdfResult> {
+/**
+ * Share a finished PDF (the phone's share sheet, e.g. to WhatsApp) with the page's message and link as
+ * its caption, or download it. Safari's engine (every iPhone browser, and Safari on a Mac) gets the file
+ * on its own: with a title or text alongside, WhatsApp on iPhones sends a text message holding a dead
+ * blob: link instead of the PDF. There the message follows from a second tap.
+ */
+export async function sharePdf(blob: Blob, fileName: string, message: ShareMessage, mode: 'share' | 'download'): Promise<PdfResult> {
   const file = new File([blob], fileName, { type: 'application/pdf' });
+  const platform = installPlatform();
+  const safari = platform === 'ios' || platform === 'mac-safari';
+  const captioned = { files: [file], text: `${message.text}\n${message.url}` };
+  const data = !safari && navigator.canShare?.(captioned) ? captioned : { files: [file] };
+  const shared = (): PdfResult => {
+    if (safari && mode === 'share') toast('PDF shared', 'success', { label: 'Send the link too', onClick: () => void shareLink(message) });
+    return 'shared';
+  };
+  // A download in the iPhone home-screen app opens the PDF on a blob: page whose Share button sends that
+  // dead link; there the share sheet (with Save to Files) is the way to keep it.
+  const viaSheet = mode === 'share' || (platform === 'ios' && runningInstalled());
 
-  if (mode === 'share' && navigator.canShare?.({ files: [file] })) {
+  if (viaSheet && navigator.canShare?.(data)) {
     try {
-      await navigator.share({ files: [file], title });
-      return 'shared';
+      await navigator.share(data);
+      return shared();
     } catch (e) {
       const name = (e as Error).name;
       if (name === 'AbortError') return 'cancelled';
@@ -59,9 +78,12 @@ export async function sharePdf(blob: Blob, fileName: string, title: string, mode
         toast('Your PDF is ready', 'success', {
           label: 'Share it',
           onClick: () => {
-            navigator.share({ files: [file], title }).catch((err: Error) => {
-              if (err.name !== 'AbortError') download(blob, fileName);
-            });
+            navigator
+              .share(data)
+              .then(shared)
+              .catch((err: Error) => {
+                if (err.name !== 'AbortError') download(blob, fileName);
+              });
           },
         });
         return 'waiting';

@@ -4,7 +4,7 @@ import { useData } from '../../lib/data/context';
 import { useSessionReport } from '../../lib/data/useSessionReport';
 import { sessionRallyGames } from '../../lib/engine/games';
 import { rallySummary } from '../../lib/engine/rally';
-import { shareLink } from '../../lib/share';
+import { shareLink, type ShareMessage } from '../../lib/share';
 import { SESSION_SIDES } from '../../lib/teamColors';
 import { toast } from '../../lib/toast';
 import type { Session } from '../../lib/types';
@@ -18,12 +18,19 @@ export function SessionShareMenu({ session }: { session: Session }) {
   const rally = useMemo(() => rallySummary(sessionRallyGames(session)), [session]);
   const [busy, setBusy] = useState(false);
   const live = session.status === 'live';
+  // Goes with the link and with the PDF: "Badminton · Sat, Oct 31: results and the full report" and the link.
+  const message: ShareMessage = {
+    title: session.title,
+    text: `${session.title}: ${live ? 'live scores and the report so far' : 'results and the full report'}`,
+    url: `${window.location.origin}/sessions/${session.id}`,
+  };
 
   const exportPdf = async (mode: 'share' | 'download') => {
     setBusy(true);
     try {
       const takeaways = session.takeaways ?? report.autoTakeaways;
-      const result = await exportReportPdf(report, takeaways, reportFileName(report, session.date), mode, rally.flows.length ? { summary: rally, sides: SESSION_SIDES, nameOf } : null);
+      const rallyData = rally.flows.length ? { summary: rally, sides: SESSION_SIDES, nameOf } : null;
+      const result = await exportReportPdf(report, takeaways, reportFileName(report, session.date), message, mode, rallyData);
       if (result === 'downloaded') toast('PDF downloaded', 'success');
     } catch (e) {
       toast(`Couldn't create the PDF: ${(e as Error).message}`, 'error');
@@ -42,16 +49,7 @@ export function SessionShareMenu({ session }: { session: Session }) {
         </>
       }
       items={[
-        {
-          label: 'Share link',
-          icon: <Link2 size={16} />,
-          onClick: () =>
-            shareLink({
-              title: session.title,
-              text: `${session.title}: ${live ? 'live scores and the report so far' : 'results and the full report'}`,
-              url: `${window.location.origin}/sessions/${session.id}`,
-            }),
-        },
+        { label: 'Share link', icon: <Link2 size={16} />, onClick: () => shareLink(message) },
         { label: 'Share report PDF', icon: <FileText size={16} />, onClick: () => !busy && exportPdf('share') },
         { label: 'Download report PDF', icon: <Download size={16} />, onClick: () => !busy && exportPdf('download') },
       ]}

@@ -5,11 +5,18 @@ function whatsappUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
+/** What goes with a shared link or PDF: "Badminton · Sat, Oct 31: results and the full report" and the page's link. */
+export interface ShareMessage {
+  title: string;
+  text: string;
+  url: string;
+}
+
 /**
  * Share a link: the phone's share sheet where available (WhatsApp, Messages…), otherwise copy it
  * and offer a one-tap WhatsApp shortcut.
  */
-export async function shareLink({ title, text, url }: { title: string; text: string; url: string }) {
+export async function shareLink({ title, text, url }: ShareMessage) {
   if (navigator.share) {
     try {
       await navigator.share({ title, text, url });
